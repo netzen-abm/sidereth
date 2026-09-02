@@ -9,9 +9,11 @@ use serde::{Deserialize, Serialize};
 pub type Id = String;
 
 pub mod event;
+pub mod evidence;
 pub mod timeline;
 
 pub use event::EventEnvelope;
+pub use evidence::{sha256_hex, DerivedArtifact, EvidenceOriginal};
 pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
