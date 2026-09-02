@@ -17,6 +17,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
       - name: Verify required foundation documents
         shell: bash
         run: |
@@ -28,11 +33,11 @@ jobs:
           test -s docs/contracts/AUTHORIZATION-MATRIX.md
           test -s docs/migration/LEGACY-DISPOSITION.md
 
-      - name: Scan active files for obsolete Janavani package references
+      - name: Scan active implementation for obsolete Janavani references
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RIn --exclude-dir=.git --exclude='*.md' 'janavani' Cargo.toml src crates apps domains schemas 2>/dev/null; then
+          if grep -RIn --exclude-dir=.git --exclude='*.md' 'janavani' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
             echo 'Obsolete Janavani references remain in active implementation paths.'
             exit 1
           fi
@@ -44,3 +49,15 @@ jobs:
           for d in crates domains apps schemas migrations; do
             test -d "$d"
           done
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Compile check
+        run: cargo check --all-targets
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
