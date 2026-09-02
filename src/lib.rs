@@ -8,12 +8,22 @@ use serde::{Deserialize, Serialize};
 
 pub type Id = String;
 
+pub mod audit;
+pub mod authorization;
 pub mod event;
 pub mod evidence;
+pub mod repository;
 pub mod timeline;
 
+pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
+pub use authorization::{
+    AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy,
+};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
+pub use repository::{
+    CaseRepository, EventRepository, IncidentRepository, InMemoryRepositories,
+};
 pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
