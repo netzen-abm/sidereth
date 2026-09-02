@@ -21,6 +21,9 @@ This index defines the documentation hierarchy for the SIDERETH repository. It p
 ### 02 — Contracts
 `docs/contracts/` contains canonical domain, capability, lifecycle/event, authorization, API semantics, audit/storage and contract-test definitions.
 
+Important capability contracts include:
+- `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.
+
 ### 03 — Migration and legacy
 `docs/migration/` records repository migration and disposition decisions.
 `docs/archive/` contains preserved historical material that is no longer active product specification.
