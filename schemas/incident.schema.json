@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sidereth.org/schemas/incident.schema.json",
+  "title": "SIDERETH Incident",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["incident_id", "schema_version", "status", "started_at", "authority_ref", "purpose_stated"],
+  "properties": {
+    "incident_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["prepared", "active", "paused", "concluded", "evidence_review", "linked_to_case"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": ["string", "null"], "format": "date-time"},
+    "location_ref": {"type": ["string", "null"]},
+    "authority_ref": {"type": "string", "minLength": 1},
+    "officer_ref": {"type": ["string", "null"]},
+    "purpose_stated": {"type": "string", "minLength": 1},
+    "legal_basis_ref": {"type": ["string", "null"]},
+    "request_refs": {"type": "array", "items": {"type": "string"}},
+    "document_refs": {"type": "array", "items": {"type": "string"}},
+    "seizure_refs": {"type": "array", "items": {"type": "string"}},
+    "statement_refs": {"type": "array", "items": {"type": "string"}},
+    "witness_refs": {"type": "array", "items": {"type": "string"}},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "event_refs": {"type": "array", "items": {"type": "string"}},
+    "linked_case_id": {"type": ["string", "null"]}
+  }
+}
