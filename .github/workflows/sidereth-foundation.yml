@@ -1,0 +1,103 @@
+name: SIDERETH Foundation Validation
+
+on:
+  push:
+    branches: [main, sidereth-foundation, sidereth-cleanup]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sidereth-foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    name: Validate Foundation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify required foundation documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s docs/00-DOCUMENTATION-INDEX.md
+          test -s docs/00-SIDERETH-MASTER-DECISIONS.md
+          test -s docs/01-SIDERETH-MASTER-BLUEPRINT.md
+          test -s docs/SIDERETH-ARCHITECTURE.md
+          test -s docs/SIDERETH-MASTER-CHECKLIST.md
+          test -s docs/contracts/CASE-INCIDENT-EVENTS.md
+          test -s docs/contracts/AUTHORIZATION-MATRIX.md
+          test -s docs/migration/LEGACY-DISPOSITION.md
+          test -s docs/03-SIDERETH-LEGAL-SOURCE-REGISTRY.md
+          test -s docs/04-SIDERETH-DATA-MODEL.md
+          test -s docs/05-SIDERETH-DATA-STORAGE-CONTRACT.md
+          test -s docs/CLI-ARCHITECTURE.md
+
+      - name: Enforce SIDERETH-only active documentation identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIni --exclude-dir=.git -E 'janavani' README.md Cargo.toml docs src crates apps domains schemas migrations tests 2>/dev/null; then
+            echo 'Former project identity remains in active SIDERETH content.'
+            exit 1
+          fi
+
+      - name: Reject phantom or inherited CLI claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIni --exclude-dir=.git -E 'cargo install (janavani|sidereth)-cli|janavani-cli|Release Binaries|Install Janavani CLI' README.md Cargo.toml docs src crates apps domains schemas migrations tests 2>/dev/null; then
+            echo 'Stale or unimplemented CLI claim found in active content.'
+            exit 1
+          fi
+
+      - name: Scan active implementation for obsolete legacy protocol references
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIni --exclude-dir=.git --exclude='*.md' -E 'freenet|nostr-sdk|nym-sdk|reticulum|alloy|ark-groth16' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
+            echo 'Obsolete legacy implementation references remain in active implementation paths.'
+            exit 1
+          fi
+
+      - name: Scan active implementation for direct secret handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIni --exclude-dir=.git --exclude='*.md' -E 'PRIVATE_KEY|SECRET_KEY|API_KEY|ACCESS_TOKEN|PASSWORD=' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
+            echo 'Potential direct secret handling found in active implementation paths.'
+            exit 1
+          fi
+
+      - name: Repository structure check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for d in crates domains apps schemas migrations tests; do
+            test -d "$d"
+          done
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Compile check
+        run: cargo check --all-targets
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings

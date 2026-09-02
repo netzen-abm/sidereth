@@ -1,28 +1,13 @@
 [package]
-name = "janavani"
+name = "sidereth-core"
 version = "0.1.0"
 edition = "2021"
-description = "A citizen-governance bridge with modular decentralized protocols"
+description = "Privacy-first legal and regulatory workflow core for SIDERETH"
+license = "MIT"
 
 [features]
-default = [] # No protocols active by default for modularity
-
-# Enable each protocol as an independent toggle switch
-freenet = ["dep:freenet-stdlib", "dep:freenet-scaffold-macro"]
-nostr = ["dep:nostr-sdk"]
-nym = ["dep:nym-sdk"]
-reticulum = [] # Pure network feature, custom code layout
-zkp = ["dep:ark-groth16", "dep:ark-relations"]
-blockchain = ["dep:alloy"]
+default = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-
-# Optional protocol dependencies linked to specific features
-freenet-stdlib = { version = "0.8", optional = true }
-freenet-scaffold-macro = { version = "0.2", optional = true }
-nostr-sdk = { version = "12.0", optional = true }
-nym-sdk = { version = "0.1", optional = true }
-alloy = { version = "0.1", optional = true }
-ark-groth16 = { version = "0.4", optional = true }
-ark-relations = { version = "0.4", optional = true }
+serde_json = "1.0"

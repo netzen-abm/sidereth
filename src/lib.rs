@@ -1,158 +1,183 @@
-//! # Janavani Decentralized Stack Core
-//! This library provides modular, independent features for civic governance.
-//! Each sub-module is entirely decoupled and activated via specific Cargo features.
+//! SIDERETH Core
+//! Legal and regulatory workflow primitives.
+//!
+//! This crate intentionally contains no AI, network transport, government
+//! submission, or autonomous legal-decision capability. Those concerns belong
+//! to bounded shared infrastructure layered above the deterministic core.
 
-// ==========================================
-// 1. NOSTR PROTOCOL FEATURE (Identity)
-// ==========================================
-#[cfg(feature = "nostr")]
-pub mod janavani_nostr {
-    pub struct NostrBridge;
-    
-    impl NostrBridge {
-        pub fn init_identity() -> Result<(), &'static str> {
-            println!("⚡ Nostr Module: Initializing decentralized identity via local keypair.");
+use serde::{Deserialize, Serialize};
+
+pub type Id = String;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CaseState {
+    Draft,
+    Active,
+    WaitingUser,
+    WaitingAuthority,
+    ResponseDue,
+    Escalated,
+    Resolved,
+    Closed,
+}
+
+impl CaseState {
+    pub fn can_transition_to(&self, next: &Self) -> bool {
+        use CaseState::*;
+        matches!(
+            (self, next),
+            (Draft, Active)
+                | (
+                    Active,
+                    WaitingUser | WaitingAuthority | ResponseDue | Escalated | Resolved
+                )
+                | (WaitingUser, Active | ResponseDue | Escalated | Resolved)
+                | (
+                    WaitingAuthority,
+                    Active | ResponseDue | Escalated | Resolved
+                )
+                | (ResponseDue, Active | Escalated | Resolved)
+                | (Escalated, Active | Resolved)
+                | (Resolved, Closed)
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum IncidentState {
+    Prepared,
+    Active,
+    Paused,
+    Concluded,
+    EvidenceReview,
+    LinkedToCase,
+}
+
+impl IncidentState {
+    pub fn can_transition_to(&self, next: &Self) -> bool {
+        use IncidentState::*;
+        matches!(
+            (self, next),
+            (Prepared, Active)
+                | (Active, Paused | Concluded)
+                | (Paused, Active | Concluded)
+                | (Concluded, EvidenceReview)
+                | (EvidenceReview, LinkedToCase)
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Case {
+    pub id: Id,
+    pub title: String,
+    pub jurisdiction_id: Option<Id>,
+    pub authority_id: Option<Id>,
+    pub state: CaseState,
+}
+
+impl Case {
+    pub fn transition_to(&mut self, next: CaseState) -> Result<(), &'static str> {
+        if self.state.can_transition_to(&next) {
+            self.state = next;
             Ok(())
+        } else {
+            Err("invalid case state transition")
         }
     }
 }
 
-// ==========================================
-// 2. NYM PROTOCOL FEATURE (Network Privacy)
-// ==========================================
-#[cfg(feature = "nym")]
-pub mod janavani_nym {
-    pub struct NymPrivacyLayer;
-    
-    impl NymPrivacyLayer {
-        pub fn send_anonymous_packet(payload: Vec<u8>) -> Result<(), &'static str> {
-            println!("🔎 Nym Module: Shrouding metadata. Routing packet over the Sphinx Mixnet.");
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Incident {
+    pub id: Id,
+    pub case_id: Option<Id>,
+    pub incident_type: String,
+    pub state: IncidentState,
+    pub started_at: Option<String>,
+    pub ended_at: Option<String>,
+}
+
+impl Incident {
+    pub fn transition_to(&mut self, next: IncidentState) -> Result<(), &'static str> {
+        if self.state.can_transition_to(&next) {
+            self.state = next;
             Ok(())
+        } else {
+            Err("invalid incident state transition")
         }
     }
 }
 
-// ==========================================
-// 3. RETICULUM PROTOCOL FEATURE (Mesh Networking)
-// ==========================================
-#[cfg(feature = "reticulum")]
-pub mod janavani_reticulum {
-    pub struct ReticulumMesh;
-    
-    impl ReticulumMesh {
-        pub fn broadcast_off_grid(data: &[u8]) -> Result<(), &'static str> {
-            println!("📡 Reticulum Module: Establishing alternative interface link over LoRa/Mesh networks.");
-            Ok(())
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EventEnvelope {
+    pub event_id: Id,
+    pub event_type: String,
+    pub aggregate_type: String,
+    pub aggregate_id: Id,
+    pub occurred_at: String,
+    pub actor_type: String,
+    pub actor_id: Id,
+    pub schema_version: u32,
+    pub payload: serde_json::Value,
+    pub source_refs: Vec<Id>,
+    pub correlation_id: Id,
+    pub causation_id: Option<Id>,
 }
 
-// ==========================================
-// 4. ZERO-KNOWLEDGE PROOFS FEATURE (Privacy Validation)
-// ==========================================
-#[cfg(feature = "zkp")]
-pub mod janavani_zkp {
-    pub struct ResidencyVerifier;
-    
-    impl ResidencyVerifier {
-        pub fn generate_membership_proof() -> Result<Vec<u8>, &'static str> {
-            println!("🔒 ZKP Module: Synthesizing zk-SNARK mathematical proof of local eligibility.");
-            // Returning a dummy mock proof byte array
-            Ok(vec![0x01, 0x02, 0x03])
-        }
-    }
-}
-
-// ==========================================
-// 5. BLOCKCHAIN ANCHORING FEATURE (Immutability)
-// ==========================================
-#[cfg(feature = "blockchain")]
-pub mod janavani_blockchain {
-    pub struct LedgerAnchor;
-    
-    impl LedgerAnchor {
-        pub fn lock_grievance_hash(hash: [u8; 32]) -> Result<(), &'static str> {
-            println!("⛓️ Blockchain Module: Anchoring data state hash to immutable public ledger.");
-            Ok(())
-        }
-    }
-}
-
-// ==========================================
-// 6. FREENET PROTOCOL FEATURE (Decentralized State)
-// ==========================================
-#[cfg(feature = "freenet")]
-pub mod janavani_freenet {
-    // Note: Freenet standard library uses WebAssembly macros for dynamic bindings
-    pub struct FreenetContract;
-    
-    impl FreenetContract {
-        pub fn sync_shared_state() -> Result<(), &'static str> {
-            println!("🛠️ Freenet Module: Managing localized cryptographic Summary-Delta replication.");
-            Ok(())
-        }
-    }
-}
-
-// ==========================================
-// MODULAR UNIT TESTS SECTION
-// ==========================================
 #[cfg(test)]
 mod tests {
-    // Bring all parent modules into local scope for testing
     use super::*;
 
-    // 1. Test Nostr Feature Configuration Isolation
-    #[test]
-    #[cfg(feature = "nostr")]
-    fn test_nostr_feature_activation() {
-        let result = janavani_nostr::NostrBridge::init_identity();
-        assert!(result.is_ok(), "Nostr module initialization failed");
+    fn test_case() -> Case {
+        Case {
+            id: "case-1".into(),
+            title: "Test matter".into(),
+            jurisdiction_id: None,
+            authority_id: None,
+            state: CaseState::Draft,
+        }
     }
 
-    // 2. Test Nym Feature Configuration Isolation
-    #[test]
-    #[cfg(feature = "nym")]
-    fn test_nym_feature_activation() {
-        let dummy_payload = vec![1, 2, 3, 4];
-        let result = janavani_nym::NymPrivacyLayer::send_anonymous_packet(dummy_payload);
-        assert!(result.is_ok(), "Nym modular routing failed");
+    fn test_incident() -> Incident {
+        Incident {
+            id: "incident-1".into(),
+            case_id: None,
+            incident_type: "inspection".into(),
+            state: IncidentState::Prepared,
+            started_at: None,
+            ended_at: None,
+        }
     }
 
-    // 3. Test Reticulum Feature Configuration Isolation
     #[test]
-    #[cfg(feature = "reticulum")]
-    fn test_reticulum_feature_activation() {
-        let dummy_packet = b"offgrid-packet-payload";
-        let result = janavani_reticulum::ReticulumMesh::broadcast_off_grid(dummy_packet);
-        assert!(result.is_ok(), "Reticulum mesh transport failed");
+    fn case_starts_in_draft() {
+        assert_eq!(test_case().state, CaseState::Draft);
     }
 
-    // 4. Test ZKP Feature Configuration Isolation
     #[test]
-    #[cfg(feature = "zkp")]
-    fn test_zkp_feature_activation() {
-        let result = janavani_zkp::ResidencyVerifier::generate_membership_proof();
-        assert!(result.is_ok(), "Zero-Knowledge logic failed to compute proof");
-        let proof = result.unwrap();
-        assert!(!proof.is_empty(), "ZKP generated an empty byte array array structure");
+    fn valid_case_transition_is_allowed() {
+        let mut case = test_case();
+        assert!(case.transition_to(CaseState::Active).is_ok());
+        assert_eq!(case.state, CaseState::Active);
     }
 
-    // 5. Test Blockchain Feature Configuration Isolation
     #[test]
-    #[cfg(feature = "blockchain")]
-    fn test_blockchain_feature_activation() {
-        let dummy_hash = [0u8; 32];
-        let result = janavani_blockchain::LedgerAnchor::lock_grievance_hash(dummy_hash);
-        assert!(result.is_ok(), "Blockchain anchoring transaction execution failed");
+    fn invalid_case_transition_is_rejected() {
+        let mut case = test_case();
+        assert!(case.transition_to(CaseState::Closed).is_err());
+        assert_eq!(case.state, CaseState::Draft);
     }
 
-    // 6. Test Freenet Feature Configuration Isolation
     #[test]
-    #[cfg(feature = "freenet")]
-    fn test_freenet_feature_activation() {
-        let result = janavani_freenet::FreenetContract::sync_shared_state();
-        assert!(result.is_ok(), "Freenet decentralized sync engine simulation failed");
+    fn incident_can_exist_before_linking_to_case() {
+        assert!(test_incident().case_id.is_none());
+    }
+
+    #[test]
+    fn incident_transition_requires_valid_sequence() {
+        let mut incident = test_incident();
+        assert!(incident.transition_to(IncidentState::Active).is_ok());
+        assert!(incident.transition_to(IncidentState::LinkedToCase).is_err());
+        assert_eq!(incident.state, IncidentState::Active);
     }
 }
-
