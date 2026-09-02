@@ -13,12 +13,7 @@ pub mod evidence;
 pub mod timeline;
 
 pub use event::EventEnvelope;
-pub use evidence::{
-    sha256_hex,
-    DerivedArtifact,
-    EvidenceCapture,
-    EvidenceOriginal,
-};
+pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
