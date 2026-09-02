@@ -1,13 +1,20 @@
 //! SIDERETH Core
 //! Legal and regulatory workflow primitives.
 //!
-//! This crate intentionally contains no AI, network transport, government
-//! submission, or autonomous legal-decision capability. Those concerns belong
-//! to bounded shared infrastructure layered above the deterministic core.
+//! The core is deterministic and independent of AI, network transport,
+//! government submission, and autonomous legal decisions.
 
 use serde::{Deserialize, Serialize};
 
 pub type Id = String;
+
+pub mod event;
+pub mod evidence;
+pub mod timeline;
+
+pub use event::EventEnvelope;
+pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
+pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CaseState {
@@ -27,15 +34,12 @@ impl CaseState {
         matches!(
             (self, next),
             (Draft, Active)
-                | (
-                    Active,
-                    WaitingUser | WaitingAuthority | ResponseDue | Escalated | Resolved
-                )
-                | (WaitingUser, Active | ResponseDue | Escalated | Resolved)
-                | (
-                    WaitingAuthority,
-                    Active | ResponseDue | Escalated | Resolved
-                )
+                | (Active, WaitingUser | WaitingAuthority | ResponseDue)
+                | (Active, Escalated | Resolved)
+                | (WaitingUser, Active | ResponseDue)
+                | (WaitingUser, Escalated | Resolved)
+                | (WaitingAuthority, Active | ResponseDue)
+                | (WaitingAuthority, Escalated | Resolved)
                 | (ResponseDue, Active | Escalated | Resolved)
                 | (Escalated, Active | Resolved)
                 | (Resolved, Closed)
@@ -106,22 +110,6 @@ impl Incident {
             Err("invalid incident state transition")
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct EventEnvelope {
-    pub event_id: Id,
-    pub event_type: String,
-    pub aggregate_type: String,
-    pub aggregate_id: Id,
-    pub occurred_at: String,
-    pub actor_type: String,
-    pub actor_id: Id,
-    pub schema_version: u32,
-    pub payload: serde_json::Value,
-    pub source_refs: Vec<Id>,
-    pub correlation_id: Id,
-    pub causation_id: Option<Id>,
 }
 
 #[cfg(test)]

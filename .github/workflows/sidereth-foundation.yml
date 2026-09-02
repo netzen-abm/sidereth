@@ -2,7 +2,7 @@ name: SIDERETH Foundation Validation
 
 on:
   push:
-    branches: [main, sidereth-foundation, sidereth-cleanup]
+    branches: [main, sidereth-foundation, sidereth-cleanup, sidereth-core-v0.1]
   pull_request:
     branches: [main]
 
