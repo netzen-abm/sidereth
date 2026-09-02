@@ -27,9 +27,15 @@ impl CaseState {
         matches!(
             (self, next),
             (Draft, Active)
-                | (Active, WaitingUser | WaitingAuthority | ResponseDue | Escalated | Resolved)
+                | (
+                    Active,
+                    WaitingUser | WaitingAuthority | ResponseDue | Escalated | Resolved
+                )
                 | (WaitingUser, Active | ResponseDue | Escalated | Resolved)
-                | (WaitingAuthority, Active | ResponseDue | Escalated | Resolved)
+                | (
+                    WaitingAuthority,
+                    Active | ResponseDue | Escalated | Resolved
+                )
                 | (ResponseDue, Active | Escalated | Resolved)
                 | (Escalated, Active | Resolved)
                 | (Resolved, Closed)
