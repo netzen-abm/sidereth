@@ -61,7 +61,7 @@ High-impact actions require an explicit approval record before execution.
 
 ## 6. Evidence boundary
 
-Evidence originals are immutable. Derived artifacts—transcripts, OCR, summaries, classifications, redactions or hashes—are separate versioned artifacts linked to the original. No derived operation may silently replace the original.
+Evidence originals are immutable. Derived artifacts—transcripts, OCR, summaries, classifications or redactions—are separate versioned artifacts linked to the original. Cryptographic hashes are integrity metadata for the preserved original, not a replacement for it.
 
 ## 7. Privacy boundary
 
@@ -71,6 +71,19 @@ The core domain model should carry references rather than unnecessary sensitive 
 
 AI, MCP, Nostr, Nym, Reticulum, ZKP, blockchain, Freenet, WASM and other future technologies are adapters/capabilities. None is required for Case/Incident/Event semantics.
 
-## 9. Definition of done for this increment
+## 9. Implementation evidence for v0.1 increment
+
+The current increment contains executable Rust primitives for:
+
+- Case lifecycle transition validation;
+- Incident lifecycle transition validation;
+- Event envelope validation;
+- deterministic Timeline ordering and duplicate-event rejection;
+- EvidenceOriginal construction with SHA-256 content integrity metadata;
+- DerivedArtifact source linkage validation.
+
+Persistence, API exposure, authorization enforcement, durable audit storage and production evidence handling remain implementation work outside this increment.
+
+## 10. Definition of done for this increment
 
 The Case/Incident/Event/Timeline foundation is complete only when executable tests prove the documented invariants, including negative cases, and the documentation accurately describes what is implemented versus planned.
