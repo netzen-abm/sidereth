@@ -1,0 +1,46 @@
+name: SIDERETH Foundation Validation
+
+on:
+  push:
+    branches: [main, sidereth-foundation]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Foundation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required foundation documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s docs/SIDERETH-ARCHITECTURE.md
+          test -s docs/SIDERETH-REPOSITORY-MIGRATION.md
+          test -s docs/SIDERETH-MASTER-CHECKLIST.md
+          test -s docs/contracts/CASE-INCIDENT-EVENTS.md
+          test -s docs/contracts/AUTHORIZATION-MATRIX.md
+          test -s docs/migration/LEGACY-DISPOSITION.md
+
+      - name: Scan active files for obsolete Janavani package references
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIn --exclude-dir=.git --exclude='*.md' 'janavani' Cargo.toml src crates apps domains schemas 2>/dev/null; then
+            echo 'Obsolete Janavani references remain in active implementation paths.'
+            exit 1
+          fi
+
+      - name: Repository structure check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for d in crates domains apps schemas migrations; do
+            test -d "$d"
+          done
