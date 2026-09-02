@@ -44,7 +44,7 @@ Use these only if the repository's public positioning is intended to signal futu
 
 ## Metadata governance
 
-- The repository description must not identify SIDERETH as Janavani or as a decentralized-system prototype.
+- The repository description must not identify SIDERETH using any former project identity or as a decentralized-system prototype.
 - The description must not claim an AI lawyer, autonomous legal representation, autonomous government communication, or production decentralized integrations.
 - Topics must describe the repository accurately at its current maturity level.
 - When a capability moves from PLANNING/CANDIDATE to implemented, topics may be expanded as appropriate.
