@@ -30,7 +30,11 @@ impl AuditSink for InMemoryAudit {
         if record.aggregate_id.is_empty() {
             return Err("audit aggregate is required");
         }
-        if self.records.iter().any(|item| item.audit_id == record.audit_id) {
+        if self
+            .records
+            .iter()
+            .any(|item| item.audit_id == record.audit_id)
+        {
             return Err("audit record already exists");
         }
         self.records.push(record);
@@ -70,6 +74,9 @@ mod tests {
     fn duplicate_audit_id_is_rejected() {
         let mut audit = InMemoryAudit::default();
         audit.record(record("audit-1")).unwrap();
-        assert_eq!(audit.record(record("audit-1")), Err("audit record already exists"));
+        assert_eq!(
+            audit.record(record("audit-1")),
+            Err("audit record already exists")
+        );
     }
 }
