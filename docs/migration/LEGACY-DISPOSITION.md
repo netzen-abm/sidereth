@@ -1,29 +1,31 @@
 # SIDERETH — Legacy Disposition Register
 
-Status: Updated after code/Markdown audit on `sidereth-foundation`
+Status: Updated during SIDERETH repository cleanup
 
-## Preserve
-Original Janavani/decentralized material remains recoverable through Git history and the preserved `decentralized-system` branch while final branch disposition is pending.
+## Preservation principle
 
-## Archived from active tree
-The following artifacts were reviewed and removed from the active SIDERETH tree because they are Janavani-specific, superseded, overclaim implementation, or describe infrastructure not present in the repository:
-- docs/01-JANAVANI-CONSTITUTION.md
-- docs/02-REPRESENTATIVE-DATA-MODEL.md
-- docs/03-OFFICIAL-DATA-SOURCE-REGISTRY.md
-- docs/04-DATABASE-SCHEMA.md
-- docs/CLI_INSTALLATION_GUIDELINES.md
-- docs/DECENTRALIZED_INTEGRATION_GUIDELINES.md
-- docs/FREENET_CRATE_GUIDELINES.md
-- Complete Platform Architecture Blueprint Index.md
-- Future Platform Engineering & Architectural Recommendations.md
-- Hybrid Janavani WebSite.md
-- Step-by-Step Production Launch Runbook.md
-- The dynamic architecture.md
-- root index.html
+Historical prototype material remains recoverable through Git history and, where still required for audit, preserved branches. Historical artifacts are not active SIDERETH product specifications.
 
-The archive manifest is `docs/archive/legacy-janavani/README.md`.
+## Removed from active tree
+
+The following inherited artifacts were reviewed and removed from the active SIDERETH tree because they were project-specific, superseded, overclaiming, or described infrastructure not present in the repository:
+
+- former constitution/governance document
+- former representative/public-data model
+- former official-data registry
+- former representative-data database schema
+- former CLI installation guidance
+- former decentralized integration guidance
+- former Freenet guidance
+- former architecture/planning documents
+- former website/dashboard material
+- former production runbook
+- former root dashboard
+
+The original artifacts remain available through repository history rather than being presented as current SIDERETH documentation.
 
 ## Retained/adapted principles
+
 - modular capability isolation
 - evidence/source provenance
 - privacy-by-design
@@ -32,17 +34,22 @@ The archive manifest is `docs/archive/legacy-janavani/README.md`.
 - auditability and versioning
 
 ## Active SIDERETH foundation
-The active documentation and implementation now center on:
+
+The active repository centers on:
+
 - SIDERETH Master Decisions
 - SIDERETH Master Blueprint
 - SIDERETH Architecture
-- Case/Incident/Event contracts
-- Authorization matrix
-- MCP interoperability boundary
-- repository migration/audit controls
+- canonical Case/Incident/Event contracts
+- authorization controls
+- legal-source and provenance framework
+- interoperability boundaries
+- repository migration and assurance controls
 
 ## Branch decision
-`decentralized-system` is NOT deleted at this stage. It contains unique files/commits and remains subject to the deletion gate:
+
+`decentralized-system` remains preserved while its unique files and commits complete the deletion gate:
+
 1. compare with target integration branch;
 2. review unique commits/files;
 3. extract or archive useful assets;
