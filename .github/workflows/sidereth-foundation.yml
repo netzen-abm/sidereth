@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sidereth-foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     name: Validate Foundation
@@ -26,19 +30,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -s docs/00-DOCUMENTATION-INDEX.md
+          test -s docs/00-SIDERETH-MASTER-DECISIONS.md
+          test -s docs/01-SIDERETH-MASTER-BLUEPRINT.md
           test -s docs/SIDERETH-ARCHITECTURE.md
-          test -s docs/SIDERETH-REPOSITORY-MIGRATION.md
           test -s docs/SIDERETH-MASTER-CHECKLIST.md
           test -s docs/contracts/CASE-INCIDENT-EVENTS.md
           test -s docs/contracts/AUTHORIZATION-MATRIX.md
           test -s docs/migration/LEGACY-DISPOSITION.md
 
-      - name: Scan active implementation for obsolete Janavani references
+      - name: Scan active implementation for obsolete Janavani or legacy protocol references
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RIn --exclude-dir=.git --exclude='*.md' 'janavani' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
-            echo 'Obsolete Janavani references remain in active implementation paths.'
+          if grep -RIn --exclude-dir=.git --exclude='*.md' -E 'janavani|freenet|nostr-sdk|nym-sdk|reticulum|alloy|ark-groth16' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
+            echo 'Obsolete legacy implementation references remain in active implementation paths.'
+            exit 1
+          fi
+
+      - name: Scan active implementation for direct secret handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIn --exclude-dir=.git --exclude='*.md' -E 'PRIVATE_KEY|SECRET_KEY|API_KEY|ACCESS_TOKEN|PASSWORD=' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
+            echo 'Potential direct secret handling found in active implementation paths.'
             exit 1
           fi
 
