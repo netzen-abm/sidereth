@@ -28,6 +28,9 @@ Important capability contracts include:
 `docs/migration/` records repository migration and disposition decisions.
 `docs/archive/` contains preserved historical material that is no longer active product specification.
 
+Important historical audit records include:
+- `docs/archive/historical-migration/DECENTRALIZED-SYSTEM-BRANCH-AUDIT.md` — evidence-based disposition of the legacy `decentralized-system` branch and its Freenet prototype.
+
 ## Documentation status vocabulary
 - **LOCKED** — governing decision; changes require an explicit decision update.
 - **CANONICAL** — authoritative specification for its scope.
