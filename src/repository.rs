@@ -110,10 +110,8 @@ mod tests {
     #[test]
     fn missing_case_returns_none() {
         let repo = InMemoryRepositories::default();
-        assert!(
-            CaseRepository::get(&repo, &"missing".into())
-                .unwrap()
-                .is_none()
-        );
+        assert!(CaseRepository::get(&repo, &"missing".into())
+            .unwrap()
+            .is_none());
     }
 }
