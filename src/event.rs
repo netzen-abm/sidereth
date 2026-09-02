@@ -82,10 +82,7 @@ mod tests {
     fn missing_event_id_is_rejected() {
         let mut value = event();
         value.event_id.clear();
-        assert_eq!(
-            value.validate(),
-            Err("event id is required")
-        );
+        assert_eq!(value.validate(), Err("event id is required"));
     }
 
     #[test]
