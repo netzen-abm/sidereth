@@ -3,6 +3,18 @@ use sha2::{Digest, Sha256};
 
 use crate::Id;
 
+pub struct EvidenceCapture<'a> {
+    pub evidence_id: Id,
+    pub schema_version: u32,
+    pub case_id: Option<Id>,
+    pub incident_id: Option<Id>,
+    pub captured_at: String,
+    pub captured_by: Id,
+    pub media_type: String,
+    pub storage_ref: Id,
+    pub content: &'a [u8],
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EvidenceOriginal {
     pub evidence_id: Id,
@@ -17,27 +29,17 @@ pub struct EvidenceOriginal {
 }
 
 impl EvidenceOriginal {
-    pub fn from_content(
-        evidence_id: Id,
-        schema_version: u32,
-        case_id: Option<Id>,
-        incident_id: Option<Id>,
-        captured_at: String,
-        captured_by: Id,
-        media_type: String,
-        storage_ref: Id,
-        content: &[u8],
-    ) -> Result<Self, &'static str> {
+    pub fn from_capture(capture: EvidenceCapture<'_>) -> Result<Self, &'static str> {
         let value = Self {
-            evidence_id,
-            schema_version,
-            case_id,
-            incident_id,
-            captured_at,
-            captured_by,
-            media_type,
-            content_hash: sha256_hex(content),
-            storage_ref,
+            evidence_id: capture.evidence_id,
+            schema_version: capture.schema_version,
+            case_id: capture.case_id,
+            incident_id: capture.incident_id,
+            captured_at: capture.captured_at,
+            captured_by: capture.captured_by,
+            media_type: capture.media_type,
+            content_hash: sha256_hex(capture.content),
+            storage_ref: capture.storage_ref,
         };
 
         value.validate()?;
@@ -123,19 +125,22 @@ impl DerivedArtifact {
 mod tests {
     use super::*;
 
+    fn capture<'a>(content: &'a [u8]) -> EvidenceCapture<'a> {
+        EvidenceCapture {
+            evidence_id: "evidence-1".into(),
+            schema_version: 1,
+            case_id: Some("case-1".into()),
+            incident_id: None,
+            captured_at: "2026-09-02T10:00:00Z".into(),
+            captured_by: "user-1".into(),
+            media_type: "text/plain".into(),
+            storage_ref: "storage-1".into(),
+            content,
+        }
+    }
+
     fn original() -> EvidenceOriginal {
-        EvidenceOriginal::from_content(
-            "evidence-1".into(),
-            1,
-            Some("case-1".into()),
-            None,
-            "2026-09-02T10:00:00Z".into(),
-            "user-1".into(),
-            "text/plain".into(),
-            "storage-1".into(),
-            b"original evidence",
-        )
-        .unwrap()
+        EvidenceOriginal::from_capture(capture(b"original evidence")).unwrap()
     }
 
     #[test]
@@ -145,34 +150,20 @@ mod tests {
 
     #[test]
     fn original_requires_case_or_incident() {
-        let result = EvidenceOriginal::from_content(
-            "evidence-1".into(),
-            1,
-            None,
-            None,
-            "2026-09-02T10:00:00Z".into(),
-            "user-1".into(),
-            "text/plain".into(),
-            "storage-1".into(),
-            b"evidence",
-        );
+        let mut value = capture(b"evidence");
+        value.case_id = None;
+
+        let result = EvidenceOriginal::from_capture(value);
 
         assert_eq!(result, Err("evidence aggregate is required"));
     }
 
     #[test]
     fn original_cannot_target_two_aggregates() {
-        let result = EvidenceOriginal::from_content(
-            "evidence-1".into(),
-            1,
-            Some("case-1".into()),
-            Some("incident-1".into()),
-            "2026-09-02T10:00:00Z".into(),
-            "user-1".into(),
-            "text/plain".into(),
-            "storage-1".into(),
-            b"evidence",
-        );
+        let mut value = capture(b"evidence");
+        value.incident_id = Some("incident-1".into());
+
+        let result = EvidenceOriginal::from_capture(value);
 
         assert_eq!(result, Err("evidence aggregate must be singular"));
     }
