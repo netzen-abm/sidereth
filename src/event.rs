@@ -91,7 +91,7 @@ mod tests {
         value.schema_version = 0;
         assert_eq!(
             value.validate(),
-            Err("schema version must be positive")
+            Err("schema version must be positive"),
         );
     }
 }
