@@ -90,20 +90,30 @@ mod tests {
     #[test]
     fn case_can_be_saved_and_loaded() {
         let mut repo = InMemoryRepositories::default();
-        repo.save(case()).unwrap();
-        assert_eq!(repo.get(&"case-1".into()).unwrap().unwrap().id, "case-1");
+        CaseRepository::save(&mut repo, case()).unwrap();
+        let saved = CaseRepository::get(&repo, &"case-1".into())
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.id, "case-1");
     }
 
     #[test]
     fn duplicate_case_is_rejected() {
         let mut repo = InMemoryRepositories::default();
-        repo.save(case()).unwrap();
-        assert_eq!(repo.save(case()), Err("case already exists"));
+        CaseRepository::save(&mut repo, case()).unwrap();
+        assert_eq!(
+            CaseRepository::save(&mut repo, case()),
+            Err("case already exists")
+        );
     }
 
     #[test]
     fn missing_case_returns_none() {
         let repo = InMemoryRepositories::default();
-        assert!(repo.get(&"missing".into()).unwrap().is_none());
+        assert!(
+            CaseRepository::get(&repo, &"missing".into())
+                .unwrap()
+                .is_none()
+        );
     }
 }
