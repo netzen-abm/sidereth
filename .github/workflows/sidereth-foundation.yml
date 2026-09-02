@@ -13,6 +13,9 @@ concurrency:
   group: sidereth-foundation-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   validate:
     name: Validate Foundation
@@ -61,7 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for d in crates domains apps schemas migrations; do
+          for d in crates domains apps schemas migrations tests; do
             test -d "$d"
           done
 
