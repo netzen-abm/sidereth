@@ -78,10 +78,7 @@ impl EvidenceOriginal {
 
 pub fn sha256_hex(content: &[u8]) -> String {
     let digest = Sha256::digest(content);
-    digest
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -143,10 +140,7 @@ mod tests {
 
     #[test]
     fn content_hash_is_deterministic() {
-        assert_eq!(
-            sha256_hex(b"hello"),
-            sha256_hex(b"hello")
-        );
+        assert_eq!(sha256_hex(b"hello"), sha256_hex(b"hello"));
     }
 
     #[test]
@@ -180,10 +174,7 @@ mod tests {
             b"evidence",
         );
 
-        assert_eq!(
-            result,
-            Err("evidence aggregate must be singular")
-        );
+        assert_eq!(result, Err("evidence aggregate must be singular"));
     }
 
     #[test]
@@ -206,9 +197,6 @@ mod tests {
             storage_ref: "storage-2".into(),
         };
 
-        assert_eq!(
-            artifact.validate(),
-            Err("source evidence id is required")
-        );
+        assert_eq!(artifact.validate(), Err("source evidence id is required"));
     }
 }
