@@ -5,18 +5,23 @@
 - [x] Record current main baseline
 - [x] Record existing branches
 - [x] Preserve legacy material
-- [ ] Compare `decentralized-system` against `main`
-- [ ] Extract unique useful assets
-- [ ] Verify workflow/deployment dependencies
-- [ ] Decide branch deletion only after evidence
+- [x] Compare `decentralized-system` against `main`
+- [x] Review unique legacy files and commits
+- [x] Archive/document useful disposition before active-tree removal
+- [x] Audit active programming and Markdown for SIDERETH alignment
+- [ ] Verify workflow/deployment dependencies on final integration branch
+- [ ] Decide branch deletion only after final evidence
 
 ## Gate 1 — Product foundation
 - [x] Define legal/regulatory OS boundary
 - [x] Define neutrality principle
 - [x] Define AI-optional principle
 - [x] Define local-first privacy principle
-- [ ] Formal product constitution in repository
-- [ ] ADR index
+- [x] Establish canonical Master Decisions baseline
+- [x] Establish master architecture/roadmap baseline
+- [x] Establish MCP interoperability decision
+- [ ] Formal product constitution
+- [x] Decision Register
 - [ ] terminology/glossary
 
 ## Gate 2 — Contracts before production code
@@ -24,9 +29,9 @@
 - [ ] database schema
 - [ ] OpenAPI contract
 - [ ] capability contracts
-- [ ] event schemas
-- [ ] state machines
-- [ ] authorization matrix
+- [x] event contract baseline
+- [x] state-machine baseline
+- [x] authorization matrix baseline
 - [ ] encryption/storage model
 - [ ] audit schema
 - [ ] error model
@@ -83,6 +88,7 @@
 - [ ] asynchronous jobs
 - [ ] retries/resume
 - [ ] audit/observability
+- [ ] MCP adapter boundary
 
 ## Gate 7 — UX
 - [ ] Home
