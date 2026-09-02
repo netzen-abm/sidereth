@@ -1,7 +1,7 @@
 # SIDERETH — Repository Migration & Disposition
 
 ## Audit baseline
-The current repository is a Janavani/decentralized proof of concept. It contains a small Rust crate, a static protocol dashboard, Janavani-specific schemas and documentation, and experimental decentralized integrations.
+The repository was inherited from an earlier civic/decentralized proof of concept. It contained a small Rust crate, a static protocol dashboard, project-specific schemas and documentation, and experimental decentralized integrations.
 
 ## Disposition
 ### Retain and adapt
@@ -12,21 +12,23 @@ The current repository is a Janavani/decentralized proof of concept. It contains
 - existing license unless a legal review requires change
 
 ### Archive / quarantine
-- Janavani constitution
-- representative/MP/MLA data model
-- Janavani official-data registry
-- Janavani database schema
-- Janavani website/dashboard documentation
-- Janavani production runbook
-- Janavani CLI installation guidance
+- former civic constitution and governance material
+- former representative/public-data model
+- former official-data registry
+- former representative-data database schema
+- former website/dashboard documentation
+- former production runbook
+- former CLI installation guidance
 - experimental decentralized-only documentation
 
+Historical material remains recoverable through Git history. It is not part of the active SIDERETH specification.
+
 ### Replace from active product path
-- package identity `janavani`
-- `src/lib.rs` Janavani protocol mock implementation
+- inherited package identity
+- inherited protocol mock implementation
 - root decentralized dashboard
-- Janavani README
-- Janavani-specific CI
+- inherited project README
+- obsolete project-specific CI
 
 ## Branch strategy
 - `main`: production integration target
