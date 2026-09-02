@@ -31,7 +31,7 @@ Local-first by default. Sensitive case data should remain under user control. Ex
 Build the domain-independent Case and Incident Engine first, with evidence, events, source provenance and deterministic state transitions. Then add Panchayat and Municipality domain adapters without duplicating shared infrastructure.
 
 ## Repository status
-This repository is undergoing a controlled migration from an earlier Janavani/decentralized prototype. Legacy artifacts have been audited for usefulness before disposition; obsolete material is archived or removed from the active tree while Git history remains preserved.
+The repository is undergoing a controlled foundation build. Historical prototype artifacts were audited for usefulness before disposition; obsolete material is removed from the active product path while repository history remains preserved.
 
 ## Current foundation documents
 - `docs/00-DOCUMENTATION-INDEX.md`
