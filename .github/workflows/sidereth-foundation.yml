@@ -44,6 +44,7 @@ jobs:
           test -s docs/03-SIDERETH-LEGAL-SOURCE-REGISTRY.md
           test -s docs/04-SIDERETH-DATA-MODEL.md
           test -s docs/05-SIDERETH-DATA-STORAGE-CONTRACT.md
+          test -s docs/CLI-ARCHITECTURE.md
 
       - name: Enforce SIDERETH-only active documentation identity
         shell: bash
@@ -51,6 +52,15 @@ jobs:
           set -euo pipefail
           if grep -RIni --exclude-dir=.git -E 'janavani' README.md Cargo.toml docs src crates apps domains schemas migrations tests 2>/dev/null; then
             echo 'Former project identity remains in active SIDERETH content.'
+            exit 1
+          fi
+
+      - name: Reject phantom or inherited CLI claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIni --exclude-dir=.git -E 'cargo install (janavani|sidereth)-cli|janavani-cli|Release Binaries|Install Janavani CLI' README.md Cargo.toml docs src crates apps domains schemas migrations tests 2>/dev/null; then
+            echo 'Stale or unimplemented CLI claim found in active content.'
             exit 1
           fi
 
