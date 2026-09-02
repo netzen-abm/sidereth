@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sidereth.org/schemas/case.schema.json",
+  "title": "SIDERETH Case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "schema_version", "status", "created_at", "updated_at", "owner_subject_id", "matter_type", "title"],
+  "properties": {
+    "case_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["draft", "active", "waiting_user", "waiting_authority", "response_due", "escalated", "resolved", "closed"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "owner_subject_id": {"type": "string", "minLength": 1},
+    "jurisdiction_ref": {"type": ["string", "null"]},
+    "authority_ref": {"type": ["string", "null"]},
+    "matter_type": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "facts_ref": {"type": ["string", "null"]},
+    "event_refs": {"type": "array", "items": {"type": "string"}},
+    "document_refs": {"type": "array", "items": {"type": "string"}},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "legal_issue_refs": {"type": "array", "items": {"type": "string"}},
+    "deadline_refs": {"type": "array", "items": {"type": "string"}},
+    "action_refs": {"type": "array", "items": {"type": "string"}},
+    "decision_refs": {"type": "array", "items": {"type": "string"}},
+    "appeal_refs": {"type": "array", "items": {"type": "string"}},
+    "escalation_refs": {"type": "array", "items": {"type": "string"}},
+    "assistance_refs": {"type": "array", "items": {"type": "string"}},
+    "audit_ref": {"type": ["string", "null"]}
+  }
+}
