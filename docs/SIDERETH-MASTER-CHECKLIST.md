@@ -25,18 +25,22 @@
 - [ ] terminology/glossary
 
 ## Gate 2 — Contracts before production code
-- [ ] domain model
-- [ ] database schema
+- [x] domain model contract (draft)
+- [x] database/storage boundary contract (draft)
+- [ ] database schema implementation
 - [ ] OpenAPI contract
-- [ ] capability contracts
+- [x] capability contract (draft)
 - [x] event contract baseline
 - [x] state-machine baseline
 - [x] authorization matrix baseline
-- [ ] encryption/storage model
-- [ ] audit schema
-- [ ] error model
-- [ ] idempotency model
-- [ ] versioning policy
+- [x] encryption/storage model (draft)
+- [x] audit model (draft)
+- [x] error model (draft)
+- [x] idempotency model (draft)
+- [x] versioning policy (draft)
+- [x] canonical Case JSON Schema
+- [x] canonical Incident JSON Schema
+- [ ] contract review and consistency audit
 
 ## Gate 3 — Universal core
 - [ ] Case Engine
@@ -88,7 +92,7 @@
 - [ ] asynchronous jobs
 - [ ] retries/resume
 - [ ] audit/observability
-- [ ] MCP adapter boundary
+- [x] MCP adapter boundary
 
 ## Gate 7 — UX
 - [ ] Home
