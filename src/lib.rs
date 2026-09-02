@@ -16,14 +16,10 @@ pub mod repository;
 pub mod timeline;
 
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
-pub use authorization::{
-    AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy,
-};
+pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
-pub use repository::{
-    CaseRepository, EventRepository, IncidentRepository, InMemoryRepositories,
-};
+pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
