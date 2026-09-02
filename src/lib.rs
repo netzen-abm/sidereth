@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 pub type Id = String;
 
 pub mod event;
+pub mod timeline;
+
 pub use event::EventEnvelope;
+pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CaseState {
