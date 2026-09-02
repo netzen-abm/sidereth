@@ -179,10 +179,7 @@ mod tests {
 
     #[test]
     fn original_hash_matches_content() {
-        assert_eq!(
-            original().content_hash,
-            sha256_hex(b"original evidence")
-        );
+        assert_eq!(original().content_hash, sha256_hex(b"original evidence"));
     }
 
     #[test]
