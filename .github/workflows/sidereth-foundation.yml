@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: sidereth-foundation-${{ github.workflow }}-${{ github.ref }}
@@ -29,12 +30,19 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Auto-format branch
+      - name: Diagnose and normalize branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/sidereth-core-v0.8'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          cargo fmt --all
+          if ! cargo fmt --all 2>fmt-error.log; then
+            gh issue create \
+              --title "CI diagnostic: Core v0.8 rustfmt failure" \
+              --body-file fmt-error.log
+            exit 1
+          fi
           if git diff --quiet; then
             exit 0
           fi
