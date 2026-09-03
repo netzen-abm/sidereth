@@ -87,10 +87,7 @@ pub struct ComplianceRegistry {
 impl ComplianceRegistry {
     pub fn insert(&mut self, requirement: ComplianceRequirement) -> Result<(), &'static str> {
         requirement.validate()?;
-        if self
-            .requirements
-            .contains_key(&requirement.requirement_id)
-        {
+        if self.requirements.contains_key(&requirement.requirement_id) {
             return Err("duplicate requirement id");
         }
         self.requirements
