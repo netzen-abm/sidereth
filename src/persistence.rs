@@ -126,9 +126,6 @@ mod tests {
     #[test]
     fn revision_overflow_is_a_conflict() {
         let revision = Revision { value: u64::MAX };
-        assert_eq!(
-            revision.next(),
-            Err(PersistenceError::Conflict)
-        );
+        assert_eq!(revision.next(), Err(PersistenceError::Conflict));
     }
 }
