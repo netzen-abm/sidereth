@@ -2,7 +2,7 @@ name: SIDERETH Foundation Validation
 
 on:
   push:
-    branches: [main, sidereth-foundation, sidereth-cleanup, sidereth-core-v0.1, sidereth-core-v0.2, sidereth-core-v0.3, sidereth-core-v0.4, sidereth-core-v0.5, sidereth-core-v0.6, sidereth-core-v0.7]
+    branches: [main, sidereth-foundation, sidereth-cleanup, sidereth-core-v0.1, sidereth-core-v0.2, sidereth-core-v0.3, sidereth-core-v0.4, sidereth-core-v0.5, sidereth-core-v0.6, sidereth-core-v0.7, sidereth-core-v0.8]
   pull_request:
     branches: [main]
 
@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RIni --exclude-dir=.git --exclude='*.md' -E 'PRIVATE_KEY|SECRET_KEY|API_KEY|ACCESS_TOKEN|PASSWORD=' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
+          if grep -RIni --exclude-dir=.git --exclude='*.md' -E 'PRIVATE_KEY|SECRET_KEY|API_KEY|ACCESS_TOKEN|PASSWORD=' Cargo.toml src crates apps domains schemas migrations tests 2>/dev/null; then
             echo 'Potential direct secret handling found in active implementation paths.'
             exit 1
           fi
