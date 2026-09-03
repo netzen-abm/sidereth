@@ -40,42 +40,44 @@
 - [x] versioning policy (draft)
 - [x] canonical Case JSON Schema
 - [x] canonical Incident JSON Schema
-- [ ] contract review and consistency audit
+- [x] persistence boundary audit
+- [x] persistence contract hardening v1.2-C
+- [x] contract review and consistency audit for persistence boundary
 
 ## Gate 3 — Universal core
-- [ ] Case Engine
-- [ ] Incident Engine
-- [ ] Event/Timeline Engine
+- [x] Case Engine foundation
+- [x] Incident Engine foundation
+- [x] Event/Timeline Engine foundation
 - [ ] Party model
-- [ ] Authority Engine
-- [ ] Jurisdiction Engine
+- [x] Authority Engine foundation
+- [x] Jurisdiction Engine foundation
 - [ ] Document Engine
-- [ ] Evidence Vault
-- [ ] Deadline Engine
+- [x] Evidence Vault foundation
+- [x] Deadline Engine foundation
 - [ ] Action/Decision model
-- [ ] Response Engine
-- [ ] Escalation/Remedy Engine
+- [x] Response Engine foundation
+- [x] Escalation/Remedy Engine foundation
 - [ ] Human Assistance Router
 
 ## Gate 4 — Legal knowledge
-- [ ] Legal Source Registry
-- [ ] citation/provenance model
-- [ ] effective-date handling
-- [ ] version/supersession handling
-- [ ] verification status
+- [x] Legal Source Registry foundation
+- [x] citation/provenance model foundation
+- [x] effective-date handling foundation
+- [x] version/supersession handling foundation
+- [x] verification status foundation
 - [ ] jurisdiction-aware retrieval
-- [ ] source confidence/uncertainty
+- [x] source confidence/uncertainty foundation
 
 ## Gate 5 — Security/privacy
 - [ ] data classification
-- [ ] local-first storage
+- [ ] local-first storage production layer
 - [ ] encryption at rest
 - [ ] encryption in transit
 - [ ] key management
 - [ ] minimisation/redaction
 - [ ] consent boundaries
 - [ ] retention/deletion
-- [ ] access control
+- [x] access control foundation
 - [ ] threat model
 - [ ] model/tool injection defenses
 - [ ] security audit
@@ -143,24 +145,24 @@
 - [ ] authoritative sources
 
 ## Gate 9 — Quality
-- [ ] unit tests
+- [x] unit tests for implemented core boundaries
 - [ ] integration tests
-- [ ] contract tests
-- [ ] state-machine tests
+- [x] contract tests for implemented persistence boundary
+- [x] state-machine tests for implemented states
 - [ ] security tests
 - [ ] privacy tests
-- [ ] evidence integrity tests
-- [ ] legal-source verification tests
+- [x] evidence integrity tests
+- [x] legal-source verification tests for implemented registry rules
 - [ ] offline tests
 - [ ] accessibility tests
 - [ ] load tests
-- [ ] recovery tests
+- [x] recovery tests for local persistence reference scope
 - [ ] end-to-end scenario suite
 
 ## Gate 10 — Production
-- [ ] CI/CD
+- [x] CI/CD foundation validation
 - [ ] dependency audit
-- [ ] secret scanning
+- [x] secret scanning foundation gate
 - [ ] SBOM
 - [ ] release signing
 - [ ] observability
