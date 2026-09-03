@@ -2,7 +2,7 @@ name: SIDERETH Foundation Validation
 
 on:
   push:
-    branches: [main, sidereth-foundation, sidereth-cleanup, sidereth-core-v0.1, sidereth-core-v0.2, sidereth-core-v0.3, sidereth-core-v0.4, sidereth-core-v0.5, sidereth-core-v0.6, sidereth-core-v0.7, sidereth-core-v0.8, sidereth-core-v0.9, sidereth-core-v1.0]
+    branches: [main, sidereth-foundation, sidereth-cleanup, sidereth-core-v0.1, sidereth-core-v0.2, sidereth-core-v0.3, sidereth-core-v0.4, sidereth-core-v0.5, sidereth-core-v0.6, sidereth-core-v0.7, sidereth-core-v0.8, sidereth-core-v0.9, sidereth-core-v1.0, sidereth-core-v1.1]
   pull_request:
     branches: [main]
 
@@ -47,6 +47,8 @@ jobs:
           test -s docs/CLI-ARCHITECTURE.md
           test -s docs/contracts/CORE-V1.0-DESIGN.md
           test -s docs/contracts/CORE-V1.0-TEST-MATRIX.md
+          test -s docs/contracts/CORE-V1.1-DESIGN.md
+          test -s docs/contracts/CORE-V1.1-TEST-MATRIX.md
 
       - name: Enforce SIDERETH-only active documentation identity
         shell: bash
