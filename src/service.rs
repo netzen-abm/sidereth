@@ -26,9 +26,7 @@ impl From<PersistenceError> for ServiceError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CaseCommand {
-    Create {
-        case: Case,
-    },
+    Create { case: Case },
     Transition {
         case_id: Id,
         expected_revision: crate::Revision,
@@ -198,9 +196,7 @@ where
 
 fn command_target(command: &CaseCommand) -> Result<(Id, AccessAction), ServiceError> {
     match command {
-        CaseCommand::Create { case } if case.case_id.is_empty() => {
-            Err(ServiceError::InvalidInput)
-        }
+        CaseCommand::Create { case } if case.case_id.is_empty() => Err(ServiceError::InvalidInput),
         CaseCommand::Create { case } => Ok((case.case_id.clone(), AccessAction::Create)),
         CaseCommand::Transition { case_id, .. } if case_id.is_empty() => {
             Err(ServiceError::InvalidInput)
