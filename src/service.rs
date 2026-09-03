@@ -76,7 +76,7 @@ where
         command: CaseCommand,
     ) -> Result<CommandResult, ServiceError> {
         let (case_id, action) = command_target(&command)?;
-        authorize(&*self.policy, &context.actor_id, &case_id, action)?;
+        authorize(self.policy, &context.actor_id, &case_id, action)?;
         claim_operation(&mut *self.store, &context.operation_id)?;
 
         let (case_id, revision, event_type, payload) = match command {
