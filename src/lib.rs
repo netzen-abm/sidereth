@@ -14,6 +14,7 @@ pub mod event;
 pub mod evidence;
 pub mod evidence_store;
 pub mod repository;
+pub mod security;
 pub mod timeline;
 
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
@@ -22,6 +23,10 @@ pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
+pub use security::{
+    AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider,
+    RetentionPolicy,
+};
 pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
