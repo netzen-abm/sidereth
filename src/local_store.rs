@@ -58,12 +58,15 @@ impl LocalFileStore {
         Self::write(path, value)
     }
 
-    fn update<T: serde::Serialize>(
+    fn update<T>(
         &self,
         path: &Path,
         expected: Revision,
         value: T,
-    ) -> Result<Revision, &'static str> {
+    ) -> Result<Revision, &'static str>
+    where
+        T: serde::Serialize + serde::de::DeserializeOwned,
+    {
         let current: Persisted<T> = Self::read(path)?.ok_or("record not found")?;
         if current.schema_version == 0 {
             return Err("schema version is required");
