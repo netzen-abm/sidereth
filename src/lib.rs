@@ -9,10 +9,12 @@ use serde::{Deserialize, Serialize};
 pub type Id = String;
 
 pub mod audit;
+pub mod authority;
 pub mod authorization;
 pub mod event;
 pub mod evidence;
 pub mod evidence_store;
+pub mod jurisdiction;
 pub mod legal_source;
 pub mod legal_source_registry;
 pub mod repository;
@@ -20,10 +22,16 @@ pub mod security;
 pub mod timeline;
 
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
+pub use authority::{
+    Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType,
+};
 pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
+pub use jurisdiction::{
+    Jurisdiction, JurisdictionRegistry, JurisdictionStatus, JurisdictionType,
+};
 pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
