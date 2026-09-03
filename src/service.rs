@@ -27,7 +27,11 @@ impl From<PersistenceError> for ServiceError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CaseCommand {
     Create { case: Case },
-    Transition { case_id: Id, next: CaseState },
+    Transition {
+        case_id: Id,
+        expected_revision: crate::Revision,
+        next: CaseState,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,7 +83,11 @@ where
                     "state": case.state,
                 }))
             }
-            CaseCommand::Transition { case_id, next } => {
+            CaseCommand::Transition {
+                case_id,
+                expected_revision,
+                next,
+            } => {
                 let mut case = self
                     .store
                     .get_case(&case_id)
@@ -89,7 +97,7 @@ where
                 case.transition(next).map_err(|_| ServiceError::InvalidInput)?;
                 let revision = self
                     .store
-                    .update_case(&case_id, case.revision(), case.clone())
+                    .update_case(&case_id, expected_revision, case.clone())
                     .map_err(ServiceError::from)?;
                 (case_id, revision, "case.transition", json!({
                     "state": case.state,
@@ -145,8 +153,8 @@ where
         self.execute(
             CommandContext {
                 actor_id,
-                operation_id,
-                correlation_id: operation_id.clone(),
+                operation_id: operation_id.clone(),
+                correlation_id: operation_id,
             },
             CaseCommand::Create { case },
         )
@@ -160,14 +168,17 @@ where
         expected_revision: crate::Revision,
         next: CaseState,
     ) -> Result<CommandResult, ServiceError> {
-        let _ = expected_revision;
         self.execute(
             CommandContext {
                 actor_id,
-                operation_id,
-                correlation_id: operation_id.clone(),
+                operation_id: operation_id.clone(),
+                correlation_id: operation_id,
             },
-            CaseCommand::Transition { case_id, next },
+            CaseCommand::Transition {
+                case_id,
+                expected_revision,
+                next,
+            },
         )
     }
 }
@@ -283,6 +294,33 @@ mod tests {
             Err(ServiceError::Duplicate)
         );
         assert_eq!(audit.records().len(), 1);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn transition_honors_expected_revision() {
+        let root = root();
+        let mut store = LocalFileStore::open(&root).unwrap();
+        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let mut audit = InMemoryAudit::default();
+        let mut service = CaseService::new(&mut store, &policy, &mut audit);
+        service
+            .create_case(
+                "user-1".into(),
+                "operation-1".into(),
+                Case::new("case-1".into()).unwrap(),
+            )
+            .unwrap();
+        let result = service
+            .transition_case(
+                "user-1".into(),
+                "operation-2".into(),
+                "case-1".into(),
+                crate::Revision::initial(),
+                CaseState::Active,
+            )
+            .unwrap();
+        assert_eq!(result.revision.value, 1);
         let _ = std::fs::remove_dir_all(root);
     }
 }
