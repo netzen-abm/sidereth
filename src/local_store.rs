@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -193,7 +193,10 @@ impl EventStore for LocalFileStore {
         &mut self,
         value: Persisted<EventEnvelope>,
     ) -> Result<(), PersistenceError> {
-        value.value.validate().map_err(|_| PersistenceError::ValidationFailure)?;
+        value
+            .value
+            .validate()
+            .map_err(|_| PersistenceError::ValidationFailure)?;
         validate_id(&value.value.event_id)?;
         Self::validate_schema(value.schema_version)?;
         self.create(&self.path("events", &value.value.event_id)?, &value)
