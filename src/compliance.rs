@@ -189,11 +189,7 @@ mod tests {
         let mut registry = ComplianceRegistry::default();
         registry.insert(requirement()).unwrap();
         assert_eq!(
-            registry.transition(
-                &"r-1".into(),
-                ComplianceState::Satisfied,
-                vec![]
-            ),
+            registry.transition(&"r-1".into(), ComplianceState::Satisfied, vec![]),
             Err("satisfied requirement evidence is required")
         );
     }
@@ -203,11 +199,7 @@ mod tests {
         let mut registry = ComplianceRegistry::default();
         registry.insert(requirement()).unwrap();
         registry
-            .transition(
-                &"r-1".into(),
-                ComplianceState::Required,
-                vec![],
-            )
+            .transition(&"r-1".into(), ComplianceState::Required, vec![])
             .unwrap();
         registry
             .transition(
@@ -231,11 +223,7 @@ mod tests {
         let mut registry = ComplianceRegistry::default();
         registry.insert(requirement()).unwrap();
         assert_eq!(
-            registry.transition(
-                &"r-1".into(),
-                ComplianceState::Breached,
-                vec![]
-            ),
+            registry.transition(&"r-1".into(), ComplianceState::Breached, vec![]),
             Err("invalid compliance state transition")
         );
     }
