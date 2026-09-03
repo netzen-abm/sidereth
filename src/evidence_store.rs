@@ -8,16 +8,10 @@ pub trait EvidenceObjectStore {
 }
 
 pub trait EvidenceRepository {
-    fn get_original(
-        &self,
-        evidence_id: &Id,
-    ) -> Result<Option<EvidenceOriginal>, &'static str>;
+    fn get_original(&self, evidence_id: &Id) -> Result<Option<EvidenceOriginal>, &'static str>;
     fn save_original(&mut self, evidence: EvidenceOriginal) -> Result<(), &'static str>;
     fn verify_original(&self, evidence_id: &Id) -> Result<bool, &'static str>;
-    fn get_artifact(
-        &self,
-        artifact_id: &Id,
-    ) -> Result<Option<DerivedArtifact>, &'static str>;
+    fn get_artifact(&self, artifact_id: &Id) -> Result<Option<DerivedArtifact>, &'static str>;
     fn save_artifact(&mut self, artifact: DerivedArtifact) -> Result<(), &'static str>;
 }
 
@@ -46,10 +40,7 @@ impl EvidenceObjectStore for InMemoryEvidenceVault {
 }
 
 impl EvidenceRepository for InMemoryEvidenceVault {
-    fn get_original(
-        &self,
-        evidence_id: &Id,
-    ) -> Result<Option<EvidenceOriginal>, &'static str> {
+    fn get_original(&self, evidence_id: &Id) -> Result<Option<EvidenceOriginal>, &'static str> {
         Ok(self.originals.get(evidence_id).cloned())
     }
 
@@ -80,10 +71,7 @@ impl EvidenceRepository for InMemoryEvidenceVault {
         Ok(sha256_hex(content) == evidence.content_hash)
     }
 
-    fn get_artifact(
-        &self,
-        artifact_id: &Id,
-    ) -> Result<Option<DerivedArtifact>, &'static str> {
+    fn get_artifact(&self, artifact_id: &Id) -> Result<Option<DerivedArtifact>, &'static str> {
         Ok(self.artifacts.get(artifact_id).cloned())
     }
 
@@ -118,20 +106,15 @@ mod tests {
 
     fn stored_vault() -> InMemoryEvidenceVault {
         let mut vault = InMemoryEvidenceVault::default();
-        EvidenceObjectStore::put(
-            &mut vault,
-            "object-1".into(),
-            b"original evidence".to_vec(),
-        )
-        .unwrap();
+        EvidenceObjectStore::put(&mut vault, "object-1".into(), b"original evidence".to_vec())
+            .unwrap();
         vault
     }
 
     #[test]
     fn object_store_round_trip() {
         let mut vault = InMemoryEvidenceVault::default();
-        EvidenceObjectStore::put(&mut vault, "object-1".into(), b"evidence".to_vec())
-            .unwrap();
+        EvidenceObjectStore::put(&mut vault, "object-1".into(), b"evidence".to_vec()).unwrap();
         let content = EvidenceObjectStore::get(&vault, &"object-1".into())
             .unwrap()
             .unwrap();
@@ -141,8 +124,7 @@ mod tests {
     #[test]
     fn object_store_rejects_duplicate_reference() {
         let mut vault = InMemoryEvidenceVault::default();
-        EvidenceObjectStore::put(&mut vault, "object-1".into(), b"one".to_vec())
-            .unwrap();
+        EvidenceObjectStore::put(&mut vault, "object-1".into(), b"one".to_vec()).unwrap();
         assert_eq!(
             EvidenceObjectStore::put(&mut vault, "object-1".into(), b"two".to_vec()),
             Err("storage object already exists")
@@ -187,11 +169,7 @@ mod tests {
     fn stored_original_verifies() {
         let mut vault = stored_vault();
         EvidenceRepository::save_original(&mut vault, original()).unwrap();
-        assert!(EvidenceRepository::verify_original(
-            &vault,
-            &"evidence-1".into()
-        )
-        .unwrap());
+        assert!(EvidenceRepository::verify_original(&vault, &"evidence-1".into()).unwrap());
     }
 
     #[test]
@@ -203,11 +181,7 @@ mod tests {
             .get_mut("object-1")
             .unwrap()
             .copy_from_slice(b"tampered evidence");
-        assert!(!EvidenceRepository::verify_original(
-            &vault,
-            &"evidence-1".into()
-        )
-        .unwrap());
+        assert!(!EvidenceRepository::verify_original(&vault, &"evidence-1".into()).unwrap());
     }
 
     #[test]
