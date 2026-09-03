@@ -43,12 +43,9 @@ pub use legal_source::{
 pub use legal_source_registry::LegalSourceRegistry;
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
-pub use response::{
-    Escalation, EscalationState, Response, ResponseRegistry, ResponseState,
-};
+pub use response::{Escalation, EscalationState, Response, ResponseRegistry, ResponseState};
 pub use security::{
-    AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider,
-    RetentionPolicy,
+    AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider, RetentionPolicy,
 };
 pub use timeline::Timeline;
 
