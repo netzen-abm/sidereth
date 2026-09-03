@@ -17,12 +17,15 @@ pub mod evidence_store;
 pub mod jurisdiction;
 pub mod legal_source;
 pub mod legal_source_registry;
+pub mod procedure;
 pub mod repository;
 pub mod security;
 pub mod timeline;
 
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
-pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
+pub use authority::{
+    Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType,
+};
 pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
@@ -32,9 +35,13 @@ pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
 pub use legal_source_registry::LegalSourceRegistry;
+pub use procedure::{
+    Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep,
+};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use security::{
-    AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider, RetentionPolicy,
+    AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider,
+    RetentionPolicy,
 };
 pub use timeline::Timeline;
 
