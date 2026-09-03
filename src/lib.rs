@@ -11,6 +11,7 @@ pub type Id = String;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
+pub mod deadline;
 pub mod event;
 pub mod evidence;
 pub mod evidence_store;
@@ -25,6 +26,10 @@ pub mod timeline;
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
+pub use deadline::{
+    ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
+    Obligation,
+};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
