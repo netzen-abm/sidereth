@@ -23,6 +23,11 @@ This index defines the documentation hierarchy for the SIDERETH repository. It p
 
 Important capability contracts include:
 - `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.
+- `CORE-V1.2-DESIGN.md` — provider-neutral durable persistence contract.
+- `CORE-V1.2-B-DESIGN.md` — reference local durable adapter boundary.
+- `CORE-V1.2-PERSISTENCE-AUDIT.md` — reference audit and findings for the v1.2 persistence boundary.
+- `CORE-V1.2-C-DESIGN.md` — persistence contract hardening decisions.
+- `CORE-V1.2-C-TEST-MATRIX.md` — executable acceptance matrix for persistence hardening.
 
 ### 03 — Migration and legacy
 `docs/migration/` records repository migration and disposition decisions.
