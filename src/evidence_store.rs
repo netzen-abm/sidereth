@@ -80,7 +80,8 @@ impl EvidenceRepository for InMemoryEvidenceVault {
         if self.artifacts.contains_key(&artifact.artifact_id) {
             return Err("derived artifact already exists");
         }
-        self.artifacts.insert(artifact.artifact_id.clone(), artifact);
+        self.artifacts
+            .insert(artifact.artifact_id.clone(), artifact);
         Ok(())
     }
 }
@@ -153,12 +154,8 @@ mod tests {
     #[test]
     fn original_rejects_hash_mismatch() {
         let mut vault = InMemoryEvidenceVault::default();
-        EvidenceObjectStore::put(
-            &mut vault,
-            "object-1".into(),
-            b"tampered evidence".to_vec(),
-        )
-        .unwrap();
+        EvidenceObjectStore::put(&mut vault, "object-1".into(), b"tampered evidence".to_vec())
+            .unwrap();
         assert_eq!(
             EvidenceRepository::save_original(&mut vault, original()),
             Err("evidence content hash does not match")
