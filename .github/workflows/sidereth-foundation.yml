@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: sidereth-foundation-${{ github.workflow }}-${{ github.ref }}
@@ -28,6 +29,27 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
+      - name: Diagnose rustfmt on v0.8
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! cargo fmt --all 2>fmt-error.log; then
+            gh issue create \
+              --title "CI diagnostic: Core v0.8 rustfmt parse failure" \
+              --body-file fmt-error.log
+            exit 1
+          fi
+          if ! git diff --quiet; then
+            git diff -- src/deadline.rs src/lib.rs > fmt-diff.txt
+            gh issue create \
+              --title "CI diagnostic: Core v0.8 rustfmt diff" \
+              --body-file fmt-diff.txt
+            exit 1
+          fi
 
       - name: Verify required foundation documents
         shell: bash
