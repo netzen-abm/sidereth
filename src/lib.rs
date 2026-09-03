@@ -13,6 +13,8 @@ pub mod authorization;
 pub mod event;
 pub mod evidence;
 pub mod evidence_store;
+pub mod legal_source;
+pub mod legal_source_registry;
 pub mod repository;
 pub mod security;
 pub mod timeline;
@@ -22,6 +24,10 @@ pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAc
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
+pub use legal_source::{
+    LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
+};
+pub use legal_source_registry::LegalSourceRegistry;
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use security::{
     AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider, RetentionPolicy,
