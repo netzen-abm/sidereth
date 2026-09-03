@@ -58,12 +58,7 @@ impl LocalFileStore {
         Self::write(path, value)
     }
 
-    fn update<T>(
-        &self,
-        path: &Path,
-        expected: Revision,
-        value: T,
-    ) -> Result<Revision, &'static str>
+    fn update<T>(&self, path: &Path, expected: Revision, value: T) -> Result<Revision, &'static str>
     where
         T: serde::Serialize + serde::de::DeserializeOwned,
     {
