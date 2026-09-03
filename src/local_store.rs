@@ -19,12 +19,9 @@ pub struct LocalFileStore {
 impl LocalFileStore {
     pub fn open(root: impl Into<PathBuf>) -> Result<Self, PersistenceError> {
         let root = root.into();
-        fs::create_dir_all(root.join("cases"))
-            .map_err(|_| PersistenceError::Unavailable)?;
-        fs::create_dir_all(root.join("incidents"))
-            .map_err(|_| PersistenceError::Unavailable)?;
-        fs::create_dir_all(root.join("events"))
-            .map_err(|_| PersistenceError::Unavailable)?;
+        fs::create_dir_all(root.join("cases")).map_err(|_| PersistenceError::Unavailable)?;
+        fs::create_dir_all(root.join("incidents")).map_err(|_| PersistenceError::Unavailable)?;
+        fs::create_dir_all(root.join("events")).map_err(|_| PersistenceError::Unavailable)?;
         fs::create_dir_all(root.join("idempotency"))
             .map_err(|_| PersistenceError::Unavailable)?;
         Ok(Self { root })
@@ -80,9 +77,7 @@ impl LocalFileStore {
         }
     }
 
-    fn read<T: serde::de::DeserializeOwned>(
-        path: &Path,
-    ) -> Result<Option<T>, PersistenceError> {
+    fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>, PersistenceError> {
         if !path.exists() {
             return Ok(None);
         }
@@ -182,17 +177,11 @@ impl IncidentStore for LocalFileStore {
 }
 
 impl EventStore for LocalFileStore {
-    fn get_event(
-        &self,
-        id: &Id,
-    ) -> Result<Option<Persisted<EventEnvelope>>, PersistenceError> {
+    fn get_event(&self, id: &Id) -> Result<Option<Persisted<EventEnvelope>>, PersistenceError> {
         Self::read(&self.path("events", id)?)
     }
 
-    fn append_event(
-        &mut self,
-        value: Persisted<EventEnvelope>,
-    ) -> Result<(), PersistenceError> {
+    fn append_event(&mut self, value: Persisted<EventEnvelope>) -> Result<(), PersistenceError> {
         value
             .value
             .validate()
@@ -212,11 +201,7 @@ impl IdempotencyStore for LocalFileStore {
         let path = self.path("idempotency", &operation_id)?;
         let bytes = serde_json::to_vec(&operation_id)
             .map_err(|_| PersistenceError::SerializationFailure)?;
-        let mut file = match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-        {
+        let mut file = match OpenOptions::new().write(true).create_new(true).open(&path) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
                 return Ok(IdempotencyClaim::AlreadyClaimed);
