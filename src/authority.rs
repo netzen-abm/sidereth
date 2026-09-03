@@ -165,10 +165,7 @@ mod tests {
     fn missing_jurisdiction_is_rejected() {
         let mut value = authority();
         value.jurisdiction_id.clear();
-        assert_eq!(
-            value.validate(),
-            Err("authority jurisdiction is required")
-        );
+        assert_eq!(value.validate(), Err("authority jurisdiction is required"));
     }
 
     #[test]
@@ -182,10 +179,7 @@ mod tests {
     fn power_requires_source() {
         let mut value = power();
         value.source_refs.clear();
-        assert_eq!(
-            value.validate(),
-            Err("power requires a source reference")
-        );
+        assert_eq!(value.validate(), Err("power requires a source reference"));
     }
 
     #[test]
@@ -224,10 +218,7 @@ mod tests {
         let mut registry = AuthorityRegistry::default();
         registry.insert_authority(authority()).unwrap();
         registry.insert_power(power()).unwrap();
-        assert_eq!(
-            registry.insert_power(power()),
-            Err("duplicate power id")
-        );
+        assert_eq!(registry.insert_power(power()), Err("duplicate power id"));
     }
 
     #[test]
