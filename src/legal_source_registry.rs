@@ -90,18 +90,16 @@ mod tests {
     #[test]
     fn supersession_cycle_is_rejected() {
         let mut registry = LegalSourceRegistry::default();
-        registry.insert(source("law-1")).unwrap();
-
+        let mut first = source("law-1");
+        first.supersedes = Some("law-2".into());
         let mut second = source("law-2");
         second.supersedes = Some("law-1".into());
-        registry.insert(second).unwrap();
+        registry.sources.insert(first.source_id.clone(), first);
+        registry.sources.insert(second.source_id.clone(), second);
 
-        let mut third = source("law-3");
-        third.supersedes = Some("law-2".into());
-        registry.insert(third).unwrap();
-
-        let mut cycle = source("law-1-replacement");
-        cycle.supersedes = Some("law-3".into());
-        assert!(registry.insert(cycle).is_ok());
+        assert_eq!(
+            registry.validate_supersession_graph(),
+            Err("supersession cycle detected")
+        );
     }
 }
