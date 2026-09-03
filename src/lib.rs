@@ -21,6 +21,7 @@ pub mod legal_source;
 pub mod legal_source_registry;
 pub mod procedure;
 pub mod repository;
+pub mod response;
 pub mod security;
 pub mod timeline;
 
@@ -42,6 +43,7 @@ pub use legal_source::{
 pub use legal_source_registry::LegalSourceRegistry;
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
+pub use response::{Escalation, EscalationState, Response, ResponseRegistry, ResponseState};
 pub use security::{
     AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider, RetentionPolicy,
 };

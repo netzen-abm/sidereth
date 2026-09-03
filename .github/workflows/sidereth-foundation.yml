@@ -2,7 +2,7 @@ name: SIDERETH Foundation Validation
 
 on:
   push:
-    branches: [main, sidereth-foundation, sidereth-cleanup, sidereth-core-v0.1, sidereth-core-v0.2, sidereth-core-v0.3, sidereth-core-v0.4, sidereth-core-v0.5, sidereth-core-v0.6, sidereth-core-v0.7, sidereth-core-v0.8, sidereth-core-v0.9]
+    branches: [main, sidereth-foundation, sidereth-cleanup, sidereth-core-v0.1, sidereth-core-v0.2, sidereth-core-v0.3, sidereth-core-v0.4, sidereth-core-v0.5, sidereth-core-v0.6, sidereth-core-v0.7, sidereth-core-v0.8, sidereth-core-v0.9, sidereth-core-v1.0]
   pull_request:
     branches: [main]
 
@@ -45,6 +45,8 @@ jobs:
           test -s docs/04-SIDERETH-DATA-MODEL.md
           test -s docs/05-SIDERETH-DATA-STORAGE-CONTRACT.md
           test -s docs/CLI-ARCHITECTURE.md
+          test -s docs/contracts/CORE-V1.0-DESIGN.md
+          test -s docs/contracts/CORE-V1.0-TEST-MATRIX.md
 
       - name: Enforce SIDERETH-only active documentation identity
         shell: bash
@@ -68,7 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RIni --exclude-dir=.git --exclude='*.md' -E 'freenet|nostr-sdk|nym-sdk|reticulum|alloy|ark-groth16' Cargo.toml src crates apps domains schemas migrations 2>/dev/null; then
+          if grep -RIni --exclude-dir=.git --exclude='*.md' -E 'freenet|nostr-sdk|nym-sdk|reticulum|alloy|ark-groth16' Cargo.toml src crates apps domains schemas migrations tests 2>/dev/null; then
             echo 'Obsolete legacy implementation references remain in active implementation paths.'
             exit 1
           fi
