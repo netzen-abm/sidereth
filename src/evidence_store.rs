@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{DerivedArtifact, EvidenceOriginal, Id};
+use crate::{sha256_hex, DerivedArtifact, EvidenceOriginal, Id};
 
 pub trait EvidenceObjectStore {
     fn put(&mut self, storage_ref: Id, content: Vec<u8>) -> Result<(), &'static str>;
@@ -13,6 +13,7 @@ pub trait EvidenceRepository {
         evidence_id: &Id,
     ) -> Result<Option<EvidenceOriginal>, &'static str>;
     fn save_original(&mut self, evidence: EvidenceOriginal) -> Result<(), &'static str>;
+    fn verify_original(&self, evidence_id: &Id) -> Result<bool, &'static str>;
     fn get_artifact(
         &self,
         artifact_id: &Id,
@@ -54,12 +55,29 @@ impl EvidenceRepository for InMemoryEvidenceVault {
 
     fn save_original(&mut self, evidence: EvidenceOriginal) -> Result<(), &'static str> {
         evidence.validate()?;
+        if !self.objects.contains_key(&evidence.storage_ref) {
+            return Err("evidence object is not stored");
+        }
+        let content = self.objects.get(&evidence.storage_ref).unwrap();
+        if sha256_hex(content) != evidence.content_hash {
+            return Err("evidence content hash does not match");
+        }
         if self.originals.contains_key(&evidence.evidence_id) {
             return Err("evidence original already exists");
         }
         self.originals
             .insert(evidence.evidence_id.clone(), evidence);
         Ok(())
+    }
+
+    fn verify_original(&self, evidence_id: &Id) -> Result<bool, &'static str> {
+        let Some(evidence) = self.originals.get(evidence_id) else {
+            return Err("evidence original not found");
+        };
+        let Some(content) = self.objects.get(&evidence.storage_ref) else {
+            return Err("evidence object not found");
+        };
+        Ok(sha256_hex(content) == evidence.content_hash)
     }
 
     fn get_artifact(
@@ -98,6 +116,17 @@ mod tests {
         .unwrap()
     }
 
+    fn stored_vault() -> InMemoryEvidenceVault {
+        let mut vault = InMemoryEvidenceVault::default();
+        EvidenceObjectStore::put(
+            &mut vault,
+            "object-1".into(),
+            b"original evidence".to_vec(),
+        )
+        .unwrap();
+        vault
+    }
+
     #[test]
     fn object_store_round_trip() {
         let mut vault = InMemoryEvidenceVault::default();
@@ -122,7 +151,7 @@ mod tests {
 
     #[test]
     fn original_can_be_saved_and_loaded() {
-        let mut vault = InMemoryEvidenceVault::default();
+        let mut vault = stored_vault();
         EvidenceRepository::save_original(&mut vault, original()).unwrap();
         let saved = EvidenceRepository::get_original(&vault, &"evidence-1".into())
             .unwrap()
@@ -131,8 +160,59 @@ mod tests {
     }
 
     #[test]
-    fn original_cannot_be_replaced() {
+    fn original_requires_stored_object() {
         let mut vault = InMemoryEvidenceVault::default();
+        assert_eq!(
+            EvidenceRepository::save_original(&mut vault, original()),
+            Err("evidence object is not stored")
+        );
+    }
+
+    #[test]
+    fn original_rejects_hash_mismatch() {
+        let mut vault = InMemoryEvidenceVault::default();
+        EvidenceObjectStore::put(
+            &mut vault,
+            "object-1".into(),
+            b"tampered evidence".to_vec(),
+        )
+        .unwrap();
+        assert_eq!(
+            EvidenceRepository::save_original(&mut vault, original()),
+            Err("evidence content hash does not match")
+        );
+    }
+
+    #[test]
+    fn stored_original_verifies() {
+        let mut vault = stored_vault();
+        EvidenceRepository::save_original(&mut vault, original()).unwrap();
+        assert!(EvidenceRepository::verify_original(
+            &vault,
+            &"evidence-1".into()
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn corrupted_original_fails_verification() {
+        let mut vault = stored_vault();
+        EvidenceRepository::save_original(&mut vault, original()).unwrap();
+        vault
+            .objects
+            .get_mut("object-1")
+            .unwrap()
+            .copy_from_slice(b"tampered evidence");
+        assert!(!EvidenceRepository::verify_original(
+            &vault,
+            &"evidence-1".into()
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn original_cannot_be_replaced() {
+        let mut vault = stored_vault();
         EvidenceRepository::save_original(&mut vault, original()).unwrap();
         assert_eq!(
             EvidenceRepository::save_original(&mut vault, original()),
