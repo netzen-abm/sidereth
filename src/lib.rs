@@ -12,6 +12,7 @@ pub mod audit;
 pub mod authorization;
 pub mod event;
 pub mod evidence;
+pub mod evidence_store;
 pub mod repository;
 pub mod timeline;
 
@@ -19,6 +20,9 @@ pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
+pub use evidence_store::{
+    EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault,
+};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use timeline::Timeline;
 
