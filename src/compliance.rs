@@ -161,10 +161,13 @@ mod tests {
 
     #[test]
     fn satisfied_requires_evidence() {
-        let mut value = requirement();
-        value.state = ComplianceState::Satisfied;
+        let mut registry = ComplianceRegistry::default();
+        registry.insert(requirement()).unwrap();
+        registry
+            .transition(&"r-1".into(), ComplianceState::Required, vec![])
+            .unwrap();
         assert_eq!(
-            value.validate(),
+            registry.transition(&"r-1".into(), ComplianceState::Satisfied, vec![]),
             Err("satisfied requirement evidence is required")
         );
     }
@@ -176,16 +179,6 @@ mod tests {
         assert_eq!(
             registry.insert(requirement()),
             Err("duplicate requirement id")
-        );
-    }
-
-    #[test]
-    fn satisfied_transition_requires_evidence() {
-        let mut registry = ComplianceRegistry::default();
-        registry.insert(requirement()).unwrap();
-        assert_eq!(
-            registry.transition(&"r-1".into(), ComplianceState::Satisfied, vec![]),
-            Err("satisfied requirement evidence is required")
         );
     }
 
