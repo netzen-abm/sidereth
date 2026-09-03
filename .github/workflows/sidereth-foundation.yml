@@ -58,6 +58,8 @@ jobs:
           test -s docs/contracts/CORE-V1.2-C-TEST-MATRIX.md
           test -s docs/contracts/CORE-V1.3-DESIGN.md
           test -s docs/contracts/CORE-V1.3-TEST-MATRIX.md
+          test -s docs/contracts/CORE-V1.4-DESIGN.md
+          test -s docs/contracts/CORE-V1.4-TEST-MATRIX.md
 
       - name: Enforce SIDERETH-only active documentation identity
         shell: bash
