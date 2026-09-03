@@ -22,8 +22,7 @@ impl LocalFileStore {
         fs::create_dir_all(root.join("cases")).map_err(|_| PersistenceError::Unavailable)?;
         fs::create_dir_all(root.join("incidents")).map_err(|_| PersistenceError::Unavailable)?;
         fs::create_dir_all(root.join("events")).map_err(|_| PersistenceError::Unavailable)?;
-        fs::create_dir_all(root.join("idempotency"))
-            .map_err(|_| PersistenceError::Unavailable)?;
+        fs::create_dir_all(root.join("idempotency")).map_err(|_| PersistenceError::Unavailable)?;
         Ok(Self { root })
     }
 
@@ -42,8 +41,8 @@ impl LocalFileStore {
     }
 
     fn write<T: serde::Serialize>(path: &Path, value: &T) -> Result<(), PersistenceError> {
-        let bytes = serde_json::to_vec(value)
-            .map_err(|_| PersistenceError::SerializationFailure)?;
+        let bytes =
+            serde_json::to_vec(value).map_err(|_| PersistenceError::SerializationFailure)?;
         let temporary = Self::temporary_path(path)?;
         fs::write(&temporary, bytes).map_err(|_| PersistenceError::Unavailable)?;
         fs::rename(&temporary, path).map_err(|_| PersistenceError::Unavailable)
@@ -57,8 +56,8 @@ impl LocalFileStore {
         if path.exists() {
             return Err(PersistenceError::Duplicate);
         }
-        let bytes = serde_json::to_vec(value)
-            .map_err(|_| PersistenceError::SerializationFailure)?;
+        let bytes =
+            serde_json::to_vec(value).map_err(|_| PersistenceError::SerializationFailure)?;
         let temporary = Self::temporary_path(path)?;
         fs::write(&temporary, bytes).map_err(|_| PersistenceError::Unavailable)?;
         match fs::hard_link(&temporary, path) {
