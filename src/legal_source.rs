@@ -174,10 +174,7 @@ mod tests {
     fn self_supersession_is_rejected() {
         let mut value = source();
         value.supersedes = Some(value.source_id.clone());
-        assert_eq!(
-            value.validate(),
-            Err("source cannot supersede itself")
-        );
+        assert_eq!(value.validate(), Err("source cannot supersede itself"));
     }
 
     #[test]
@@ -220,10 +217,7 @@ mod tests {
 
     #[test]
     fn provenance_types_remain_distinct() {
-        assert_ne!(
-            PropositionType::UserFact,
-            PropositionType::VerifiedRule
-        );
+        assert_ne!(PropositionType::UserFact, PropositionType::VerifiedRule);
         assert_ne!(
             PropositionType::Inference,
             PropositionType::AuthoritativeInterpretation
