@@ -191,10 +191,7 @@ mod tests {
         let mut registry = RemedyRegistry::default();
         registry.insert(remedy()).unwrap();
         registry
-            .transition_applicability(
-                &"rem-1".into(),
-                RemedyApplicabilityStatus::Verified,
-            )
+            .transition_applicability(&"rem-1".into(), RemedyApplicabilityStatus::Verified)
             .unwrap();
         assert_eq!(
             registry.get(&"rem-1".into()).unwrap().applicability,
@@ -216,9 +213,6 @@ mod tests {
     fn duplicate_remedy_ids_are_rejected() {
         let mut registry = RemedyRegistry::default();
         registry.insert(remedy()).unwrap();
-        assert_eq!(
-            registry.insert(remedy()),
-            Err("duplicate remedy id")
-        );
+        assert_eq!(registry.insert(remedy()), Err("duplicate remedy id"));
     }
 }
