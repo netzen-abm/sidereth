@@ -90,12 +90,8 @@ jobs:
             test -d "$d"
           done
 
-      - name: Format diagnostic
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo fmt --all
-          git diff --exit-code -- src/lib.rs src/compliance.rs
+      - name: Format check
+        run: cargo fmt --all -- --check
 
       - name: Compile check
         run: cargo check --all-targets
