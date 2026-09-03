@@ -45,7 +45,7 @@ fn days_in_month(year: i32, month: u8) -> u8 {
 }
 
 fn days_from_civil(year: i32, month: u8, day: u8) -> i64 {
-    let y = i64::from(year) - i64::from(month <= 2);
+    let y = i64::from(year) - if month <= 2 { 1 } else { 0 };
     let era = (if y >= 0 { y } else { y - 399 }) / 400;
     let year_of_era = y - era * 400;
     let month_i = i64::from(month);
@@ -74,7 +74,7 @@ fn civil_from_days(days: i64) -> Option<CivilDate> {
     let month_part = (5 * day_of_year + 2) / 153;
     let day = day_of_year - (153 * month_part + 2) / 5 + 1;
     let month = month_part + if month_part < 10 { 3 } else { -9 };
-    let year = year + i64::from(month <= 2);
+    let year = year + if month <= 2 { 1 } else { 0 };
     let year = i32::try_from(year).ok()?;
     let month = u8::try_from(month).ok()?;
     let day = u8::try_from(day).ok()?;
