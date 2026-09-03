@@ -5,14 +5,14 @@ use serde::{Deserialize, Serialize};
 use crate::Id;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum ApplicabilityStatus {
+pub enum RemedyApplicabilityStatus {
     Unverified,
     Verified,
     Uncertain,
     ReviewRequired,
 }
 
-impl ApplicabilityStatus {
+impl RemedyApplicabilityStatus {
     pub fn can_transition_to(&self, next: &Self) -> bool {
         matches!(
             (self, next),
@@ -68,7 +68,7 @@ pub struct Remedy {
     pub category: String,
     pub description: String,
     pub state: RemedyState,
-    pub applicability: ApplicabilityStatus,
+    pub applicability: RemedyApplicabilityStatus,
     pub source_refs: Vec<Id>,
     pub evidence_refs: Vec<Id>,
 }
@@ -128,7 +128,7 @@ impl RemedyRegistry {
     pub fn transition_applicability(
         &mut self,
         remedy_id: &Id,
-        next: ApplicabilityStatus,
+        next: RemedyApplicabilityStatus,
     ) -> Result<(), &'static str> {
         let remedy = self
             .remedies
@@ -164,7 +164,7 @@ mod tests {
             category: "review".into(),
             description: "Review the disputed decision".into(),
             state: RemedyState::Candidate,
-            applicability: ApplicabilityStatus::Unverified,
+            applicability: RemedyApplicabilityStatus::Unverified,
             source_refs: vec!["src-1".into()],
             evidence_refs: vec!["ev-1".into()],
         }
@@ -191,11 +191,14 @@ mod tests {
         let mut registry = RemedyRegistry::default();
         registry.insert(remedy()).unwrap();
         registry
-            .transition_applicability(&"rem-1".into(), ApplicabilityStatus::Verified)
+            .transition_applicability(
+                &"rem-1".into(),
+                RemedyApplicabilityStatus::Verified,
+            )
             .unwrap();
         assert_eq!(
             registry.get(&"rem-1".into()).unwrap().applicability,
-            ApplicabilityStatus::Verified
+            RemedyApplicabilityStatus::Verified
         );
     }
 
