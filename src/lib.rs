@@ -24,8 +24,7 @@ pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOrigina
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use security::{
-    AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider,
-    RetentionPolicy,
+    AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider, RetentionPolicy,
 };
 pub use timeline::Timeline;
 
