@@ -56,10 +56,11 @@ fn days_from_civil(year: i32, month: u8, day: u8) -> i64 {
         + year_of_era / 4
         - year_of_era / 100
         + day_of_year;
-    era * 146_097 + day_of_era
+    era * 146_097 + day_of_era - 719_468
 }
 
 fn civil_from_days(days: i64) -> Option<CivilDate> {
+    let days = days + 719_468;
     let era = (if days >= 0 { days } else { days - 146_096 }) / 146_097;
     let day_of_era = days - era * 146_097;
     let year_of_era = (day_of_era
