@@ -152,10 +152,7 @@ impl ResponseRegistry {
         Ok(())
     }
 
-    pub fn insert_escalation(
-        &mut self,
-        escalation: Escalation,
-    ) -> Result<(), &'static str> {
+    pub fn insert_escalation(&mut self, escalation: Escalation) -> Result<(), &'static str> {
         escalation.validate()?;
         if self.escalations.contains_key(&escalation.escalation_id) {
             return Err("duplicate escalation id");
