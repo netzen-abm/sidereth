@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use serde::{Deserialize, Serialize};
 
 use crate::Id;
@@ -43,29 +45,19 @@ impl Jurisdiction {
 
 #[derive(Debug, Default)]
 pub struct JurisdictionRegistry {
-    jurisdictions: std::collections::HashMap<Id, Jurisdiction>,
+    jurisdictions: HashMap<Id, Jurisdiction>,
 }
 
 impl JurisdictionRegistry {
     pub fn insert(&mut self, jurisdiction: Jurisdiction) -> Result<(), &'static str> {
         jurisdiction.validate()?;
-        if self
-            .jurisdictions
-            .contains_key(&jurisdiction.jurisdiction_id)
-        {
+        let id = jurisdiction.jurisdiction_id.clone();
+        if self.jurisdictions.contains_key(&id) {
             return Err("duplicate jurisdiction id");
         }
-        self.jurisdictions
-            .insert(jurisdiction.jurisdiction_id.clone(), jurisdiction);
+        self.jurisdictions.insert(id.clone(), jurisdiction);
         if let Err(error) = self.validate_hierarchy() {
-            self.jurisdictions.remove(
-                self.jurisdictions
-                    .keys()
-                    .find(|id| !self.has_unique_id(id))
-                    .cloned()
-                    .unwrap_or_default()
-                    .as_str(),
-            );
+            self.jurisdictions.remove(&id);
             return Err(error);
         }
         Ok(())
@@ -81,14 +73,10 @@ impl JurisdictionRegistry {
         ids
     }
 
-    fn has_unique_id(&self, _id: &Id) -> bool {
-        true
-    }
-
     fn validate_hierarchy(&self) -> Result<(), &'static str> {
         for jurisdiction in self.jurisdictions.values() {
             let mut current = jurisdiction.jurisdiction_id.clone();
-            let mut visited = std::collections::HashSet::new();
+            let mut visited = HashSet::new();
             while let Some(parent) = self
                 .jurisdictions
                 .get(&current)
@@ -96,6 +84,9 @@ impl JurisdictionRegistry {
             {
                 if !visited.insert(current.clone()) {
                     return Err("jurisdiction hierarchy cycle detected");
+                }
+                if !self.jurisdictions.contains_key(&parent) {
+                    return Err("jurisdiction parent not found");
                 }
                 current = parent;
             }
@@ -138,10 +129,22 @@ mod tests {
     }
 
     #[test]
+    fn missing_parent_is_rejected() {
+        let mut registry = JurisdictionRegistry::default();
+        let mut value = jurisdiction("j-2");
+        value.parent_id = Some("missing".into());
+        assert_eq!(registry.insert(value), Err("jurisdiction parent not found"));
+        assert!(registry.get(&"j-2".into()).is_none());
+    }
+
+    #[test]
     fn duplicate_ids_are_rejected() {
         let mut registry = JurisdictionRegistry::default();
         registry.insert(jurisdiction("j-1")).unwrap();
-        assert_eq!(registry.insert(jurisdiction("j-1")), Err("duplicate jurisdiction id"));
+        assert_eq!(
+            registry.insert(jurisdiction("j-1")),
+            Err("duplicate jurisdiction id")
+        );
     }
 
     #[test]
