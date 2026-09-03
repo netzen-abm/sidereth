@@ -30,13 +30,13 @@ impl CaseRepository for InMemoryRepositories {
     }
 
     fn save(&mut self, case: Case) -> Result<(), &'static str> {
-        if case.id.is_empty() {
+        if case.case_id.is_empty() {
             return Err("case id is required");
         }
-        if self.cases.contains_key(&case.id) {
+        if self.cases.contains_key(&case.case_id) {
             return Err("case already exists");
         }
-        self.cases.insert(case.id.clone(), case);
+        self.cases.insert(case.case_id.clone(), case);
         Ok(())
     }
 }
@@ -47,13 +47,14 @@ impl IncidentRepository for InMemoryRepositories {
     }
 
     fn save(&mut self, incident: Incident) -> Result<(), &'static str> {
-        if incident.id.is_empty() {
+        if incident.incident_id.is_empty() {
             return Err("incident id is required");
         }
-        if self.incidents.contains_key(&incident.id) {
+        if self.incidents.contains_key(&incident.incident_id) {
             return Err("incident already exists");
         }
-        self.incidents.insert(incident.id.clone(), incident);
+        self.incidents
+            .insert(incident.incident_id.clone(), incident);
         Ok(())
     }
 }
@@ -78,13 +79,7 @@ mod tests {
     use super::*;
 
     fn case() -> Case {
-        Case {
-            id: "case-1".into(),
-            title: "Test".into(),
-            jurisdiction_id: None,
-            authority_id: None,
-            state: crate::CaseState::Draft,
-        }
+        Case::new("case-1".into()).unwrap()
     }
 
     #[test]
@@ -94,7 +89,7 @@ mod tests {
         let saved = CaseRepository::get(&repo, &"case-1".into())
             .unwrap()
             .unwrap();
-        assert_eq!(saved.id, "case-1");
+        assert_eq!(saved.case_id, "case-1");
     }
 
     #[test]
