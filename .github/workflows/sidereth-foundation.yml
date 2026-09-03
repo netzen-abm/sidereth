@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: sidereth-foundation-${{ github.workflow }}-${{ github.ref }}
@@ -99,5 +100,18 @@ jobs:
       - name: Test
         run: cargo test --all-targets
 
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Clippy diagnostic
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          cargo clippy --all-targets --all-features -- -D warnings >clippy-output.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            gh issue create \
+              --title "CI diagnostic: Core v0.8 clippy failure" \
+              --body-file clippy-output.log
+          fi
+          exit "$code"
