@@ -19,6 +19,7 @@ pub mod evidence_store;
 pub mod jurisdiction;
 pub mod legal_source;
 pub mod legal_source_registry;
+pub mod local_store;
 pub mod persistence;
 pub mod procedure;
 pub mod remedy;
@@ -44,6 +45,7 @@ pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
 pub use legal_source_registry::LegalSourceRegistry;
+pub use local_store::LocalFileStore;
 pub use persistence::{
     CaseStore, EventStore, IdempotencyStore, IncidentStore, Persisted, Revision, Transaction,
     TransactionFactory,
