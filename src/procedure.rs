@@ -137,9 +137,8 @@ impl ProcedureRegistry {
 
         if let Err(error) = self.validate_procedure(&procedure.procedure_id) {
             self.procedures.remove(&procedure.procedure_id);
-            self.steps.retain(|_, step| {
-                step.procedure_id != procedure.procedure_id
-            });
+            self.steps
+                .retain(|_, step| step.procedure_id != procedure.procedure_id);
             return Err(error);
         }
         Ok(())
@@ -192,9 +191,10 @@ impl ProcedureRegistry {
                 return Err("duplicate procedure step sequence");
             }
             for prerequisite in &step.prerequisite_ids {
-                let prior = self.steps.get(prerequisite).ok_or(
-                    "procedure prerequisite step not found",
-                )?;
+                let prior = self
+                    .steps
+                    .get(prerequisite)
+                    .ok_or("procedure prerequisite step not found")?;
                 if prior.procedure_id != *procedure_id {
                     return Err("procedure prerequisite belongs to another procedure");
                 }
@@ -207,7 +207,9 @@ impl ProcedureRegistry {
         for step in &steps {
             let mut current = step.step_id.clone();
             let mut visited = HashSet::new();
-            while let Some(prerequisite) = self.steps.get(&current)
+            while let Some(prerequisite) = self
+                .steps
+                .get(&current)
                 .and_then(|value| value.prerequisite_ids.first())
             {
                 if !visited.insert(current.clone()) {
@@ -268,7 +270,10 @@ mod tests {
     fn missing_source_is_rejected() {
         let mut value = procedure();
         value.source_refs.clear();
-        assert_eq!(value.validate(), Err("procedure source references are required"));
+        assert_eq!(
+            value.validate(),
+            Err("procedure source references are required")
+        );
     }
 
     #[test]
@@ -280,7 +285,10 @@ mod tests {
 
     #[test]
     fn zero_sequence_is_rejected() {
-        assert_eq!(step("s-1", 0).validate(), Err("procedure step sequence must be positive"));
+        assert_eq!(
+            step("s-1", 0).validate(),
+            Err("procedure step sequence must be positive")
+        );
     }
 
     #[test]
@@ -312,10 +320,7 @@ mod tests {
         let mut value = step("s-1", 1);
         value.authority_id = "a-2".into();
         assert_eq!(
-            registry.insert(
-                procedure(),
-                vec![value, step("s-2", 2)]
-            ),
+            registry.insert(procedure(), vec![value, step("s-2", 2)]),
             Err("procedure step authority mismatch")
         );
     }
