@@ -25,7 +25,7 @@ impl CivilDate {
 
     pub fn checked_add_days(self, days: u32) -> Option<Self> {
         let ordinal = days_from_civil(self.year, self.month, self.day);
-        let target = i64::from(ordinal).checked_add(i64::from(days))?;
+        let target = ordinal.checked_add(i64::from(days))?;
         civil_from_days(target)
     }
 }
