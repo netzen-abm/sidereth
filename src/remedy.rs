@@ -109,15 +109,8 @@ impl RemedyRegistry {
         Ok(())
     }
 
-    pub fn transition(
-        &mut self,
-        remedy_id: &Id,
-        next: RemedyState,
-    ) -> Result<(), &'static str> {
-        let remedy = self
-            .remedies
-            .get_mut(remedy_id)
-            .ok_or("remedy not found")?;
+    pub fn transition(&mut self, remedy_id: &Id, next: RemedyState) -> Result<(), &'static str> {
+        let remedy = self.remedies.get_mut(remedy_id).ok_or("remedy not found")?;
         if !remedy.state.can_transition_to(&next) {
             return Err("invalid remedy state transition");
         }
@@ -130,10 +123,7 @@ impl RemedyRegistry {
         remedy_id: &Id,
         next: RemedyApplicabilityStatus,
     ) -> Result<(), &'static str> {
-        let remedy = self
-            .remedies
-            .get_mut(remedy_id)
-            .ok_or("remedy not found")?;
+        let remedy = self.remedies.get_mut(remedy_id).ok_or("remedy not found")?;
         if !remedy.applicability.can_transition_to(&next) {
             return Err("invalid remedy applicability transition");
         }
