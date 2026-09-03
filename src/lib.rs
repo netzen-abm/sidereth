@@ -47,8 +47,8 @@ pub use legal_source::{
 pub use legal_source_registry::LegalSourceRegistry;
 pub use local_store::LocalFileStore;
 pub use persistence::{
-    CaseStore, EventStore, IdempotencyStore, IncidentStore, Persisted, Revision, Transaction,
-    TransactionFactory,
+    CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
+    PersistenceError, Revision, Transaction, TransactionFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use remedy::{Remedy, RemedyApplicabilityStatus, RemedyRegistry, RemedyState};
