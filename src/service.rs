@@ -61,7 +61,11 @@ where
     A: AuditSink,
 {
     pub fn new(store: &'a mut S, policy: &'a P, audit: &'a mut A) -> Self {
-        Self { store, policy, audit }
+        Self {
+            store,
+            policy,
+            audit,
+        }
     }
 
     pub fn execute(
@@ -79,9 +83,12 @@ where
                 self.store
                     .create_case(Persisted::new(1, case.clone())?)
                     .map_err(ServiceError::from)?;
-                (case_id, crate::Revision::initial(), "case.created", json!({
-                    "state": case.state,
-                }))
+                (
+                    case_id,
+                    crate::Revision::initial(),
+                    "case.created",
+                    json!({ "state": case.state }),
+                )
             }
             CaseCommand::Transition {
                 case_id,
@@ -94,14 +101,18 @@ where
                     .map_err(ServiceError::from)?
                     .ok_or(ServiceError::NotFound)?
                     .value;
-                case.transition(next).map_err(|_| ServiceError::InvalidInput)?;
+                case.transition(next)
+                    .map_err(|_| ServiceError::InvalidInput)?;
                 let revision = self
                     .store
                     .update_case(&case_id, expected_revision, case.clone())
                     .map_err(ServiceError::from)?;
-                (case_id, revision, "case.transition", json!({
-                    "state": case.state,
-                }))
+                (
+                    case_id,
+                    revision,
+                    "case.transition",
+                    json!({ "state": case.state }),
+                )
             }
         };
 
@@ -242,7 +253,9 @@ mod tests {
     fn command_order_produces_event_and_audit() {
         let root = root();
         let mut store = LocalFileStore::open(&root).unwrap();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut audit = InMemoryAudit::default();
         let mut service = CaseService::new(&mut store, &policy, &mut audit);
         let result = service
@@ -262,7 +275,9 @@ mod tests {
     fn authorization_precedes_idempotency_and_mutation() {
         let root = root();
         let mut store = LocalFileStore::open(&root).unwrap();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut audit = InMemoryAudit::default();
         let mut service = CaseService::new(&mut store, &policy, &mut audit);
         assert_eq!(
@@ -282,7 +297,9 @@ mod tests {
     fn duplicate_operation_is_rejected_before_mutation() {
         let root = root();
         let mut store = LocalFileStore::open(&root).unwrap();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut audit = InMemoryAudit::default();
         let mut service = CaseService::new(&mut store, &policy, &mut audit);
         let case = Case::new("case-1".into()).unwrap();
@@ -301,7 +318,9 @@ mod tests {
     fn transition_honors_expected_revision() {
         let root = root();
         let mut store = LocalFileStore::open(&root).unwrap();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut audit = InMemoryAudit::default();
         let mut service = CaseService::new(&mut store, &policy, &mut audit);
         service
