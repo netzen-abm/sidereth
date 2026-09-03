@@ -27,6 +27,7 @@ pub mod repository;
 pub mod resolution;
 pub mod response;
 pub mod security;
+pub mod service;
 pub mod timeline;
 
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
@@ -58,6 +59,7 @@ pub use response::{Escalation, EscalationState, Response, ResponseRegistry, Resp
 pub use security::{
     AuthorizedAudit, EvidenceError, EvidenceExport, EvidenceExporter, KeyProvider, RetentionPolicy,
 };
+pub use service::{CaseCommand, CaseService, CommandContext, CommandResult, ServiceError};
 pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

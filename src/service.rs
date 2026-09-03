@@ -1,7 +1,11 @@
 use crate::audit::{AuditRecord, AuditSink};
 use crate::authorization::{AccessAction, AccessRequest, AuthorizationPolicy};
-use crate::persistence::{CaseStore, IdempotencyClaim, IdempotencyStore, Persisted, PersistenceError};
+use crate::event::EventEnvelope;
+use crate::persistence::{
+    CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, Persisted, PersistenceError,
+};
 use crate::{Case, CaseState, Id};
+use serde_json::json;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceError {
@@ -20,6 +24,32 @@ impl From<PersistenceError> for ServiceError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CaseCommand {
+    Create {
+        case: Case,
+    },
+    Transition {
+        case_id: Id,
+        expected_revision: crate::Revision,
+        next: CaseState,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandContext {
+    pub actor_id: Id,
+    pub operation_id: Id,
+    pub correlation_id: Id,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandResult {
+    pub case_id: Id,
+    pub revision: crate::Revision,
+    pub event_id: Id,
+}
+
 pub struct CaseService<'a, S, P, A> {
     store: &'a mut S,
     policy: &'a P,
@@ -28,12 +58,103 @@ pub struct CaseService<'a, S, P, A> {
 
 impl<'a, S, P, A> CaseService<'a, S, P, A>
 where
-    S: CaseStore + IdempotencyStore,
+    S: CaseStore + EventStore + IdempotencyStore,
     P: AuthorizationPolicy,
     A: AuditSink,
 {
     pub fn new(store: &'a mut S, policy: &'a P, audit: &'a mut A) -> Self {
-        Self { store, policy, audit }
+        Self {
+            store,
+            policy,
+            audit,
+        }
+    }
+
+    pub fn execute(
+        &mut self,
+        context: CommandContext,
+        command: CaseCommand,
+    ) -> Result<CommandResult, ServiceError> {
+        let (case_id, action) = command_target(&command)?;
+        authorize(self.policy, &context.actor_id, &case_id, action)?;
+        claim_operation(&mut *self.store, &context.operation_id)?;
+
+        let (case_id, revision, event_type, payload) = match command {
+            CaseCommand::Create { case } => {
+                let case_id = case.case_id.clone();
+                self.store
+                    .create_case(Persisted::new(1, case.clone())?)
+                    .map_err(ServiceError::from)?;
+                (
+                    case_id,
+                    crate::Revision::initial(),
+                    "case.created",
+                    json!({ "state": case.state }),
+                )
+            }
+            CaseCommand::Transition {
+                case_id,
+                expected_revision,
+                next,
+            } => {
+                let mut case = self
+                    .store
+                    .get_case(&case_id)
+                    .map_err(ServiceError::from)?
+                    .ok_or(ServiceError::NotFound)?
+                    .value;
+                case.transition(next)
+                    .map_err(|_| ServiceError::InvalidInput)?;
+                let revision = self
+                    .store
+                    .update_case(&case_id, expected_revision, case.clone())
+                    .map_err(ServiceError::from)?;
+                (
+                    case_id,
+                    revision,
+                    "case.transition",
+                    json!({ "state": case.state }),
+                )
+            }
+        };
+
+        let event_id = format!("event-{}-{}", context.operation_id, revision.value);
+        self.store
+            .append_event(Persisted::new(
+                1,
+                EventEnvelope {
+                    event_id: event_id.clone(),
+                    event_type: event_type.into(),
+                    aggregate_type: "case".into(),
+                    aggregate_id: case_id.clone(),
+                    occurred_at: "service".into(),
+                    actor_type: "user".into(),
+                    actor_id: context.actor_id.clone(),
+                    schema_version: 1,
+                    payload,
+                    source_refs: vec![],
+                    correlation_id: context.correlation_id,
+                    causation_id: None,
+                },
+            )?)
+            .map_err(ServiceError::from)?;
+
+        self.audit
+            .record(AuditRecord {
+                audit_id: format!("audit-{}", context.operation_id),
+                actor_id: context.actor_id,
+                action: event_type.into(),
+                aggregate_type: "case".into(),
+                aggregate_id: case_id.clone(),
+                occurred_at: "service".into(),
+            })
+            .map_err(|_| ServiceError::AuditFailure)?;
+
+        Ok(CommandResult {
+            case_id,
+            revision,
+            event_id,
+        })
     }
 
     pub fn create_case(
@@ -41,25 +162,15 @@ where
         actor_id: Id,
         operation_id: Id,
         case: Case,
-    ) -> Result<(), ServiceError> {
-        authorize(&*self.policy, &actor_id, &case.case_id, AccessAction::Create)?;
-        match self.store.claim(operation_id).map_err(ServiceError::from)? {
-            IdempotencyClaim::AlreadyClaimed => return Err(ServiceError::Duplicate),
-            IdempotencyClaim::Claimed => {}
-        }
-        self.store
-            .create_case(Persisted::new(1, case.clone()).map_err(ServiceError::from)?)
-            .map_err(ServiceError::from)?;
-        self.audit
-            .record(AuditRecord {
-                audit_id: format!("audit-{}", case.case_id),
+    ) -> Result<CommandResult, ServiceError> {
+        self.execute(
+            CommandContext {
                 actor_id,
-                action: "case.create".into(),
-                aggregate_type: "case".into(),
-                aggregate_id: case.case_id,
-                occurred_at: "service".into(),
-            })
-            .map_err(|_| ServiceError::AuditFailure)
+                operation_id: operation_id.clone(),
+                correlation_id: operation_id,
+            },
+            CaseCommand::Create { case },
+        )
     }
 
     pub fn transition_case(
@@ -69,34 +180,43 @@ where
         case_id: Id,
         expected_revision: crate::Revision,
         next: CaseState,
-    ) -> Result<crate::Revision, ServiceError> {
-        authorize(&*self.policy, &actor_id, &case_id, AccessAction::Update)?;
-        match self.store.claim(operation_id).map_err(ServiceError::from)? {
-            IdempotencyClaim::AlreadyClaimed => return Err(ServiceError::Duplicate),
-            IdempotencyClaim::Claimed => {}
-        }
-        let mut case = self
-            .store
-            .get_case(&case_id)
-            .map_err(ServiceError::from)?
-            .ok_or(ServiceError::NotFound)?
-            .value;
-        case.transition(next).map_err(|_| ServiceError::InvalidInput)?;
-        let revision = self
-            .store
-            .update_case(&case_id, expected_revision, case)
-            .map_err(ServiceError::from)?;
-        self.audit
-            .record(AuditRecord {
-                audit_id: format!("audit-{}-{}", case_id, revision.value),
+    ) -> Result<CommandResult, ServiceError> {
+        self.execute(
+            CommandContext {
                 actor_id,
-                action: "case.transition".into(),
-                aggregate_type: "case".into(),
-                aggregate_id: case_id,
-                occurred_at: "service".into(),
-            })
-            .map_err(|_| ServiceError::AuditFailure)?;
-        Ok(revision)
+                operation_id: operation_id.clone(),
+                correlation_id: operation_id,
+            },
+            CaseCommand::Transition {
+                case_id,
+                expected_revision,
+                next,
+            },
+        )
+    }
+}
+
+fn command_target(command: &CaseCommand) -> Result<(Id, AccessAction), ServiceError> {
+    match command {
+        CaseCommand::Create { case } if case.case_id.is_empty() => Err(ServiceError::InvalidInput),
+        CaseCommand::Create { case } => Ok((case.case_id.clone(), AccessAction::Create)),
+        CaseCommand::Transition { case_id, .. } if case_id.is_empty() => {
+            Err(ServiceError::InvalidInput)
+        }
+        CaseCommand::Transition { case_id, .. } => Ok((case_id.clone(), AccessAction::Update)),
+    }
+}
+
+fn claim_operation<S: IdempotencyStore>(
+    store: &mut S,
+    operation_id: &Id,
+) -> Result<(), ServiceError> {
+    match store
+        .claim(operation_id.clone())
+        .map_err(ServiceError::from)?
+    {
+        IdempotencyClaim::AlreadyClaimed => Err(ServiceError::Duplicate),
+        IdempotencyClaim::Claimed => Ok(()),
     }
 }
 
@@ -118,7 +238,7 @@ fn authorize<P: AuthorizationPolicy>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CaseStore, CaseAccessPolicy, InMemoryAudit, LocalFileStore, Revision};
+    use crate::{CaseAccessPolicy, InMemoryAudit, LocalFileStore};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn root() -> std::path::PathBuf {
@@ -130,28 +250,34 @@ mod tests {
     }
 
     #[test]
-    fn service_authorizes_before_mutation_and_audits_success() {
+    fn command_order_produces_event_and_audit() {
         let root = root();
         let mut store = LocalFileStore::open(&root).unwrap();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut audit = InMemoryAudit::default();
         let mut service = CaseService::new(&mut store, &policy, &mut audit);
-        service
+        let result = service
             .create_case(
                 "user-1".into(),
                 "operation-1".into(),
                 Case::new("case-1".into()).unwrap(),
             )
             .unwrap();
+        assert_eq!(result.revision.value, 0);
+        assert!(store.get_event(&result.event_id).unwrap().is_some());
         assert_eq!(audit.records().len(), 1);
         let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
-    fn unauthorized_mutation_is_rejected() {
+    fn authorization_precedes_idempotency_and_mutation() {
         let root = root();
         let mut store = LocalFileStore::open(&root).unwrap();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut audit = InMemoryAudit::default();
         let mut service = CaseService::new(&mut store, &policy, &mut audit);
         assert_eq!(
@@ -162,15 +288,39 @@ mod tests {
             ),
             Err(ServiceError::AuthorizationDenied)
         );
-        assert_eq!(audit.records().len(), 0);
+        assert!(!store.lookup(&"operation-1".into()).unwrap());
+        assert!(store.get_case(&"case-1".into()).unwrap().is_none());
         let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
-    fn transition_uses_expected_revision() {
+    fn duplicate_operation_is_rejected_before_mutation() {
         let root = root();
         let mut store = LocalFileStore::open(&root).unwrap();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
+        let mut audit = InMemoryAudit::default();
+        let mut service = CaseService::new(&mut store, &policy, &mut audit);
+        let case = Case::new("case-1".into()).unwrap();
+        service
+            .create_case("user-1".into(), "operation-1".into(), case.clone())
+            .unwrap();
+        assert_eq!(
+            service.create_case("user-1".into(), "operation-1".into(), case),
+            Err(ServiceError::Duplicate)
+        );
+        assert_eq!(audit.records().len(), 1);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn transition_honors_expected_revision() {
+        let root = root();
+        let mut store = LocalFileStore::open(&root).unwrap();
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut audit = InMemoryAudit::default();
         let mut service = CaseService::new(&mut store, &policy, &mut audit);
         service
@@ -180,16 +330,16 @@ mod tests {
                 Case::new("case-1".into()).unwrap(),
             )
             .unwrap();
-        let revision = service
+        let result = service
             .transition_case(
                 "user-1".into(),
                 "operation-2".into(),
                 "case-1".into(),
-                Revision::initial(),
+                crate::Revision::initial(),
                 CaseState::Active,
             )
             .unwrap();
-        assert_eq!(revision.value, 1);
+        assert_eq!(result.revision.value, 1);
         let _ = std::fs::remove_dir_all(root);
     }
 }
