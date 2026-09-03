@@ -11,6 +11,7 @@ pub type Id = String;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
+pub mod compliance;
 pub mod deadline;
 pub mod event;
 pub mod evidence;
@@ -26,6 +27,9 @@ pub mod timeline;
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
+pub use compliance::{
+    ComplianceRegistry, ComplianceRequirement, ComplianceState,
+};
 pub use deadline::{
     ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
     Obligation,
