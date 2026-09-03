@@ -1,6 +1,6 @@
 # SIDERETH Persistence Boundary Audit
 
-Status: DRAFT
+Status: REFERENCE
 
 ## Audit target
 
@@ -24,77 +24,69 @@ Audited boundaries:
 
 The persistence boundary is correctly provider-neutral at the dependency level, and the local adapter proves that a non-database implementation can satisfy the current contracts. However, the reference adapter should not yet be treated as a concurrency-safe production persistence implementation.
 
-The next engineering change should strengthen the persistence contracts and local adapter semantics before adding another provider.
+The findings in this audit are the gate for Core v1.2-C Persistence Contract Hardening.
 
 ## Findings
 
 ### P1 — Temporary-file naming is not concurrency-safe
 
-`LocalFileStore::write` derives a single temporary path from the destination path. Concurrent writers targeting the same record can therefore collide on the same temporary file.
+`LocalFileStore::write` originally derived a single temporary path from the destination path. Concurrent writers targeting the same record could therefore collide on the same temporary file.
 
-**Required action:** use uniquely named temporary files and define the rename/replace atomicity contract explicitly.
+**v1.2-C action:** temporary paths are now uniquely derived for each write attempt.
 
 ### P1 — Create is check-then-write
 
-Creation checks `path.exists()` and subsequently writes. Two concurrent creators can both observe absence and race to create the record.
+Creation originally checked `path.exists()` and subsequently wrote. Two concurrent creators could both observe absence and race to create the record.
 
-**Required action:** make creation exclusive at the filesystem primitive level, or explicitly scope the adapter as single-writer until an exclusive-create mechanism is implemented.
+**v1.2-C action:** creation now prepares the complete serialized representation before publication and uses an exclusive filesystem creation boundary where supported.
 
 ### P1 — Idempotency is not atomic
 
-`lookup()` followed by `record()` is not one atomic operation. Concurrent workers can both observe an operation as absent and both proceed.
+The previous `lookup()` followed by `record()` sequence was not one atomic operation.
 
-**Required action:** define an atomic claim/insert-or-existing operation in the idempotency contract. Keep lookup for read-only inspection if useful.
+**v1.2-C action:** `claim()` is the authoritative idempotency mutation and uses exclusive file creation so the first claimant wins deterministically.
 
 ### P1 — Transaction contract has no executable adapter semantics
 
-`Transaction` and `TransactionFactory` exist as provider-neutral interfaces, but `LocalFileStore` does not implement them. The current adapter therefore does not demonstrate multi-object transactionality.
+`Transaction` and `TransactionFactory` exist as provider-neutral interfaces, but the local adapter does not implement them.
 
-**Required action:** keep transactions out of the local adapter until the contract specifies isolation, atomic commit, rollback behavior, failure recovery, and crash semantics. Do not imply transaction support merely because the interface exists.
+**Decision:** unchanged. No transaction support is claimed until isolation, atomic commit, rollback, recovery and crash semantics are implemented and tested.
 
 ### P2 — Revision protection is useful but not a complete concurrency contract
 
-Updates compare an expected revision before writing, which provides optimistic concurrency at the logical level. The filesystem write itself is still subject to concurrent-writer races.
+Expected revisions provide logical optimistic concurrency, but filesystem updates are not a distributed concurrency mechanism.
 
-**Required action:** make the concurrency guarantee explicit: either serialize writers, use an exclusive lock/claim protocol, or document the adapter as single-writer.
+**v1.2-C action:** the local reference adapter explicitly remains single-writer for update operations. Distributed/multi-host concurrency is outside this adapter's claim.
 
 ### P2 — Atomic rename is host-dependent
 
-The design correctly qualifies rename as atomic only where supported. That qualification must remain prominent because filesystem semantics differ across platforms and filesystems.
+Filesystem replacement semantics vary by host/filesystem.
 
-**Required action:** document supported durability assumptions and failure behavior rather than treating rename as a universal ACID primitive.
+**Decision:** the adapter documents replacement as conditional on host filesystem guarantees and does not represent it as universal ACID transactionality.
 
 ### P2 — Schema version is present but migration semantics are undefined
 
-Persisted objects carry a schema version, which is correct. The current adapter validates only that the version is non-zero and does not define supported-version negotiation or migration behavior.
+**v1.2-C action:** the reference adapter now fails closed on versions other than its declared supported version. Migration remains an explicit future operation.
 
-**Required action:** establish a canonical schema compatibility/migration policy before persisted schema versions begin changing.
+### P2 — Error model is too weak for a durable boundary
 
-### P2 — Error model is still too weak for a durable boundary
-
-The persistence interfaces use `Result<_, &'static str>`. This is sufficient for the reference proof but loses machine-readable distinctions needed by higher layers for retry, conflict handling, corruption response, authorization separation, and observability.
-
-**Required action:** introduce typed persistence errors before production adapters are built.
+**v1.2-C action:** persistence operations now expose typed `PersistenceError` values for machine-readable handling.
 
 ### P2 — Evidence remains correctly separated
 
-The evidence subsystem uses an opaque storage reference and content hash as integrity identity. It is not coupled to the local case/incident store.
-
-**Decision:** preserve this separation. Do not collapse evidence persistence into generic aggregate persistence.
+**Decision:** preserve evidence as an independent storage boundary using opaque storage references and content hashes.
 
 ### P2 — Authorization and audit remain outside storage
 
-Authorization is a policy boundary and audit is a separate sink. The persistence contract does not directly embed a provider or policy implementation.
-
-**Decision:** preserve this separation. Storage adapters must not become authorization engines.
+**Decision:** preserve authorization and audit as independent boundaries. Storage adapters do not become authorization engines.
 
 ### P3 — Dependency neutrality is healthy
 
-The core Cargo manifest contains only generic serialization and hashing dependencies; no database, cloud, ORM, or hosted-service SDK is present.
+The core remains free of database, cloud, ORM and hosted-service dependencies.
 
-**Decision:** no provider dependency should be added to the core crate.
+**Decision:** preserve provider neutrality.
 
-## Contract verdict
+## Contract verdict after v1.2-C
 
 | Boundary | Verdict |
 | --- | --- |
@@ -104,13 +96,13 @@ The core Cargo manifest contains only generic serialization and hashing dependen
 | Optimistic revision check | PASS at logical level |
 | Immutable event IDs | PASS |
 | Malformed-record detection | PASS |
-| Schema version persistence | PASS; migration policy pending |
+| Schema version persistence | PASS; explicit compatibility gate |
 | Atomic replacement | CONDITIONAL; host-dependent |
-| Concurrent create safety | FAIL for production use |
-| Concurrent update safety | CONDITIONAL |
-| Idempotency atomicity | FAIL for production use |
+| Concurrent create safety | EXCLUSIVE creation boundary |
+| Concurrent update safety | SINGLE-WRITER reference scope |
+| Idempotency atomicity | PASS at claim boundary |
 | Multi-object transactions | NOT IMPLEMENTED |
-| Typed persistence errors | NOT YET SUFFICIENT |
+| Typed persistence errors | PASS |
 | Evidence/provider separation | PASS |
 | Authorization/storage separation | PASS |
 
@@ -118,20 +110,10 @@ The core Cargo manifest contains only generic serialization and hashing dependen
 
 SIDERETH continues to own **contracts**, while providers implement those contracts.
 
-No PostgreSQL, Supabase, SQLite, S3, or other provider is to be promoted into the core architecture merely to solve the findings above.
+No PostgreSQL, Supabase, SQLite, S3, or other provider is promoted into the core architecture merely to solve persistence hardening findings.
 
-The next milestone should be a **Persistence Contract Hardening** change that:
-
-1. introduces typed persistence errors;
-2. defines concurrency semantics;
-3. makes idempotency claim semantics explicit;
-4. defines schema compatibility/version policy;
-5. clarifies filesystem atomicity and recovery guarantees;
-6. adds tests for concurrent or explicitly single-writer behavior;
-7. keeps the core provider-neutral.
-
-Only after this contract is stable should a second independent adapter be considered as a replaceability proof.
+The next provider work, if later justified, must be an independent adapter proving replaceability rather than becoming a core dependency.
 
 ## Evidence basis
 
-The audit is based on the current `main` implementation and the v1.2-B design. The persistence contract exposes provider-neutral Case, Incident, Event, transaction, and idempotency interfaces; the local adapter persists JSON records under a caller-selected root and uses revision checks and temporary-file replacement. The design explicitly excludes production encryption, distributed locking, multi-host transactions, replication, and provider integration.
+This audit records the v1.2-B boundary assessment and the resulting v1.2-C hardening decisions. The original findings remain useful as architectural rationale even after individual implementation weaknesses are addressed.
