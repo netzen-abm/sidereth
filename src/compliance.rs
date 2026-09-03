@@ -72,9 +72,7 @@ impl ComplianceRequirement {
         if self.source_refs.is_empty() {
             return Err("requirement source references are required");
         }
-        if matches!(self.state, ComplianceState::Satisfied)
-            && self.evidence_refs.is_empty()
-        {
+        if matches!(self.state, ComplianceState::Satisfied) && self.evidence_refs.is_empty() {
             return Err("satisfied requirement evidence is required");
         }
         Ok(())
