@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sidereth.org/schemas/authorization.schema.json",
+  "title": "SIDERETH Universal Authorization Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["subject_ref", "action", "resource_ref", "purpose", "policy_refs"],
+  "$defs": {
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_type", "id"],
+      "properties": {
+        "resource_type": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "properties": {
+    "subject_ref": {"$ref": "#/$defs/resource_ref"},
+    "action": {"$ref": "#/$defs/resource_ref"},
+    "resource_ref": {"$ref": "#/$defs/resource_ref"},
+    "purpose": {"type": "string", "minLength": 1},
+    "policy_refs": {"type": "array", "items": {"$ref": "#/$defs/resource_ref"}}
+  }
+}
