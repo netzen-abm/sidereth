@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIDERETH Universal Action",
+  "type": "object",
+  "required": ["action_id", "schema_version", "kind", "status", "actor_id", "intent", "provenance_ref", "created_at", "updated_at"],
+  "properties": {
+    "action_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "integer", "minimum": 1},
+    "kind": {"type": "string"},
+    "status": {"type": "string"},
+    "actor_id": {"type": "string", "minLength": 1},
+    "context_refs": {"type": "array", "items": {"type": "string"}},
+    "target_refs": {"type": "array", "items": {"type": "string"}},
+    "intent": {"type": "string", "minLength": 1},
+    "authorization_ref": {"type": ["string", "null"]},
+    "precondition_refs": {"type": "array", "items": {"type": "string"}},
+    "input_refs": {"type": "array", "items": {"type": "string"}},
+    "output_refs": {"type": "array", "items": {"type": "string"}},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "requires_explicit_approval": {"type": "boolean"},
+    "provenance_ref": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "minLength": 1}
+  }
+}
