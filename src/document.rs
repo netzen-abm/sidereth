@@ -170,42 +170,83 @@ impl DocumentRegistry {
         Ok(())
     }
 
+    /// Atomically registers a document with its initial version.
+    ///
+    /// Both records are fully validated before either is inserted, and the
+    /// document's current_version_id must point to that initial version.
+    pub fn insert_document_with_initial_version(
+        &mut self,
+        document: Document,
+        version: DocumentVersion,
+    ) -> Result<(), &'static str> {
+        document.validate()?;
+        version.validate()?;
+        if self.documents.contains_key(&document.document_id) {
+            return Err("duplicate document id");
+        }
+        if self.versions.contains_key(&version.document_version_id) {
+            return Err("duplicate document version id");
+        }
+        if version.document_id != document.document_id {
+            return Err("document version document mismatch");
+        }
+        if version.version_number != 1 {
+            return Err("initial document version must be version 1");
+        }
+        if version.supersedes_version_id.is_some() {
+            return Err("initial document version cannot supersede another version");
+        }
+        if document.current_version_id != version.document_version_id {
+            return Err("document current version must match initial version");
+        }
+
+        self.documents
+            .insert(document.document_id.clone(), document);
+        self.versions
+            .insert(version.document_version_id.clone(), version);
+        Ok(())
+    }
+
     pub fn insert_version(&mut self, version: DocumentVersion) -> Result<(), &'static str> {
         version.validate()?;
-        if !self.documents.contains_key(&version.document_id) {
-            return Err("document version document not found");
-        }
         if self.versions.contains_key(&version.document_version_id) {
             return Err("duplicate document version id");
         }
         let doc = self
             .documents
             .get(&version.document_id)
-            .expect("validated document exists");
-        if version.version_number > 1 && version.supersedes_version_id.is_none() {
-            return Err("non-initial document version must identify superseded version");
+            .ok_or("document version document not found")?;
+
+        if version.version_number == 1 {
+            return Err("initial document version must be registered with its document");
         }
-        if version.version_number == 1 && version.supersedes_version_id.is_some() {
-            return Err("initial document version cannot supersede another version");
+        let superseded_id = version
+            .supersedes_version_id
+            .as_ref()
+            .ok_or("non-initial document version must identify superseded version")?;
+        let superseded = self
+            .versions
+            .get(superseded_id)
+            .ok_or("superseded document version not found")?;
+        if superseded.document_id != version.document_id {
+            return Err("superseded version belongs to another document");
         }
-        if version.version_number > 1
-            && !self
-                .versions
-                .contains_key(version.supersedes_version_id.as_ref().unwrap())
-        {
-            return Err("superseded document version not found");
+        if superseded.document_version_id != doc.current_version_id {
+            return Err("new version must supersede the document current version");
         }
-        if version.version_number == 1
-            && doc.current_version_id != version.document_version_id
-            && self
-                .versions
-                .values()
-                .any(|v| v.document_id == version.document_id && v.version_number == 1)
-        {
-            return Err("document already has initial version");
+        if version.version_number != superseded.version_number + 1 {
+            return Err("document version number must advance sequentially");
         }
+
+        // All preconditions are checked before mutation. The version insert
+        // and current pointer advancement are one logical registry operation.
         self.versions
-            .insert(version.document_version_id.clone(), version);
+            .insert(version.document_version_id.clone(), version.clone());
+        let doc = self
+            .documents
+            .get_mut(&version.document_id)
+            .expect("document validated above");
+        doc.current_version_id = version.document_version_id;
         Ok(())
     }
 
@@ -235,6 +276,20 @@ impl DocumentRegistry {
 
     pub fn get_artifact(&self, id: &Id) -> Option<&DerivedArtifact> {
         self.artifacts.get(id)
+    }
+
+    /// Validates the registry-level current-version invariant for every document.
+    pub fn validate_integrity(&self) -> Result<(), &'static str> {
+        for document in self.documents.values() {
+            let current = self
+                .versions
+                .get(&document.current_version_id)
+                .ok_or("document current version not found")?;
+            if current.document_id != document.document_id {
+                return Err("document current version belongs to another document");
+            }
+        }
+        Ok(())
     }
 }
 
@@ -298,36 +353,98 @@ mod tests {
     }
 
     #[test]
-    fn version_requires_parent_document() {
+    fn atomic_initial_registration_requires_matching_pointer() {
         let mut r = DocumentRegistry::default();
+        let mut d = document();
+        d.current_version_id = "wrong".into();
         assert_eq!(
-            r.insert_version(version(1, "dv-1", None)),
-            Err("document version document not found")
+            r.insert_document_with_initial_version(d, version(1, "dv-1", None)),
+            Err("document current version must match initial version")
+        );
+        assert!(r.get_document(&"doc-1".into()).is_none());
+        assert!(r.get_version(&"dv-1".into()).is_none());
+    }
+
+    #[test]
+    fn atomic_initial_registration_creates_valid_registry() {
+        let mut r = DocumentRegistry::default();
+        r.insert_document_with_initial_version(document(), version(1, "dv-1", None))
+            .unwrap();
+        assert_eq!(
+            r.get_document(&"doc-1".into())
+                .unwrap()
+                .current_version_id,
+            "dv-1"
+        );
+        assert!(r.validate_integrity().is_ok());
+    }
+
+    #[test]
+    fn legacy_document_insert_can_be_repaired_by_initial_version() {
+        let mut r = DocumentRegistry::default();
+        r.insert_document(document()).unwrap();
+        assert_eq!(r.validate_integrity(), Err("document current version not found"));
+        r.insert_version(version(1, "dv-1", None)).unwrap_err();
+    }
+
+    #[test]
+    fn later_version_atomically_advances_current_pointer() {
+        let mut r = DocumentRegistry::default();
+        r.insert_document_with_initial_version(document(), version(1, "dv-1", None))
+            .unwrap();
+        r.insert_version(version(2, "dv-2", Some("dv-1")))
+            .unwrap();
+        assert_eq!(
+            r.get_document(&"doc-1".into())
+                .unwrap()
+                .current_version_id,
+            "dv-2"
+        );
+        assert!(r.validate_integrity().is_ok());
+    }
+
+    #[test]
+    fn later_version_must_supersede_current_version() {
+        let mut r = DocumentRegistry::default();
+        r.insert_document_with_initial_version(document(), version(1, "dv-1", None))
+            .unwrap();
+        r.insert_version(version(2, "dv-2", Some("dv-1")))
+            .unwrap();
+        let result = r.insert_version(version(3, "dv-3", Some("dv-1")));
+        assert_eq!(
+            result,
+            Err("superseded version belongs to another document")
+        );
+        assert_eq!(
+            r.get_document(&"doc-1".into())
+                .unwrap()
+                .current_version_id,
+            "dv-2"
         );
     }
 
     #[test]
-    fn initial_version_can_be_registered() {
+    fn version_number_must_advance_sequentially() {
         let mut r = DocumentRegistry::default();
-        r.insert_document(document()).unwrap();
-        assert!(r.insert_version(version(1, "dv-1", None)).is_ok());
-    }
-
-    #[test]
-    fn later_version_requires_superseded_version() {
-        let mut r = DocumentRegistry::default();
-        r.insert_document(document()).unwrap();
-        r.insert_version(version(1, "dv-1", None)).unwrap();
+        r.insert_document_with_initial_version(document(), version(1, "dv-1", None))
+            .unwrap();
         assert_eq!(
-            r.insert_version(version(2, "dv-2", None)),
-            Err("non-initial document version must identify superseded version")
+            r.insert_version(version(3, "dv-3", Some("dv-1"))),
+            Err("document version number must advance sequentially")
+        );
+        assert_eq!(
+            r.get_document(&"doc-1".into())
+                .unwrap()
+                .current_version_id,
+            "dv-1"
         );
     }
 
     #[test]
     fn derived_artifact_requires_source_version() {
         let mut r = DocumentRegistry::default();
-        r.insert_document(document()).unwrap();
+        r.insert_document_with_initial_version(document(), version(1, "dv-1", None))
+            .unwrap();
         let a = DerivedArtifact {
             artifact_id: "art-1".into(),
             source_document_version_id: "missing".into(),
