@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub type Id = String;
 
+pub mod action;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
@@ -32,6 +33,7 @@ pub mod security;
 pub mod service;
 pub mod timeline;
 
+pub use action::{Action, ActionKind, ActionStatus};
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
