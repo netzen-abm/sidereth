@@ -10,10 +10,15 @@ This index defines the documentation hierarchy for the SIDERETH repository. It p
 - `DECISION-REGISTER.md` — decision history and rationale.
 - `DOCUMENTATION-INDEX.md` — this map.
 - `SIDERETH-GLOSSARY.md` — canonical terminology.
+- `DECISIONS/ECOSYSTEM-STRATEGY-2026-09-03.md` — locked full-ecosystem strategy.
 
 ### 01 — Product and architecture
 - `01-SIDERETH-MASTER-BLUEPRINT.md` — master product/system blueprint.
 - `SIDERETH-ARCHITECTURE.md` — current target architecture and boundaries.
+- `SIDERETH-ECOSYSTEM-ARCHITECTURE.md` — canonical full-ecosystem architecture and layer boundaries.
+- `SIDERETH-CAPABILITY-MODEL.md` — capability/function/tool/resource/workflow model.
+- `SIDERETH-ECOSYSTEM-ROADMAP.md` — capability-led ecosystem roadmap.
+- `SIDERETH-ECOSYSTEM-DISCUSSION-RECORD.md` — consolidated strategic discussion record.
 - `ESTIMATE-WIREFRAME-PLAN.md` — planning estimate and UX/wireframe scope only.
 - `ROADMAP.md` — phased delivery roadmap.
 - `08-MCP-ARCHITECTURE.md` — MCP interoperability boundary.
@@ -22,6 +27,7 @@ This index defines the documentation hierarchy for the SIDERETH repository. It p
 `docs/contracts/` contains canonical domain, capability, lifecycle/event, authorization, API semantics, audit/storage and contract-test definitions.
 
 Important capability contracts include:
+- `CAPABILITY-CONTRACT.md` — capability definition and governance boundary.
 - `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.
 - `CORE-V1.2-DESIGN.md` — provider-neutral durable persistence contract.
 - `CORE-V1.2-B-DESIGN.md` — reference local durable adapter boundary.
@@ -49,3 +55,6 @@ Documentation must never imply implementation that is not supported by source co
 
 ## Change rule
 Before creating a new specification, search this index and existing docs. Extend the canonical document when the subject already exists. Create a new document only when the scope is genuinely distinct.
+
+## Branch hygiene rule
+Do not create a new branch when a suitable existing branch can safely carry the work. Create a new branch only when isolation is genuinely required. After work is merged and its branch is no longer relevant, archive any unique material first and delete the obsolete branch when repository tooling permits.
