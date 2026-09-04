@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sidereth.org/schemas/party.schema.json",
+  "title": "SIDERETH Party",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["party_id", "schema_version", "party_kind", "status", "display_name", "privacy_classification", "created_at", "updated_at"],
+  "properties": {
+    "party_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "integer", "minimum": 1},
+    "party_kind": {"enum": ["person", "organization", "government_entity", "role_actor", "system_actor"]},
+    "status": {"enum": ["active", "inactive", "suspended", "unknown", "superseded"]},
+    "display_name": {"type": "string", "minLength": 1},
+    "identity_refs": {"type": "array", "items": {"type": "string"}},
+    "jurisdiction_refs": {"type": "array", "items": {"type": "string"}},
+    "organization_ref": {"type": ["string", "null"]},
+    "provenance_ref": {"type": ["string", "null"]},
+    "privacy_classification": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "extension": {"type": "object", "additionalProperties": true}
+  }
+}
