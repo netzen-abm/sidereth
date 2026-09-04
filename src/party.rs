@@ -60,14 +60,8 @@ impl Party {
         {
             return Err("party references cannot be empty");
         }
-        if self
-            .organization_ref
-            .as_ref()
-            .is_some_and(String::is_empty)
-            || self
-                .provenance_ref
-                .as_ref()
-                .is_some_and(String::is_empty)
+        if self.organization_ref.as_ref().is_some_and(String::is_empty)
+            || self.provenance_ref.as_ref().is_some_and(String::is_empty)
         {
             return Err("party reference cannot be empty");
         }
@@ -136,14 +130,15 @@ impl PartyRegistry {
         relationship: PartyRelationship,
     ) -> Result<(), &'static str> {
         relationship.validate()?;
-        if !self
-            .parties
-            .contains_key(&relationship.from_party_id)
+        if !self.parties.contains_key(&relationship.from_party_id)
             || !self.parties.contains_key(&relationship.to_party_id)
         {
             return Err("relationship party not found");
         }
-        if self.relationships.contains_key(&relationship.relationship_id) {
+        if self
+            .relationships
+            .contains_key(&relationship.relationship_id)
+        {
             return Err("duplicate relationship id");
         }
         self.relationships
