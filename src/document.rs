@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum DocumentStatus {
     Draft,
     Active,
@@ -16,6 +17,7 @@ pub enum DocumentStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum IntegrityStatus {
     Verified,
     Unverified,
@@ -341,6 +343,18 @@ mod tests {
         assert_eq!(
             r.insert_artifact(a),
             Err("artifact source document version not found")
+        );
+    }
+
+    #[test]
+    fn public_enums_use_canonical_snake_case_wire_values() {
+        assert_eq!(
+            serde_json::to_string(&DocumentStatus::Superseded).unwrap(),
+            "\"superseded\""
+        );
+        assert_eq!(
+            serde_json::to_string(&IntegrityStatus::Unverified).unwrap(),
+            "\"unverified\""
         );
     }
 }

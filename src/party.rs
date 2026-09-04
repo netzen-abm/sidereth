@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum PartyKind {
     Person,
     Organization,
@@ -14,6 +15,7 @@ pub enum PartyKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum PartyStatus {
     Active,
     Inactive,
@@ -246,5 +248,17 @@ mod tests {
         let mut r = PartyRegistry::default();
         r.insert_party(party("p-1")).unwrap();
         assert_eq!(r.insert_party(party("p-1")), Err("duplicate party id"));
+    }
+
+    #[test]
+    fn public_enums_use_canonical_snake_case_wire_values() {
+        assert_eq!(
+            serde_json::to_string(&PartyKind::GovernmentEntity).unwrap(),
+            "\"government_entity\""
+        );
+        assert_eq!(
+            serde_json::to_string(&PartyStatus::Superseded).unwrap(),
+            "\"superseded\""
+        );
     }
 }
