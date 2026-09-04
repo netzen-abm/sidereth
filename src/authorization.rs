@@ -1,6 +1,8 @@
 use crate::{Id, ResourceRef};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum AccessAction {
     Read,
     Create,
@@ -8,7 +10,7 @@ pub enum AccessAction {
     AppendEvent,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccessRequest {
     pub actor_id: Id,
     pub case_id: Id,
@@ -19,7 +21,7 @@ pub trait AuthorizationPolicy {
     fn authorize(&self, request: &AccessRequest) -> Result<(), &'static str>;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CaseAccessPolicy {
     pub owner_id: Id,
 }
@@ -41,14 +43,15 @@ impl AuthorizationPolicy for CaseAccessPolicy {
 /// This is deliberately separate from human approval, legal authority,
 /// policy definition, and execution status. A decision records the result of
 /// evaluating a request; it does not itself grant legal authority.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum AuthorizationDecision {
     Allow,
     Deny,
     NotApplicable,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizationRequest {
     pub subject_ref: ResourceRef,
     pub action: ResourceRef,
@@ -57,7 +60,7 @@ pub struct AuthorizationRequest {
     pub policy_refs: Vec<ResourceRef>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizationResult {
     pub decision: AuthorizationDecision,
     pub constraints: Vec<String>,
@@ -104,7 +107,7 @@ mod tests {
     }
 
     #[test]
-    fn universal_request_preserves_subject_action_resource_and_purpose() {
+    fn authorization_wire_contract_is_stable() {
         let request = AuthorizationRequest {
             subject_ref: reference(crate::ResourceType::Party, "party-1"),
             action: reference(crate::ResourceType::Action, "action-1"),
@@ -112,10 +115,11 @@ mod tests {
             purpose: "case preparation".into(),
             policy_refs: vec![reference(crate::ResourceType::Other, "policy-1")],
         };
-        assert_eq!(request.subject_ref.id, "party-1");
-        assert_eq!(request.action.id, "action-1");
-        assert_eq!(request.resource_ref.id, "doc-1");
-        assert_eq!(request.purpose, "case preparation");
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains(r#"\"resource_type\":\"party\""#));
+        assert!(json.contains(r#"\"purpose\":\"case preparation\""#));
+        let decoded: AuthorizationRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, request);
     }
 
     #[test]
