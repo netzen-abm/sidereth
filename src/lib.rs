@@ -8,6 +8,51 @@ use serde::{Deserialize, Serialize};
 
 pub type Id = String;
 
+/// Explicit cross-primitive reference contract for ecosystem boundaries.
+///
+/// Existing domain structs retain `Id = String` for source compatibility.
+/// New integrations should use this typed boundary instead of relying on an
+/// implicit target type for an identifier.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct ResourceRef {
+    pub resource_type: ResourceType,
+    pub id: Id,
+}
+
+impl ResourceRef {
+    pub fn new(resource_type: ResourceType, id: impl Into<Id>) -> Result<Self, &'static str> {
+        let id = id.into();
+        if id.is_empty() {
+            return Err("resource reference id is required");
+        }
+        Ok(Self { resource_type, id })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceType {
+    Case,
+    Incident,
+    Event,
+    Evidence,
+    Authority,
+    Jurisdiction,
+    Party,
+    Document,
+    Action,
+    Deadline,
+    Response,
+    Escalation,
+    Remedy,
+    Resolution,
+    Procedure,
+    ComplianceRequirement,
+    LegalSource,
+    Timeline,
+    Other,
+}
+
 pub mod action;
 pub mod audit;
 pub mod authority;
@@ -72,6 +117,7 @@ pub use service::{CaseCommand, CaseService, CommandContext, CommandResult, Servi
 pub use timeline::Timeline;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum CaseState {
     Draft,
     Active,
@@ -127,6 +173,7 @@ impl Case {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum IncidentState {
     Open,
     Recorded,
@@ -170,5 +217,27 @@ impl Incident {
         }
         self.state = next;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resource_ref_is_explicit_and_stable_on_wire() {
+        let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
+        let json = serde_json::to_string(&reference).unwrap();
+        assert_eq!(json, r#"{"resource_type":"document","id":"doc-1"}"#);
+        let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, reference);
+    }
+
+    #[test]
+    fn empty_resource_ref_is_rejected() {
+        assert_eq!(
+            ResourceRef::new(ResourceType::Case, ""),
+            Err("resource reference id is required")
+        );
     }
 }
