@@ -106,10 +106,7 @@ impl DocumentVersion {
         if self.schema_version == 0 || self.version_number == 0 {
             return Err("document version number and schema version are required");
         }
-        if self.media_type.is_empty()
-            || self.content_ref.is_empty()
-            || self.content_hash.is_empty()
-        {
+        if self.media_type.is_empty() || self.content_ref.is_empty() || self.content_hash.is_empty() {
             return Err("document version content metadata is required");
         }
         if self.created_by.is_empty() || self.created_at.is_empty() {
@@ -220,7 +217,8 @@ impl DocumentRegistry {
         if self.artifacts.contains_key(&artifact.artifact_id) {
             return Err("duplicate artifact id");
         }
-        self.artifacts.insert(artifact.artifact_id.clone(), artifact);
+        self.artifacts
+            .insert(artifact.artifact_id.clone(), artifact);
         Ok(())
     }
 
