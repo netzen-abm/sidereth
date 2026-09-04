@@ -13,6 +13,7 @@ pub mod authority;
 pub mod authorization;
 pub mod compliance;
 pub mod deadline;
+pub mod document;
 pub mod event;
 pub mod evidence;
 pub mod evidence_store;
@@ -20,6 +21,7 @@ pub mod jurisdiction;
 pub mod legal_source;
 pub mod legal_source_registry;
 pub mod local_store;
+pub mod party;
 pub mod persistence;
 pub mod procedure;
 pub mod remedy;
@@ -38,6 +40,7 @@ pub use deadline::{
     ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
     Obligation,
 };
+pub use document::{DerivedArtifact as DocumentDerivedArtifact, Document, DocumentRegistry, DocumentStatus, DocumentVersion, IntegrityStatus};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
@@ -47,6 +50,7 @@ pub use legal_source::{
 };
 pub use legal_source_registry::LegalSourceRegistry;
 pub use local_store::LocalFileStore;
+pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use persistence::{
     CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
     PersistenceError, Revision, Transaction, TransactionFactory,
