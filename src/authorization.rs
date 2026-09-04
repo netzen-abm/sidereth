@@ -1,4 +1,4 @@
-use crate::Id;
+use crate::{Id, ResourceRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccessAction {
@@ -36,6 +36,38 @@ impl AuthorizationPolicy for CaseAccessPolicy {
     }
 }
 
+/// Decision produced by an authorization policy evaluation.
+///
+/// This is deliberately separate from human approval, legal authority,
+/// policy definition, and execution status. A decision records the result of
+/// evaluating a request; it does not itself grant legal authority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthorizationDecision {
+    Allow,
+    Deny,
+    NotApplicable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthorizationRequest {
+    pub subject_ref: ResourceRef,
+    pub action: ResourceRef,
+    pub resource_ref: ResourceRef,
+    pub purpose: String,
+    pub policy_refs: Vec<ResourceRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthorizationResult {
+    pub decision: AuthorizationDecision,
+    pub constraints: Vec<String>,
+    pub policy_refs: Vec<ResourceRef>,
+}
+
+pub trait AuthorizationEvaluator {
+    fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -46,6 +78,10 @@ mod tests {
             case_id: "case-1".into(),
             action: AccessAction::Read,
         }
+    }
+
+    fn reference(resource_type: crate::ResourceType, id: &str) -> ResourceRef {
+        ResourceRef::new(resource_type, id).unwrap()
     }
 
     #[test]
@@ -65,5 +101,31 @@ mod tests {
             policy.authorize(&request("user-2")),
             Err("case access denied")
         );
+    }
+
+    #[test]
+    fn universal_request_preserves_subject_action_resource_and_purpose() {
+        let request = AuthorizationRequest {
+            subject_ref: reference(crate::ResourceType::Party, "party-1"),
+            action: reference(crate::ResourceType::Action, "action-1"),
+            resource_ref: reference(crate::ResourceType::Document, "doc-1"),
+            purpose: "case preparation".into(),
+            policy_refs: vec![reference(crate::ResourceType::Other, "policy-1")],
+        };
+        assert_eq!(request.subject_ref.id, "party-1");
+        assert_eq!(request.action.id, "action-1");
+        assert_eq!(request.resource_ref.id, "doc-1");
+        assert_eq!(request.purpose, "case preparation");
+    }
+
+    #[test]
+    fn authorization_decision_is_not_an_approval_or_legal_authority() {
+        let result = AuthorizationResult {
+            decision: AuthorizationDecision::Allow,
+            constraints: vec!["read_only".into()],
+            policy_refs: vec![reference(crate::ResourceType::Other, "policy-1")],
+        };
+        assert_eq!(result.decision, AuthorizationDecision::Allow);
+        assert_eq!(result.constraints, vec!["read_only"]);
     }
 }
