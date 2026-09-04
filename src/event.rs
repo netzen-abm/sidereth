@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::Id;
+use crate::{Id, ResourceRef};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EventEnvelope {
@@ -50,6 +50,32 @@ impl EventEnvelope {
         }
         Ok(())
     }
+
+    /// Returns the event's aggregate as an explicit ecosystem boundary reference.
+    pub fn aggregate_ref(&self) -> Result<ResourceRef, &'static str> {
+        let resource_type = match self.aggregate_type.as_str() {
+            "case" => crate::ResourceType::Case,
+            "incident" => crate::ResourceType::Incident,
+            "event" => crate::ResourceType::Event,
+            "evidence" => crate::ResourceType::Evidence,
+            "authority" => crate::ResourceType::Authority,
+            "jurisdiction" => crate::ResourceType::Jurisdiction,
+            "party" => crate::ResourceType::Party,
+            "document" => crate::ResourceType::Document,
+            "action" => crate::ResourceType::Action,
+            "deadline" => crate::ResourceType::Deadline,
+            "response" => crate::ResourceType::Response,
+            "escalation" => crate::ResourceType::Escalation,
+            "remedy" => crate::ResourceType::Remedy,
+            "resolution" => crate::ResourceType::Resolution,
+            "procedure" => crate::ResourceType::Procedure,
+            "compliance_requirement" => crate::ResourceType::ComplianceRequirement,
+            "legal_source" => crate::ResourceType::LegalSource,
+            "timeline" => crate::ResourceType::Timeline,
+            _ => crate::ResourceType::Other,
+        };
+        ResourceRef::new(resource_type, self.aggregate_id.clone())
+    }
 }
 
 #[cfg(test)]
@@ -90,5 +116,12 @@ mod tests {
         let mut value = event();
         value.schema_version = 0;
         assert_eq!(value.validate(), Err("schema version must be positive"));
+    }
+
+    #[test]
+    fn aggregate_ref_is_explicit() {
+        let reference = event().aggregate_ref().unwrap();
+        assert_eq!(reference.resource_type, crate::ResourceType::Case);
+        assert_eq!(reference.id, "case-1");
     }
 }

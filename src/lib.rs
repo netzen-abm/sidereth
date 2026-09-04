@@ -66,6 +66,7 @@ pub mod evidence_store;
 pub mod jurisdiction;
 pub mod legal_source;
 pub mod legal_source_registry;
+pub mod lifecycle;
 pub mod local_store;
 pub mod party;
 pub mod persistence;
@@ -103,6 +104,7 @@ pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
 pub use legal_source_registry::LegalSourceRegistry;
+pub use lifecycle::{LifecycleMeta, LifecycleTransition};
 pub use local_store::LocalFileStore;
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use persistence::{

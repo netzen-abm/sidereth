@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resource-ref.schema.json",
+  "title": "SIDERETH Resource Reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["resource_type", "id"],
+  "properties": {
+    "resource_type": {
+      "type": "string",
+      "enum": ["case", "incident", "event", "evidence", "authority", "jurisdiction", "party", "document", "action", "deadline", "response", "escalation", "remedy", "resolution", "procedure", "compliance_requirement", "legal_source", "timeline", "other"]
+    },
+    "id": { "type": "string", "minLength": 1 }
+  }
+}

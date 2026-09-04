@@ -1,6 +1,11 @@
+use serde::{Deserialize, Serialize};
+
 use crate::Id;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Immutable record of an observed system operation.
+/// Transition-specific context belongs to LifecycleTransition so existing
+/// AuditRecord producers remain source-compatible.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuditRecord {
     pub audit_id: Id,
     pub actor_id: Id,
@@ -8,6 +13,27 @@ pub struct AuditRecord {
     pub aggregate_type: String,
     pub aggregate_id: Id,
     pub occurred_at: String,
+}
+
+impl AuditRecord {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.audit_id.is_empty() {
+            return Err("audit id is required");
+        }
+        if self.actor_id.is_empty() {
+            return Err("audit actor is required");
+        }
+        if self.action.is_empty() {
+            return Err("audit action is required");
+        }
+        if self.aggregate_type.is_empty() || self.aggregate_id.is_empty() {
+            return Err("audit aggregate is required");
+        }
+        if self.occurred_at.is_empty() {
+            return Err("audit time is required");
+        }
+        Ok(())
+    }
 }
 
 pub trait AuditSink {
@@ -21,15 +47,7 @@ pub struct InMemoryAudit {
 
 impl AuditSink for InMemoryAudit {
     fn record(&mut self, record: AuditRecord) -> Result<(), &'static str> {
-        if record.audit_id.is_empty() {
-            return Err("audit id is required");
-        }
-        if record.actor_id.is_empty() {
-            return Err("audit actor is required");
-        }
-        if record.aggregate_id.is_empty() {
-            return Err("audit aggregate is required");
-        }
+        record.validate()?;
         if self
             .records
             .iter()
@@ -78,5 +96,12 @@ mod tests {
             audit.record(record("audit-1")),
             Err("audit record already exists")
         );
+    }
+
+    #[test]
+    fn audit_record_validation_is_explicit() {
+        let mut value = record("audit-1");
+        value.action.clear();
+        assert_eq!(value.validate(), Err("audit action is required"));
     }
 }
