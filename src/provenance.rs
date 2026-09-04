@@ -1,11 +1,12 @@
 use crate::{Id, ResourceRef};
+use serde::{Deserialize, Serialize};
 
 /// First-class provenance for material facts, transformations, and decisions.
 ///
 /// Provenance identifies who or what produced a resource, what source or
 /// inputs support it, when it was produced, and what operation produced it.
 /// It does not itself establish legal authority or authorization.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Provenance {
     pub provenance_id: Id,
     pub actor_ref: Option<ResourceRef>,
@@ -30,7 +31,7 @@ impl Provenance {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProvenanceRef {
     pub provenance_id: Id,
 }
@@ -64,9 +65,9 @@ mod tests {
             occurred_at: "2026-09-04T00:00:00Z".into(),
         };
         assert!(provenance.validate().is_ok());
-        assert_eq!(provenance.actor_ref.unwrap().id, "party-1");
-        assert_eq!(provenance.source_refs[0].id, "source-1");
-        assert_eq!(provenance.input_refs[0].id, "doc-1");
+        let json = serde_json::to_string(&provenance).unwrap();
+        let decoded: Provenance = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, provenance);
     }
 
     #[test]
