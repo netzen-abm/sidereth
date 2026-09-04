@@ -5,8 +5,66 @@
 //! government submission, and autonomous legal decisions.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::ops::Deref;
 
-pub type Id = String;
+/// Canonical opaque identifier used across SIDERETH primitives.
+///
+/// The wire representation remains a JSON string for backward compatibility,
+/// while the Rust type prevents accidental substitution with arbitrary
+/// application strings at typed API boundaries.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[serde(transparent)]
+pub struct Id(String);
+
+impl Id {
+    pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
+        let value = value.into();
+        if value.trim().is_empty() {
+            return Err("id is required");
+        }
+        if value.len() > 512 {
+            return Err("id exceeds maximum length");
+        }
+        Ok(Self(value))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl From<String> for Id {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for Id {
+    fn from(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
+impl Deref for Id {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Id {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 pub mod action;
 pub mod audit;
@@ -170,5 +228,23 @@ impl Incident {
         }
         self.state = next;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn id_is_transparent_on_wire_and_rejects_empty_constructor_input() {
+        let id = Id::new("case-1").unwrap();
+        assert_eq!(serde_json::to_string(&id).unwrap(), "\"case-1\"");
+        assert_eq!(Id::new("   "), Err("id is required"));
+    }
+
+    #[test]
+    fn id_rejects_excessive_length() {
+        let value = "x".repeat(513);
+        assert_eq!(Id::new(value), Err("id exceeds maximum length"));
     }
 }
