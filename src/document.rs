@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum DocumentStatus {
     Draft,
     Active,
@@ -16,6 +17,7 @@ pub enum DocumentStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum IntegrityStatus {
     Verified,
     Unverified,
@@ -291,7 +293,7 @@ mod tests {
     #[test]
     fn missing_document_id_rejected() {
         let mut d = document();
-        d.document_id.clear();
+        d.document_id = "".into();
         assert_eq!(d.validate(), Err("document id is required"));
     }
 
@@ -341,6 +343,18 @@ mod tests {
         assert_eq!(
             r.insert_artifact(a),
             Err("artifact source document version not found")
+        );
+    }
+
+    #[test]
+    fn public_enum_wire_values_are_snake_case() {
+        assert_eq!(
+            serde_json::to_string(&DocumentStatus::Active).unwrap(),
+            "\"active\""
+        );
+        assert_eq!(
+            serde_json::to_string(&IntegrityStatus::Unverified).unwrap(),
+            "\"unverified\""
         );
     }
 }
