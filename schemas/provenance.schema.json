@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sidereth.org/schemas/provenance.schema.json",
+  "title": "SIDERETH Provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provenance_id", "actor_ref", "source_refs", "input_refs", "operation", "occurred_at"],
+  "$defs": {
+    "resource_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_type", "id"],
+      "properties": {
+        "resource_type": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "properties": {
+    "provenance_id": {"type": "string", "minLength": 1},
+    "actor_ref": {"anyOf": [{"$ref": "#/$defs/resource_ref"}, {"type": "null"}]},
+    "source_refs": {"type": "array", "items": {"$ref": "#/$defs/resource_ref"}},
+    "input_refs": {"type": "array", "items": {"$ref": "#/$defs/resource_ref"}},
+    "operation": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "minLength": 1}
+  }
+}
