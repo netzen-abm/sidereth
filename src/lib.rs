@@ -70,6 +70,7 @@ pub mod local_store;
 pub mod party;
 pub mod persistence;
 pub mod procedure;
+pub mod provenance;
 pub mod remedy;
 pub mod repository;
 pub mod resolution;
@@ -109,6 +110,7 @@ pub use persistence::{
     PersistenceError, Revision, Transaction, TransactionFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
+pub use provenance::{Provenance, ProvenanceRef};
 pub use remedy::{Remedy, RemedyApplicabilityStatus, RemedyRegistry, RemedyState};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use resolution::{Resolution, ResolutionRegistry, ResolutionState};
