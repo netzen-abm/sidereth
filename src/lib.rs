@@ -40,7 +40,10 @@ pub use deadline::{
     ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
     Obligation,
 };
-pub use document::{DerivedArtifact as DocumentDerivedArtifact, Document, DocumentRegistry, DocumentStatus, DocumentVersion, IntegrityStatus};
+pub use document::{
+    DerivedArtifact as DocumentDerivedArtifact, Document, DocumentRegistry, DocumentStatus,
+    DocumentVersion, IntegrityStatus,
+};
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
