@@ -6,23 +6,26 @@
   "additionalProperties": false,
   "required": ["document_id", "schema_version", "document_type", "status", "title", "current_version_id", "privacy_classification", "created_at", "updated_at"],
   "properties": {
-    "document_id": {"type": "string", "minLength": 1},
+    "document_id": {"$ref": "#/$defs/id"},
     "schema_version": {"type": "integer", "minimum": 1},
     "document_type": {"type": "string", "minLength": 1},
     "status": {"enum": ["draft", "active", "superseded", "revoked", "archived", "deleted", "unknown"]},
     "title": {"type": "string", "minLength": 1},
-    "issuer_party_id": {"type": ["string", "null"]},
-    "recipient_party_refs": {"type": "array", "items": {"type": "string"}},
-    "case_refs": {"type": "array", "items": {"type": "string"}},
-    "incident_refs": {"type": "array", "items": {"type": "string"}},
-    "jurisdiction_refs": {"type": "array", "items": {"type": "string"}},
-    "authority_ref": {"type": ["string", "null"]},
-    "current_version_id": {"type": "string", "minLength": 1},
-    "provenance_ref": {"type": ["string", "null"]},
+    "issuer_party_id": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "recipient_party_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "case_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "incident_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "jurisdiction_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "authority_ref": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "current_version_id": {"$ref": "#/$defs/id"},
+    "provenance_ref": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
     "privacy_classification": {"type": "string", "minLength": 1},
-    "retention_policy_ref": {"type": ["string", "null"]},
+    "retention_policy_ref": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
     "created_at": {"type": "string", "format": "date-time"},
     "updated_at": {"type": "string", "format": "date-time"},
     "extension": {"type": "object", "additionalProperties": true}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 512}
   }
 }
