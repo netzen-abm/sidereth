@@ -81,7 +81,10 @@ pub mod timeline;
 pub use action::{Action, ActionKind, ActionStatus};
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
-pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
+pub use authorization::{
+    AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
+    AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
+};
 pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState};
 pub use deadline::{
     ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
