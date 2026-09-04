@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sidereth.org/schemas/document.schema.json",
+  "title": "SIDERETH Document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document_id", "schema_version", "document_type", "status", "title", "current_version_id", "privacy_classification", "created_at", "updated_at"],
+  "properties": {
+    "document_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "integer", "minimum": 1},
+    "document_type": {"type": "string", "minLength": 1},
+    "status": {"enum": ["draft", "active", "superseded", "revoked", "archived", "deleted", "unknown"]},
+    "title": {"type": "string", "minLength": 1},
+    "issuer_party_id": {"type": ["string", "null"]},
+    "recipient_party_refs": {"type": "array", "items": {"type": "string"}},
+    "case_refs": {"type": "array", "items": {"type": "string"}},
+    "incident_refs": {"type": "array", "items": {"type": "string"}},
+    "jurisdiction_refs": {"type": "array", "items": {"type": "string"}},
+    "authority_ref": {"type": ["string", "null"]},
+    "current_version_id": {"type": "string", "minLength": 1},
+    "provenance_ref": {"type": ["string", "null"]},
+    "privacy_classification": {"type": "string", "minLength": 1},
+    "retention_policy_ref": {"type": ["string", "null"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "extension": {"type": "object", "additionalProperties": true}
+  }
+}
