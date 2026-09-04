@@ -218,8 +218,7 @@ impl DocumentRegistry {
         if self.artifacts.contains_key(&artifact.artifact_id) {
             return Err("duplicate artifact id");
         }
-        self.artifacts
-            .insert(artifact.artifact_id.clone(), artifact);
+        self.artifacts.insert(artifact.artifact_id.clone(), artifact);
         Ok(())
     }
 
