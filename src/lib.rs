@@ -70,6 +70,7 @@ pub mod local_store;
 pub mod party;
 pub mod persistence;
 pub mod procedure;
+pub mod provenance;
 pub mod remedy;
 pub mod repository;
 pub mod resolution;
@@ -81,7 +82,10 @@ pub mod timeline;
 pub use action::{Action, ActionKind, ActionStatus};
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
-pub use authorization::{AccessAction, AccessRequest, AuthorizationPolicy, CaseAccessPolicy};
+pub use authorization::{
+    AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
+    AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
+};
 pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState};
 pub use deadline::{
     ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
@@ -106,6 +110,7 @@ pub use persistence::{
     PersistenceError, Revision, Transaction, TransactionFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
+pub use provenance::{Provenance, ProvenanceRef};
 pub use remedy::{Remedy, RemedyApplicabilityStatus, RemedyRegistry, RemedyState};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use resolution::{Resolution, ResolutionRegistry, ResolutionState};
