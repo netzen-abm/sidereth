@@ -116,8 +116,9 @@ mod tests {
             policy_refs: vec![reference(crate::ResourceType::Other, "policy-1")],
         };
         let json = serde_json::to_string(&request).unwrap();
-        assert!(json.contains(r#"\"resource_type\":\"party\""#));
-        assert!(json.contains(r#"\"purpose\":\"case preparation\""#));
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(value["subject_ref"]["resource_type"], "party");
+        assert_eq!(value["purpose"], "case preparation");
         let decoded: AuthorizationRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded, request);
     }
