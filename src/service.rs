@@ -26,9 +26,7 @@ impl From<PersistenceError> for ServiceError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CaseCommand {
-    Create {
-        case: Case,
-    },
+    Create { case: Case },
     Transition {
         case_id: Id,
         expected_revision: crate::Revision,
