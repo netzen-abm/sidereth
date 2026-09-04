@@ -106,9 +106,7 @@ impl DocumentVersion {
         if self.schema_version == 0 || self.version_number == 0 {
             return Err("document version number and schema version are required");
         }
-        if self.media_type.is_empty()
-            || self.content_ref.is_empty()
-            || self.content_hash.is_empty()
+        if self.media_type.is_empty() || self.content_ref.is_empty() || self.content_hash.is_empty()
         {
             return Err("document version content metadata is required");
         }
