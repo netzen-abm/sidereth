@@ -119,7 +119,11 @@ impl Action {
         )
     }
 
-    pub fn transition(&mut self, next: ActionStatus, updated_at: String) -> Result<(), &'static str> {
+    pub fn transition(
+        &mut self,
+        next: ActionStatus,
+        updated_at: String,
+    ) -> Result<(), &'static str> {
         if !self.can_transition_to(&next) {
             return Err("invalid action state transition");
         }
@@ -179,7 +183,9 @@ mod tests {
     #[test]
     fn approved_action_requires_proposal_first() {
         let mut value = action();
-        value.transition(ActionStatus::Approved, "2026-09-04T10:01:00Z".into()).unwrap();
+        value
+            .transition(ActionStatus::Approved, "2026-09-04T10:01:00Z".into())
+            .unwrap();
         assert_eq!(value.status, ActionStatus::Approved);
     }
 
