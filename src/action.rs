@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum ActionStatus {
     Proposed,
     Approved,
@@ -14,6 +15,7 @@ pub enum ActionStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum ActionKind {
     Information,
     Communication,
@@ -196,5 +198,11 @@ mod tests {
             value.transition(ActionStatus::Completed, "2026-09-04T10:01:00Z".into()),
             Err("invalid action state transition")
         );
+    }
+
+    #[test]
+    fn public_enums_use_canonical_snake_case_wire_values() {
+        assert_eq!(serde_json::to_string(&ActionKind::DocumentCreation).unwrap(), "\"document_creation\"");
+        assert_eq!(serde_json::to_string(&ActionStatus::Proposed).unwrap(), "\"proposed\"");
     }
 }
