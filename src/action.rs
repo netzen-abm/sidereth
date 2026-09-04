@@ -202,7 +202,13 @@ mod tests {
 
     #[test]
     fn public_enums_use_canonical_snake_case_wire_values() {
-        assert_eq!(serde_json::to_string(&ActionKind::DocumentCreation).unwrap(), "\"document_creation\"");
-        assert_eq!(serde_json::to_string(&ActionStatus::Proposed).unwrap(), "\"proposed\"");
+        assert_eq!(
+            serde_json::to_string(&ActionKind::DocumentCreation).unwrap(),
+            "\"document_creation\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ActionStatus::Proposed).unwrap(),
+            "\"proposed\""
+        );
     }
 }
