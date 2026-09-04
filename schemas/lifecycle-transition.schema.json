@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SIDERETH Lifecycle Transition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["transition_id", "resource_ref", "to_state", "actor_ref", "occurred_at", "correlation_id"],
+  "properties": {
+    "transition_id": { "type": "string", "minLength": 1 },
+    "resource_ref": { "$ref": "./resource-ref.schema.json" },
+    "from_state": { "type": ["string", "null"] },
+    "to_state": { "type": "string", "minLength": 1 },
+    "actor_ref": { "$ref": "./resource-ref.schema.json" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "reason": { "type": ["string", "null"] },
+    "authorization_ref": { "anyOf": [{ "$ref": "./resource-ref.schema.json" }, { "type": "null" }] },
+    "provenance_ref": { "anyOf": [{ "$ref": "./resource-ref.schema.json" }, { "type": "null" }] },
+    "correlation_id": { "type": "string", "minLength": 1 },
+    "causation_id": { "type": ["string", "null"] }
+  }
+}
