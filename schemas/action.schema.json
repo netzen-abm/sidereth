@@ -1,25 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sidereth.org/schemas/action.schema.json",
   "title": "SIDERETH Universal Action",
   "type": "object",
+  "additionalProperties": false,
   "required": ["action_id", "schema_version", "kind", "status", "actor_id", "intent", "provenance_ref", "created_at", "updated_at"],
   "properties": {
-    "action_id": {"type": "string", "minLength": 1},
+    "action_id": {"$ref": "#/$defs/id"},
     "schema_version": {"type": "integer", "minimum": 1},
-    "kind": {"type": "string"},
-    "status": {"type": "string"},
-    "actor_id": {"type": "string", "minLength": 1},
-    "context_refs": {"type": "array", "items": {"type": "string"}},
-    "target_refs": {"type": "array", "items": {"type": "string"}},
+    "kind": {"enum": ["information", "communication", "document_creation", "evidence_operation", "submission", "escalation", "decision", "external_operation", "other"]},
+    "status": {"enum": ["proposed", "approved", "rejected", "executing", "completed", "failed", "cancelled"]},
+    "actor_id": {"$ref": "#/$defs/id"},
+    "context_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "target_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
     "intent": {"type": "string", "minLength": 1},
-    "authorization_ref": {"type": ["string", "null"]},
-    "precondition_refs": {"type": "array", "items": {"type": "string"}},
-    "input_refs": {"type": "array", "items": {"type": "string"}},
-    "output_refs": {"type": "array", "items": {"type": "string"}},
-    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "authorization_ref": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "precondition_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "input_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "output_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
     "requires_explicit_approval": {"type": "boolean"},
-    "provenance_ref": {"type": "string", "minLength": 1},
-    "created_at": {"type": "string", "minLength": 1},
-    "updated_at": {"type": "string", "minLength": 1}
+    "provenance_ref": {"$ref": "#/$defs/id"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "extension": {"type": "object", "additionalProperties": true}
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 512}
   }
 }
