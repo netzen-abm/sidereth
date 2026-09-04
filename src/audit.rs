@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Id, ResourceRef};
+use crate::Id;
 
-/// Immutable record of an observed system transition or operation.
-/// Audit is an observability primitive; it does not replace the domain object,
-/// authorization decision, legal authority, or action execution record.
+/// Immutable record of an observed system operation.
+/// Transition-specific context belongs to LifecycleTransition so existing
+/// AuditRecord producers remain source-compatible.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuditRecord {
     pub audit_id: Id,
@@ -13,12 +13,6 @@ pub struct AuditRecord {
     pub aggregate_type: String,
     pub aggregate_id: Id,
     pub occurred_at: String,
-    pub before_state: Option<String>,
-    pub after_state: Option<String>,
-    pub reason: Option<String>,
-    pub correlation_id: Id,
-    pub causation_id: Option<Id>,
-    pub provenance_ref: Option<ResourceRef>,
 }
 
 impl AuditRecord {
@@ -37,9 +31,6 @@ impl AuditRecord {
         }
         if self.occurred_at.is_empty() {
             return Err("audit time is required");
-        }
-        if self.correlation_id.is_empty() {
-            return Err("audit correlation id is required");
         }
         Ok(())
     }
@@ -87,12 +78,6 @@ mod tests {
             aggregate_type: "case".into(),
             aggregate_id: "case-1".into(),
             occurred_at: "2026-09-02T00:00:00Z".into(),
-            before_state: None,
-            after_state: Some("active".into()),
-            reason: Some("created".into()),
-            correlation_id: "corr-1".into(),
-            causation_id: None,
-            provenance_ref: None,
         }
     }
 
@@ -114,10 +99,9 @@ mod tests {
     }
 
     #[test]
-    fn audit_record_has_transition_context() {
-        let value = record("audit-1");
-        assert_eq!(value.before_state, None);
-        assert_eq!(value.after_state.as_deref(), Some("active"));
-        assert_eq!(value.correlation_id, "corr-1");
+    fn audit_record_validation_is_explicit() {
+        let mut value = record("audit-1");
+        value.action.clear();
+        assert_eq!(value.validate(), Err("audit action is required"));
     }
 }
