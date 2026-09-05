@@ -169,11 +169,14 @@ impl UnitOfWork for PostgresUnitOfWork {
         if !self.active {
             return Err(PersistenceError::Conflict);
         }
-        let mut client = self
-            .client
-            .lock()
-            .map_err(|_| PersistenceError::Unavailable)?;
-        client.batch_execute("COMMIT").map_err(Self::map_error)?;
+        let result = {
+            let mut client = self
+                .client
+                .lock()
+                .map_err(|_| PersistenceError::Unavailable)?;
+            client.batch_execute("COMMIT").map_err(Self::map_error)
+        };
+        result?;
         self.active = false;
         Ok(())
     }
@@ -188,10 +191,13 @@ impl PostgresUnitOfWork {
         if !self.active {
             return Ok(());
         }
-        let mut client = self
-            .lock_client()
-            .map_err(|_| PersistenceError::Unavailable)?;
-        client.batch_execute("ROLLBACK").map_err(Self::map_error)?;
+        let result = {
+            let mut client = self
+                .lock_client()
+                .map_err(|_| PersistenceError::Unavailable)?;
+            client.batch_execute("ROLLBACK").map_err(Self::map_error)
+        };
+        result?;
         self.active = false;
         Ok(())
     }
