@@ -23,7 +23,7 @@ impl RetentionPolicy {
             return Ok(false);
         }
         match &self.retain_until {
-            Some(until) => Ok(now >= until),
+            Some(until) => Ok(now >= until.as_str()),
             None => Err(EvidenceError::InvalidInput),
         }
     }
