@@ -58,7 +58,10 @@ fn failed_version_transition_does_not_mutate_registry() {
         Err("new version must supersede the document current version")
     );
     assert_eq!(
-        registry.get_document(&"doc-1".into()).unwrap().current_version_id,
+        registry
+            .get_document(&"doc-1".into())
+            .unwrap()
+            .current_version_id,
         "dv-2"
     );
     assert!(registry.get_version(&"dv-3".into()).is_none());
