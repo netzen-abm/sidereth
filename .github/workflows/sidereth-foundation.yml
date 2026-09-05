@@ -115,7 +115,7 @@ jobs:
         run: cargo check --all-targets
 
       - name: Test
-        run: cargo test --all-targets
+        run: cargo test --all-targets --all-features
 
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
