@@ -70,6 +70,8 @@ pub mod lifecycle;
 pub mod local_store;
 pub mod party;
 pub mod persistence;
+#[cfg(feature = "postgres")]
+pub mod postgres;
 pub mod procedure;
 pub mod provenance;
 pub mod remedy;
@@ -109,7 +111,9 @@ pub use local_store::LocalFileStore;
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use persistence::{
     CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
-    PersistenceError, Revision, Transaction, TransactionFactory,
+    PersistenceError, PersistenceError as _, ResourceLink, ResourceWrite, ResourceWriteMode,
+    Revision, Transaction, TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError,
+    UnitOfWorkFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use provenance::{Provenance, ProvenanceRef};
@@ -122,6 +126,9 @@ pub use security::{
 };
 pub use service::{CaseCommand, CaseService, CommandContext, CommandResult, ServiceError};
 pub use timeline::Timeline;
+
+#[cfg(feature = "postgres")]
+pub use postgres::{to_json, PostgresUnitOfWork, PostgresUnitOfWorkFactory};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
