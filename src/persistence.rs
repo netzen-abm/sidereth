@@ -31,7 +31,7 @@ impl From<PersistenceError> for UnitOfWorkError {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ResourceWriteMode {
     Insert,
     Upsert,
