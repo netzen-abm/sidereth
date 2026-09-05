@@ -111,9 +111,8 @@ pub use local_store::LocalFileStore;
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use persistence::{
     CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
-    PersistenceError, PersistenceError as _, ResourceLink, ResourceWrite, ResourceWriteMode,
-    Revision, Transaction, TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError,
-    UnitOfWorkFactory,
+    PersistenceError, ResourceLink, ResourceWrite, ResourceWriteMode, Revision, Transaction,
+    TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use provenance::{Provenance, ProvenanceRef};
