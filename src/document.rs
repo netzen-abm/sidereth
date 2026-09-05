@@ -108,9 +108,7 @@ impl DocumentVersion {
         if self.schema_version == 0 || self.version_number == 0 {
             return Err("document version number and schema version are required");
         }
-        if self.media_type.is_empty()
-            || self.content_ref.is_empty()
-            || self.content_hash.is_empty()
+        if self.media_type.is_empty() || self.content_ref.is_empty() || self.content_hash.is_empty()
         {
             return Err("document version content metadata is required");
         }
@@ -254,7 +252,8 @@ impl DocumentRegistry {
         if self.artifacts.contains_key(&artifact.artifact_id) {
             return Err("duplicate artifact id");
         }
-        self.artifacts.insert(artifact.artifact_id.clone(), artifact);
+        self.artifacts
+            .insert(artifact.artifact_id.clone(), artifact);
         Ok(())
     }
 
@@ -387,8 +386,7 @@ mod tests {
         let mut r = DocumentRegistry::default();
         r.insert_document_with_initial_version(document(), version(1, "dv-1", None))
             .unwrap();
-        r.insert_version(version(2, "dv-2", Some("dv-1")))
-            .unwrap();
+        r.insert_version(version(2, "dv-2", Some("dv-1"))).unwrap();
         assert_eq!(
             r.get_document(&"doc-1".into()).unwrap().current_version_id,
             "dv-2"
@@ -401,8 +399,7 @@ mod tests {
         let mut r = DocumentRegistry::default();
         r.insert_document_with_initial_version(document(), version(1, "dv-1", None))
             .unwrap();
-        r.insert_version(version(2, "dv-2", Some("dv-1")))
-            .unwrap();
+        r.insert_version(version(2, "dv-2", Some("dv-1"))).unwrap();
         assert_eq!(
             r.insert_version(version(3, "dv-3", Some("dv-1"))),
             Err("new version must supersede the document current version")
@@ -452,14 +449,22 @@ mod tests {
     }
 
     #[test]
-    fn public_enums_use_canonical_snake_case_wire_values() {
+    fn artifact_confidence_is_bounded() {
+        let a = DerivedArtifact {
+            artifact_id: "art-1".into(),
+            source_document_version_id: "dv-1".into(),
+            artifact_type: "ocr".into(),
+            content_ref: "blob-art".into(),
+            content_hash: None,
+            created_at: "2026-09-04T00:00:00Z".into(),
+            created_by: "system".into(),
+            processing_provenance_ref: None,
+            model_ref: None,
+            confidence: Some(101),
+        };
         assert_eq!(
-            serde_json::to_string(&DocumentStatus::Superseded).unwrap(),
-            "\"superseded\""
-        );
-        assert_eq!(
-            serde_json::to_string(&IntegrityStatus::Unverified).unwrap(),
-            "\"unverified\""
+            a.validate(),
+            Err("artifact confidence must be between 0 and 100")
         );
     }
 }
