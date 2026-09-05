@@ -17,18 +17,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dependency-review:
-    name: Dependency Review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v5
-        with:
-          fail-on-severity: high
-
   cargo-audit:
     name: RustSec Audit
     runs-on: ubuntu-latest
@@ -36,9 +24,13 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
+        with:
+          toolchain: stable
       - name: Generate lockfile for audit when absent
         shell: bash
         run: |
@@ -47,20 +39,27 @@ jobs:
             cargo generate-lockfile
           fi
       - name: Audit Rust dependencies
-        uses: actions-rust-lang/audit@v1
+        uses: actions-rust-lang/audit@v1.2.7
+        with:
+          createIssues: 'false'
+          denyWarnings: 'true'
 
   zizmor:
     name: GitHub Actions Security
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
       - name: Run zizmor
-        uses: zizmorcore/zizmor-action@v0.6.3
+        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        with:
+          advanced-security: 'false'
+          annotations: 'true'
+          online-audits: 'true'
 
   scorecard:
     name: OpenSSF Scorecard
@@ -72,16 +71,16 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           persist-credentials: false
       - name: Run Scorecard analysis
-        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
       - name: Upload Scorecard results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           sarif_file: results.sarif
