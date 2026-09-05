@@ -173,9 +173,7 @@ impl UnitOfWork for PostgresUnitOfWork {
             .client
             .lock()
             .map_err(|_| PersistenceError::Unavailable)?;
-        client
-            .batch_execute("COMMIT")
-            .map_err(Self::map_error)?;
+        client.batch_execute("COMMIT").map_err(Self::map_error)?;
         self.active = false;
         Ok(())
     }
@@ -193,9 +191,7 @@ impl PostgresUnitOfWork {
         let mut client = self
             .lock_client()
             .map_err(|_| PersistenceError::Unavailable)?;
-        client
-            .batch_execute("ROLLBACK")
-            .map_err(Self::map_error)?;
+        client.batch_execute("ROLLBACK").map_err(Self::map_error)?;
         self.active = false;
         Ok(())
     }
@@ -236,9 +232,6 @@ mod tests {
     #[test]
     fn factory_preserves_connection_configuration() {
         let factory = PostgresUnitOfWorkFactory::new("host=localhost user=sidereth");
-        assert_eq!(
-            factory.connection_string(),
-            "host=localhost user=sidereth"
-        );
+        assert_eq!(factory.connection_string(), "host=localhost user=sidereth");
     }
 }
