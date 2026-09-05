@@ -1,8 +1,10 @@
 //! PostgreSQL persistence adapter for the provider-neutral unit-of-work contract.
 //!
-//! This adapter intentionally stores canonical resource payloads as JSONB at the
+//! This adapter stores canonical resource payloads as JSONB at the
 //! infrastructure boundary. Domain validation remains in the Rust core; the
 //! database provides atomic commit/rollback and durable storage.
+
+use std::sync::{Arc, Mutex};
 
 use postgres::{Client, NoTls};
 use serde_json::Value;
@@ -31,7 +33,7 @@ impl PostgresUnitOfWorkFactory {
 }
 
 pub struct PostgresUnitOfWork {
-    client: Option<Client>,
+    client: Arc<Mutex<Client>>,
     active: bool,
 }
 
@@ -40,18 +42,18 @@ impl PostgresUnitOfWork {
         PersistenceError::Unavailable
     }
 
-    fn client_mut(&mut self) -> Result<&mut Client, UnitOfWorkError> {
+    fn lock_client(&self) -> Result<std::sync::MutexGuard<'_, Client>, UnitOfWorkError> {
         self.client
-            .as_mut()
-            .ok_or(UnitOfWorkError::Persistence(PersistenceError::Conflict))
+            .lock()
+            .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Unavailable))
     }
 }
 
-pub struct PostgresUnitOfWorkContext<'a> {
-    client: &'a mut Client,
+pub struct PostgresUnitOfWorkContext {
+    client: Arc<Mutex<Client>>,
 }
 
-impl<'a> PostgresUnitOfWorkContext<'a> {
+impl PostgresUnitOfWorkContext {
     fn resource_type_name(resource_type: ResourceType) -> &'static str {
         match resource_type {
             ResourceType::Case => "case",
@@ -77,16 +79,19 @@ impl<'a> PostgresUnitOfWorkContext<'a> {
     }
 }
 
-impl UnitOfWorkContext for PostgresUnitOfWorkContext<'_> {
+impl UnitOfWorkContext for PostgresUnitOfWorkContext {
     fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
         let resource_type = Self::resource_type_name(write.resource_ref.resource_type);
         let id = write.resource_ref.id;
         let schema_version = i32::from(write.schema_version);
         let payload = write.payload;
+        let mut client = self
+            .client
+            .lock()
+            .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Unavailable))?;
 
         match write.mode {
-            ResourceWriteMode::Insert => self
-                .client
+            ResourceWriteMode::Insert => client
                 .execute(
                     "INSERT INTO sidereth_resource_records
                         (resource_type, resource_id, schema_version, payload)
@@ -95,8 +100,7 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext<'_> {
                 )
                 .map(|_| ())
                 .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Duplicate)),
-            ResourceWriteMode::Upsert => self
-                .client
+            ResourceWriteMode::Upsert => client
                 .execute(
                     "INSERT INTO sidereth_resource_records
                         (resource_type, resource_id, schema_version, payload)
@@ -115,7 +119,11 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext<'_> {
     fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError> {
         let source_type = Self::resource_type_name(link.source_ref.resource_type);
         let target_type = Self::resource_type_name(link.target_ref.resource_type);
-        self.client
+        let mut client = self
+            .client
+            .lock()
+            .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Unavailable))?;
+        client
             .execute(
                 "INSERT INTO sidereth_resource_links
                     (source_type, source_id, relation, target_type, target_id)
@@ -136,22 +144,19 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext<'_> {
 }
 
 impl UnitOfWork for PostgresUnitOfWork {
-    type Context = PostgresUnitOfWorkContext<'static>;
+    type Context = PostgresUnitOfWorkContext;
 
     fn execute<R, F>(&mut self, operation: F) -> Result<R, UnitOfWorkError>
     where
         F: FnOnce(&mut Self::Context) -> Result<R, UnitOfWorkError>,
     {
-        // The context lifetime is tied to the temporary borrow of this UoW. The
-        // adapter never stores the context, so the transmute only expresses the
-        // associated-type shape required by the provider-neutral trait.
-        let client = self.client_mut()?;
-        let context = PostgresUnitOfWorkContext { client };
-        let context = unsafe {
-            std::mem::transmute::<PostgresUnitOfWorkContext<'_>, PostgresUnitOfWorkContext<'static>>(context)
+        if !self.active {
+            return Err(UnitOfWorkError::Persistence(PersistenceError::Conflict));
+        }
+        let mut context = PostgresUnitOfWorkContext {
+            client: Arc::clone(&self.client),
         };
-        let result = operation(&mut { context });
-        match result {
+        match operation(&mut context) {
             Ok(value) => Ok(value),
             Err(error) => {
                 let _ = self.rollback_in_place();
@@ -161,11 +166,13 @@ impl UnitOfWork for PostgresUnitOfWork {
     }
 
     fn commit(mut self) -> Result<(), PersistenceError> {
-        let client = self
+        if !self.active {
+            return Err(PersistenceError::Conflict);
+        }
+        let mut client = self
             .client
-            .take()
-            .ok_or(PersistenceError::Conflict)?;
-        let mut client = client;
+            .lock()
+            .map_err(|_| PersistenceError::Unavailable)?;
         client
             .batch_execute("COMMIT")
             .map_err(Self::map_error)?;
@@ -183,9 +190,12 @@ impl PostgresUnitOfWork {
         if !self.active {
             return Ok(());
         }
-        if let Some(client) = self.client.as_mut() {
-            client.batch_execute("ROLLBACK").map_err(Self::map_error)?;
-        }
+        let mut client = self
+            .lock_client()
+            .map_err(|_| PersistenceError::Unavailable)?;
+        client
+            .batch_execute("ROLLBACK")
+            .map_err(Self::map_error)?;
         self.active = false;
         Ok(())
     }
@@ -209,13 +219,12 @@ impl UnitOfWorkFactory for PostgresUnitOfWorkFactory {
             .batch_execute("BEGIN")
             .map_err(PostgresUnitOfWork::map_error)?;
         Ok(PostgresUnitOfWork {
-            client: Some(client),
+            client: Arc::new(Mutex::new(client)),
             active: true,
         })
     }
 }
 
-/// Small helper for adapters that need to persist a typed JSON payload.
 pub fn to_json<T: serde::Serialize>(value: &T) -> Result<Value, PersistenceError> {
     serde_json::to_value(value).map_err(|_| PersistenceError::SerializationFailure)
 }
