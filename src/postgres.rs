@@ -192,8 +192,9 @@ impl PostgresUnitOfWork {
             return Ok(());
         }
         let result = {
-            let mut client = self
-                .lock_client()
+            let client = Arc::clone(&self.client);
+            let mut client = client
+                .lock()
                 .map_err(|_| PersistenceError::Unavailable)?;
             client.batch_execute("ROLLBACK").map_err(Self::map_error)
         };
