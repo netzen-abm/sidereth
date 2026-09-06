@@ -9,10 +9,6 @@ use serde::{Deserialize, Serialize};
 pub type Id = String;
 
 /// Explicit cross-primitive reference contract for ecosystem boundaries.
-///
-/// Existing domain structs retain `Id = String` for source compatibility.
-/// New integrations should use this typed boundary instead of relying on an
-/// implicit target type for an identifier.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ResourceRef {
     pub resource_type: ResourceType,
@@ -118,8 +114,9 @@ pub use local_store::LocalFileStore;
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use persistence::{
     CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
-    PersistenceError, ResourceLink, ResourceWrite, ResourceWriteMode, Revision, Transaction,
-    TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
+    PersistenceError, ResourceLink, ResourceRecord, ResourceWrite, ResourceWriteMode, Revision,
+    Transaction, TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError,
+    UnitOfWorkFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use provenance::{Provenance, ProvenanceRef};
