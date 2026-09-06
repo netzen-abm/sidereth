@@ -223,3 +223,152 @@ impl<T> Persisted<T> {
         })
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IdempotencyClaim {
+    Claimed,
+    AlreadyClaimed,
+}
+
+pub trait CaseStore {
+    fn get_case(&self, id: &Id) -> Result<Option<Persisted<Case>>, PersistenceError>;
+    fn create_case(&mut self, value: Persisted<Case>) -> Result<(), PersistenceError>;
+    fn update_case(
+        &mut self,
+        id: &Id,
+        expected_revision: Revision,
+        value: Case,
+    ) -> Result<Revision, PersistenceError>;
+}
+
+pub trait IncidentStore {
+    fn get_incident(&self, id: &Id) -> Result<Option<Persisted<Incident>>, PersistenceError>;
+    fn create_incident(&mut self, value: Persisted<Incident>) -> Result<(), PersistenceError>;
+    fn update_incident(
+        &mut self,
+        id: &Id,
+        expected_revision: Revision,
+        value: Incident,
+    ) -> Result<Revision, PersistenceError>;
+}
+
+pub trait EventStore {
+    fn get_event(&self, id: &Id) -> Result<Option<Persisted<EventEnvelope>>, PersistenceError>;
+    fn append_event(&mut self, value: Persisted<EventEnvelope>) -> Result<(), PersistenceError>;
+}
+
+pub trait Transaction {
+    fn commit(self) -> Result<(), PersistenceError>;
+    fn rollback(self) -> Result<(), PersistenceError>;
+}
+
+pub trait TransactionFactory {
+    type Tx: Transaction;
+
+    fn begin(&mut self) -> Result<Self::Tx, PersistenceError>;
+}
+
+pub trait IdempotencyStore {
+    fn lookup(&self, operation_id: &Id) -> Result<bool, PersistenceError>;
+    fn claim(&mut self, operation_id: Id) -> Result<IdempotencyClaim, PersistenceError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn revision_is_deterministic() {
+        assert_eq!(Revision::initial().next().unwrap().value, 1);
+    }
+
+    #[test]
+    fn zero_schema_version_is_rejected() {
+        let case = Case::new("case-1".into()).unwrap();
+        assert_eq!(
+            Persisted::new(0, case),
+            Err(PersistenceError::ValidationFailure)
+        );
+    }
+
+    #[test]
+    fn revision_overflow_is_a_conflict() {
+        let revision = Revision { value: u64::MAX };
+        assert_eq!(revision.next(), Err(PersistenceError::Conflict));
+    }
+
+    #[test]
+    fn resource_write_requires_schema_version() {
+        let resource = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
+        assert_eq!(
+            ResourceWrite::new(resource, 0, Value::Null, ResourceWriteMode::Insert),
+            Err(UnitOfWorkError::InvalidOperation)
+        );
+    }
+
+    #[test]
+    fn resource_write_mode_uses_canonical_snake_case_wire_values() {
+        assert_eq!(
+            serde_json::to_string(&ResourceWriteMode::Insert).unwrap(),
+            "\"insert\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ResourceWriteMode::Upsert).unwrap(),
+            "\"upsert\""
+        );
+    }
+
+    #[test]
+    fn resource_link_requires_relation() {
+        let source = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
+        let target = ResourceRef::new(crate::ResourceType::Document, "doc-1").unwrap();
+        assert_eq!(
+            ResourceLink::new(source, "   ", target),
+            Err(UnitOfWorkError::InvalidOperation)
+        );
+    }
+
+    #[test]
+    fn resource_link_defaults_to_strong_for_compatibility() {
+        let source = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
+        let target = ResourceRef::new(crate::ResourceType::Document, "doc-1").unwrap();
+        let link = ResourceLink::new(source, "has_document", target).unwrap();
+        assert_eq!(link.class, ResourceLinkClass::Strong);
+    }
+
+    #[test]
+    fn resource_link_classes_use_canonical_wire_values() {
+        assert_eq!(
+            serde_json::to_string(&ResourceLinkClass::Strong).unwrap(),
+            "\"strong\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ResourceLinkClass::Forward).unwrap(),
+            "\"forward\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ResourceLinkClass::External).unwrap(),
+            "\"external\""
+        );
+    }
+
+    #[test]
+    fn legacy_resource_link_json_defaults_to_strong() {
+        let json = r#"{
+            "source_ref": {"resource_type": "case", "id": "case-1"},
+            "relation": "has_document",
+            "target_ref": {"resource_type": "document", "id": "doc-1"}
+        }"#;
+        let link: ResourceLink = serde_json::from_str(json).unwrap();
+        assert_eq!(link.class, ResourceLinkClass::Strong);
+    }
+
+    #[test]
+    fn resource_write_can_carry_expected_revision() {
+        let resource = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
+        let write = ResourceWrite::new(resource, 1, Value::Null, ResourceWriteMode::Upsert)
+            .unwrap()
+            .with_expected_revision(Revision { value: 7 });
+        assert_eq!(write.expected_revision, Some(Revision { value: 7 }));
+    }
+}
