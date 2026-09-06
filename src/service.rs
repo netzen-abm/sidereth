@@ -1,8 +1,8 @@
 use crate::authorization::{AccessAction, AccessRequest, AuthorizationPolicy};
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
-    PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, Revision,
-    UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
+    PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
+    UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{Case, CaseState, Id, ResourceRef, ResourceType};
 use serde_json::json;
@@ -358,7 +358,7 @@ mod tests {
                 {
                     Err(UnitOfWorkError::Persistence(PersistenceError::Conflict))
                 }
-                (ResourceWriteMode::Upsert, Some(current), Some(expected)) => {
+                (ResourceWriteMode::Upsert, Some(_current), Some(expected)) => {
                     state.insert(
                         write.resource_ref.clone(),
                         ResourceRecord {
@@ -454,6 +454,7 @@ mod tests {
         let policy = CaseAccessPolicy {
             owner_id: "user-1".into(),
         };
+        let state = factory.state.clone();
         let mut service = CaseService::new(&mut factory, &policy);
         let result = service
             .create_case(
@@ -463,15 +464,16 @@ mod tests {
             )
             .unwrap();
         assert_eq!(result.revision.value, 0);
-        let state = factory.state.0.borrow();
-        assert!(state.contains_key(&ResourceRef::new(ResourceType::Case, "case-1").unwrap()));
+        let records = state.0.borrow();
+        assert!(records.contains_key(&ResourceRef::new(ResourceType::Case, "case-1").unwrap()));
         assert!(
-            state.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap())
+            records.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap())
         );
-        assert!(state.contains_key(&ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()));
-        assert!(state
-            .contains_key(&ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()));
-        assert!(state.contains_key(&ResourceRef::new(ResourceType::Idempotency, "op-1").unwrap()));
+        assert!(records.contains_key(&ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()));
+        assert!(records.contains_key(
+            &ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()
+        ));
+        assert!(records.contains_key(&ResourceRef::new(ResourceType::Idempotency, "op-1").unwrap()));
     }
 
     #[test]
@@ -516,11 +518,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(result.revision.value, 1);
+        let state = factory.state.0.borrow();
         assert_eq!(
-            factory
-                .state
-                .0
-                .borrow()
+            state
                 .get(&ResourceRef::new(ResourceType::Case, "case-1").unwrap())
                 .unwrap()
                 .revision
@@ -535,6 +535,7 @@ mod tests {
         let policy = CaseAccessPolicy {
             owner_id: "user-1".into(),
         };
+        let state = factory.state.clone();
         let mut service = CaseService::new(&mut factory, &policy);
         service
             .create_case(
@@ -552,7 +553,7 @@ mod tests {
                 CaseState::Active,
             )
             .unwrap();
-        let before = factory.state.0.borrow().clone();
+        let before = state.0.borrow().clone();
         assert_eq!(
             service.transition_case(
                 "user-1".into(),
@@ -563,7 +564,7 @@ mod tests {
             ),
             Err(ServiceError::Conflict)
         );
-        assert_eq!(*factory.state.0.borrow(), before);
+        assert_eq!(*state.0.borrow(), before);
     }
 
     #[test]
