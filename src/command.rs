@@ -7,10 +7,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Provider-neutral plan for an authoritative state-changing command.
-///
-/// The plan is deliberately resource-oriented: domain services decide what
-/// must change, while the persistence boundary guarantees that the complete
-/// set of writes commits or rolls back together.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AtomicCommandPlan {
     pub operation_id: Id,
@@ -94,9 +90,8 @@ impl From<UnitOfWorkError> for AuthoritativeCommandError {
 
 /// Execute a complete command through the canonical atomic boundary.
 ///
-/// No individual resource write is exposed to callers. Idempotency markers,
-/// domain resources, links, event records, audit records, and provenance can
-/// therefore share exactly one commit/rollback boundary.
+/// Idempotency markers, domain resources, links, event records, audit records,
+/// and provenance can share exactly one commit/rollback boundary.
 pub fn execute_authoritative_command<F, R, Build>(
     factory: &mut F,
     plan: AtomicCommandPlan,
@@ -104,13 +99,17 @@ pub fn execute_authoritative_command<F, R, Build>(
 ) -> Result<R, AuthoritativeCommandError>
 where
     F: UnitOfWorkFactory,
-    Build: FnOnce(&mut F::Uow::Context) -> Result<R, UnitOfWorkError>,
+    Build: FnOnce(&mut F::Uow::Context, &AtomicCommandPlan) -> Result<R, UnitOfWorkError>,
 {
     let mut uow = factory.begin().map_err(AuthoritativeCommandError::Persistence)?;
-    let result = uow.execute(build).map_err(AuthoritativeCommandError::from)?;
+    let result = uow
+        .execute(|context| {
+            apply_plan(context, &plan)?;
+            build(context, &plan)
+        })
+        .map_err(AuthoritativeCommandError::from)?;
     uow.commit()
         .map_err(AuthoritativeCommandError::Persistence)?;
-    let _ = plan;
     Ok(result)
 }
 
@@ -153,7 +152,6 @@ mod tests {
 
     struct MockUow {
         context: MockContext,
-        committed: bool,
     }
 
     impl UnitOfWork for MockUow {
@@ -166,8 +164,7 @@ mod tests {
             operation(&mut self.context)
         }
 
-        fn commit(mut self) -> Result<(), PersistenceError> {
-            self.committed = true;
+        fn commit(self) -> Result<(), PersistenceError> {
             Ok(())
         }
 
@@ -185,7 +182,6 @@ mod tests {
         fn begin(&mut self) -> Result<Self::Uow, PersistenceError> {
             Ok(MockUow {
                 context: MockContext::default(),
-                committed: false,
             })
         }
     }
@@ -249,5 +245,25 @@ mod tests {
         apply_plan(&mut context, &plan).unwrap();
         assert_eq!(context.writes.len(), 2);
         assert_eq!(context.links.len(), 1);
+    }
+
+    #[test]
+    fn executor_applies_plan_before_successful_commit() {
+        let mut plan = AtomicCommandPlan::new("op-3").unwrap();
+        plan.claim_operation().unwrap();
+        plan.insert_resource(
+            ResourceRef::new(ResourceType::Case, "case-3").unwrap(),
+            1,
+            serde_json::json!({ "state": "draft" }),
+        )
+        .unwrap();
+
+        let mut factory = MockFactory;
+        let result = execute_authoritative_command(&mut factory, plan, |context, _| {
+            assert_eq!(context.writes.len(), 2);
+            Ok("committed")
+        })
+        .unwrap();
+        assert_eq!(result, "committed");
     }
 }
