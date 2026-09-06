@@ -221,10 +221,10 @@ impl UnitOfWorkFactory for PostgresUnitOfWorkFactory {
 
     fn begin(&mut self) -> Result<Self::Uow, PersistenceError> {
         let mut client = Client::connect(&self.connection_string, NoTls)
-            .map_err(|_| PersistenceError::Unavailable)?;
+            .map_err(PostgresUnitOfWork::map_error)?;
         client
             .batch_execute("BEGIN")
-            .map_err(|_| PersistenceError::Unavailable)?;
+            .map_err(PostgresUnitOfWork::map_error)?;
         Ok(PostgresUnitOfWork {
             client: Arc::new(Mutex::new(client)),
             active: true,
@@ -234,4 +234,15 @@ impl UnitOfWorkFactory for PostgresUnitOfWorkFactory {
 
 pub fn to_json<T: serde::Serialize>(value: &T) -> Result<Value, PersistenceError> {
     serde_json::to_value(value).map_err(|_| PersistenceError::SerializationFailure)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn factory_preserves_connection_configuration() {
+        let factory = PostgresUnitOfWorkFactory::new("host=localhost user=sidereth");
+        assert_eq!(factory.connection_string(), "host=localhost user=sidereth");
+    }
 }
