@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS sidereth_resource_links (
     relation TEXT NOT NULL CHECK (btrim(relation) <> ''),
     target_type TEXT NOT NULL,
     target_id TEXT NOT NULL,
+    class TEXT NOT NULL DEFAULT 'strong'
+        CHECK (class IN ('strong', 'forward', 'external')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (
         source_type,
@@ -38,6 +40,16 @@ CREATE TABLE IF NOT EXISTS sidereth_resource_links (
         target_id
     )
 );
+
+ALTER TABLE sidereth_resource_links
+    ADD COLUMN IF NOT EXISTS class TEXT NOT NULL DEFAULT 'strong';
+
+ALTER TABLE sidereth_resource_links
+    DROP CONSTRAINT IF EXISTS sidereth_resource_links_class_check;
+
+ALTER TABLE sidereth_resource_links
+    ADD CONSTRAINT sidereth_resource_links_class_check
+    CHECK (class IN ('strong', 'forward', 'external'));
 
 CREATE INDEX IF NOT EXISTS idx_sidereth_resource_links_target
     ON sidereth_resource_links (target_type, target_id);
