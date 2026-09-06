@@ -144,7 +144,10 @@ mod tests {
     }
 
     impl UnitOfWorkContext for MockContext {
-        fn read_resource(&mut self, _resource_ref: &ResourceRef) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
+        fn read_resource(
+            &mut self,
+            _resource_ref: &ResourceRef,
+        ) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
             Ok(None)
         }
 
