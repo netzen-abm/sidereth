@@ -1,8 +1,8 @@
 use crate::authorization::{AccessAction, AccessRequest, AuthorizationPolicy};
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
-    PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
-    UnitOfWorkError, UnitOfWorkFactory,
+    PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, Revision,
+    UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{Case, CaseState, Id, ResourceRef, ResourceType};
 use serde_json::json;
@@ -15,6 +15,10 @@ pub enum ServiceError {
     InvalidInput,
     NotFound,
     Persistence(PersistenceError),
+    RollbackFailure {
+        operation: Box<Self>,
+        rollback: PersistenceError,
+    },
     SerializationFailure,
 }
 
@@ -35,13 +39,21 @@ impl From<AuthoritativeCommandError> for ServiceError {
                 other => Self::Persistence(other),
             },
             AuthoritativeCommandError::InvalidOperation => Self::InvalidInput,
+            AuthoritativeCommandError::RollbackFailure { operation, rollback } => {
+                Self::RollbackFailure {
+                    operation: Box::new(Self::from(*operation)),
+                    rollback,
+                }
+            }
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CaseCommand {
-    Create { case: Case },
+    Create {
+        case: Case,
+    },
     Transition {
         case_id: Id,
         expected_revision: Revision,
@@ -95,14 +107,7 @@ where
         let operation_id = context.operation_id.clone();
 
         execute_authoritative_command(self.factory, plan, move |uow, plan| {
-            execute_case_command(
-                uow,
-                plan,
-                actor_id,
-                correlation_id,
-                operation_id,
-                command,
-            )
+            execute_case_command(uow, plan, actor_id, correlation_id, operation_id, command)
         })
         .map_err(ServiceError::from)
     }
@@ -158,8 +163,9 @@ fn execute_case_command<C: UnitOfWorkContext>(
         CaseCommand::Create { case } => {
             let case_id = case.case_id.clone();
             let case_ref = resource_ref(ResourceType::Case, case_id.clone())?;
-            let payload = serde_json::to_value(&case)
-                .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::SerializationFailure))?;
+            let payload = serde_json::to_value(&case).map_err(|_| {
+                UnitOfWorkError::Persistence(PersistenceError::SerializationFailure)
+            })?;
             uow.write_resource(ResourceWrite::new(
                 case_ref,
                 1,
@@ -185,12 +191,14 @@ fn execute_case_command<C: UnitOfWorkContext>(
             if record.revision != expected_revision {
                 return Err(UnitOfWorkError::Persistence(PersistenceError::Conflict));
             }
-            let mut case: Case = serde_json::from_value(record.payload)
-                .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::SerializationFailure))?;
+            let mut case: Case = serde_json::from_value(record.payload).map_err(|_| {
+                UnitOfWorkError::Persistence(PersistenceError::SerializationFailure)
+            })?;
             case.transition(next)
                 .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::ValidationFailure))?;
-            let payload = serde_json::to_value(&case)
-                .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::SerializationFailure))?;
+            let payload = serde_json::to_value(&case).map_err(|_| {
+                UnitOfWorkError::Persistence(PersistenceError::SerializationFailure)
+            })?;
             let write = ResourceWrite::new(
                 case_ref,
                 record.schema_version,
@@ -318,7 +326,10 @@ mod tests {
     }
 
     impl UnitOfWorkContext for MockContext {
-        fn read_resource(&mut self, resource_ref: &ResourceRef) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
+        fn read_resource(
+            &mut self,
+            resource_ref: &ResourceRef,
+        ) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
             Ok(self.state.0.borrow().get(resource_ref).cloned())
         }
 
@@ -326,129 +337,256 @@ mod tests {
             let mut state = self.state.0.borrow_mut();
             let current = state.get(&write.resource_ref).cloned();
             match (write.mode, current, write.expected_revision) {
-                (ResourceWriteMode::Insert, Some(_), _) => Err(UnitOfWorkError::Persistence(PersistenceError::Duplicate)),
+                (ResourceWriteMode::Insert, Some(_), _) => {
+                    Err(UnitOfWorkError::Persistence(PersistenceError::Duplicate))
+                }
                 (ResourceWriteMode::Insert, None, _) => {
-                    state.insert(write.resource_ref.clone(), ResourceRecord {
-                        resource_ref: write.resource_ref,
-                        schema_version: write.schema_version,
-                        revision: Revision::initial(),
-                        payload: write.payload,
-                    });
+                    state.insert(
+                        write.resource_ref.clone(),
+                        ResourceRecord {
+                            resource_ref: write.resource_ref,
+                            schema_version: write.schema_version,
+                            revision: Revision::initial(),
+                            payload: write.payload,
+                        },
+                    );
                     Ok(())
                 }
-                (ResourceWriteMode::Upsert, Some(current), Some(expected)) if current.revision != expected => {
+                (ResourceWriteMode::Upsert, Some(current), Some(expected))
+                    if current.revision != expected =>
+                {
                     Err(UnitOfWorkError::Persistence(PersistenceError::Conflict))
                 }
                 (ResourceWriteMode::Upsert, Some(current), Some(expected)) => {
-                    state.insert(write.resource_ref.clone(), ResourceRecord {
-                        resource_ref: write.resource_ref,
-                        schema_version: write.schema_version,
-                        revision: expected.next()?,
-                        payload: write.payload,
-                    });
+                    state.insert(
+                        write.resource_ref.clone(),
+                        ResourceRecord {
+                            resource_ref: write.resource_ref,
+                            schema_version: write.schema_version,
+                            revision: expected.next()?,
+                            payload: write.payload,
+                        },
+                    );
                     Ok(())
                 }
-                (ResourceWriteMode::Upsert, None, Some(_)) => Err(UnitOfWorkError::Persistence(PersistenceError::Conflict)),
+                (ResourceWriteMode::Upsert, None, Some(_)) => {
+                    Err(UnitOfWorkError::Persistence(PersistenceError::Conflict))
+                }
                 (ResourceWriteMode::Upsert, Some(current), None) => {
-                    state.insert(write.resource_ref.clone(), ResourceRecord {
-                        resource_ref: write.resource_ref,
-                        schema_version: write.schema_version,
-                        revision: current.revision.next()?,
-                        payload: write.payload,
-                    });
+                    state.insert(
+                        write.resource_ref.clone(),
+                        ResourceRecord {
+                            resource_ref: write.resource_ref,
+                            schema_version: write.schema_version,
+                            revision: current.revision.next()?,
+                            payload: write.payload,
+                        },
+                    );
                     Ok(())
                 }
                 (ResourceWriteMode::Upsert, None, None) => {
-                    state.insert(write.resource_ref.clone(), ResourceRecord {
-                        resource_ref: write.resource_ref,
-                        schema_version: write.schema_version,
-                        revision: Revision::initial(),
-                        payload: write.payload,
-                    });
+                    state.insert(
+                        write.resource_ref.clone(),
+                        ResourceRecord {
+                            resource_ref: write.resource_ref,
+                            schema_version: write.schema_version,
+                            revision: Revision::initial(),
+                            payload: write.payload,
+                        },
+                    );
                     Ok(())
                 }
             }
         }
 
-        fn link_resources(&mut self, _link: crate::persistence::ResourceLink) -> Result<(), UnitOfWorkError> {
+        fn link_resources(
+            &mut self,
+            _link: crate::persistence::ResourceLink,
+        ) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
     }
 
-    struct MockUow { context: MockContext }
+    struct MockUow {
+        context: MockContext,
+    }
 
     impl UnitOfWork for MockUow {
         type Context = MockContext;
+
         fn execute<R, F>(&mut self, operation: F) -> Result<R, UnitOfWorkError>
-        where F: FnOnce(&mut Self::Context) -> Result<R, UnitOfWorkError> { operation(&mut self.context) }
-        fn commit(self) -> Result<(), PersistenceError> { Ok(()) }
-        fn rollback(self) -> Result<(), PersistenceError> { Ok(()) }
+        where
+            F: FnOnce(&mut Self::Context) -> Result<R, UnitOfWorkError>,
+        {
+            operation(&mut self.context)
+        }
+
+        fn commit(self) -> Result<(), PersistenceError> {
+            Ok(())
+        }
+
+        fn rollback(self) -> Result<(), PersistenceError> {
+            Ok(())
+        }
     }
 
     #[derive(Clone, Default)]
-    struct MockFactory { state: State }
+    struct MockFactory {
+        state: State,
+    }
 
     impl UnitOfWorkFactory for MockFactory {
         type Uow = MockUow;
+
         fn begin(&mut self) -> Result<Self::Uow, PersistenceError> {
-            Ok(MockUow { context: MockContext { state: self.state.clone() } })
+            Ok(MockUow {
+                context: MockContext {
+                    state: self.state.clone(),
+                },
+            })
         }
     }
 
     #[test]
     fn create_writes_case_event_audit_provenance_and_idempotency_atomically() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut service = CaseService::new(&mut factory, &policy);
-        let result = service.create_case("user-1".into(), "op-1".into(), Case::new("case-1".into()).unwrap()).unwrap();
+        let result = service
+            .create_case(
+                "user-1".into(),
+                "op-1".into(),
+                Case::new("case-1".into()).unwrap(),
+            )
+            .unwrap();
         assert_eq!(result.revision.value, 0);
         let state = factory.state.0.borrow();
         assert!(state.contains_key(&ResourceRef::new(ResourceType::Case, "case-1").unwrap()));
-        assert!(state.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap()));
+        assert!(
+            state.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap())
+        );
         assert!(state.contains_key(&ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()));
-        assert!(state.contains_key(&ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()));
+        assert!(state
+            .contains_key(&ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()));
         assert!(state.contains_key(&ResourceRef::new(ResourceType::Idempotency, "op-1").unwrap()));
     }
 
     #[test]
     fn unauthorized_command_does_not_claim_idempotency() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut service = CaseService::new(&mut factory, &policy);
-        assert_eq!(service.create_case("user-2".into(), "op-1".into(), Case::new("case-1".into()).unwrap()), Err(ServiceError::AuthorizationDenied));
+        assert_eq!(
+            service.create_case(
+                "user-2".into(),
+                "op-1".into(),
+                Case::new("case-1".into()).unwrap()
+            ),
+            Err(ServiceError::AuthorizationDenied)
+        );
         assert!(factory.state.0.borrow().is_empty());
     }
 
     #[test]
     fn transition_uses_transactional_read_and_cas() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut service = CaseService::new(&mut factory, &policy);
-        service.create_case("user-1".into(), "op-1".into(), Case::new("case-1".into()).unwrap()).unwrap();
-        let result = service.transition_case("user-1".into(), "op-2".into(), "case-1".into(), Revision::initial(), CaseState::Active).unwrap();
+        service
+            .create_case(
+                "user-1".into(),
+                "op-1".into(),
+                Case::new("case-1".into()).unwrap(),
+            )
+            .unwrap();
+        let result = service
+            .transition_case(
+                "user-1".into(),
+                "op-2".into(),
+                "case-1".into(),
+                Revision::initial(),
+                CaseState::Active,
+            )
+            .unwrap();
         assert_eq!(result.revision.value, 1);
-        assert_eq!(factory.state.0.borrow().get(&ResourceRef::new(ResourceType::Case, "case-1").unwrap()).unwrap().revision.value, 1);
+        assert_eq!(
+            factory
+                .state
+                .0
+                .borrow()
+                .get(&ResourceRef::new(ResourceType::Case, "case-1").unwrap())
+                .unwrap()
+                .revision
+                .value,
+            1
+        );
     }
 
     #[test]
     fn stale_transition_is_rejected_without_side_effects() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut service = CaseService::new(&mut factory, &policy);
-        service.create_case("user-1".into(), "op-1".into(), Case::new("case-1".into()).unwrap()).unwrap();
-        service.transition_case("user-1".into(), "op-2".into(), "case-1".into(), Revision::initial(), CaseState::Active).unwrap();
+        service
+            .create_case(
+                "user-1".into(),
+                "op-1".into(),
+                Case::new("case-1".into()).unwrap(),
+            )
+            .unwrap();
+        service
+            .transition_case(
+                "user-1".into(),
+                "op-2".into(),
+                "case-1".into(),
+                Revision::initial(),
+                CaseState::Active,
+            )
+            .unwrap();
         let before = factory.state.0.borrow().clone();
-        assert_eq!(service.transition_case("user-1".into(), "op-3".into(), "case-1".into(), Revision::initial(), CaseState::Closed), Err(ServiceError::Conflict));
+        assert_eq!(
+            service.transition_case(
+                "user-1".into(),
+                "op-3".into(),
+                "case-1".into(),
+                Revision::initial(),
+                CaseState::Closed
+            ),
+            Err(ServiceError::Conflict)
+        );
         assert_eq!(*factory.state.0.borrow(), before);
     }
 
     #[test]
     fn duplicate_operation_is_rejected_by_atomic_idempotency_record() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy { owner_id: "user-1".into() };
+        let policy = CaseAccessPolicy {
+            owner_id: "user-1".into(),
+        };
         let mut service = CaseService::new(&mut factory, &policy);
-        service.create_case("user-1".into(), "op-1".into(), Case::new("case-1".into()).unwrap()).unwrap();
-        assert_eq!(service.create_case("user-1".into(), "op-1".into(), Case::new("case-2".into()).unwrap()), Err(ServiceError::Duplicate));
+        service
+            .create_case(
+                "user-1".into(),
+                "op-1".into(),
+                Case::new("case-1".into()).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            service.create_case(
+                "user-1".into(),
+                "op-1".into(),
+                Case::new("case-2".into()).unwrap()
+            ),
+            Err(ServiceError::Duplicate)
+        );
     }
 
     #[allow(dead_code)]
