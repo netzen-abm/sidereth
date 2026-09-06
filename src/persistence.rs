@@ -32,6 +32,7 @@ impl From<PersistenceError> for UnitOfWorkError {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum ResourceWriteMode {
     Insert,
     Upsert,
@@ -238,6 +239,12 @@ mod tests {
             ResourceWrite::new(resource, 0, Value::Null, ResourceWriteMode::Insert),
             Err(UnitOfWorkError::InvalidOperation)
         );
+    }
+
+    #[test]
+    fn resource_write_mode_uses_canonical_snake_case_wire_values() {
+        assert_eq!(serde_json::to_string(&ResourceWriteMode::Insert).unwrap(), "\"insert\"");
+        assert_eq!(serde_json::to_string(&ResourceWriteMode::Upsert).unwrap(), "\"upsert\"");
     }
 
     #[test]
