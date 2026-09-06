@@ -111,14 +111,22 @@ impl PostgresUnitOfWorkContext {
             "provenance" => ResourceType::Provenance,
             "idempotency" => ResourceType::Idempotency,
             "other" => ResourceType::Other,
-            _ => return Err(UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure)),
+            _ => {
+                return Err(UnitOfWorkError::Persistence(
+                    PersistenceError::IntegrityFailure,
+                ))
+            }
         };
-        ResourceRef::new(kind, id).map_err(|_| UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure))
+        ResourceRef::new(kind, id)
+            .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure))
     }
 }
 
 impl UnitOfWorkContext for PostgresUnitOfWorkContext {
-    fn read_resource(&mut self, resource_ref: &ResourceRef) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
+    fn read_resource(
+        &mut self,
+        resource_ref: &ResourceRef,
+    ) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
         let resource_type = Self::resource_type_name(resource_ref.resource_type);
         let mut client = self
             .client
@@ -141,7 +149,9 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
         let schema_version: i32 = row.get(2);
         let revision: i64 = row.get(3);
         if !(1..=i32::from(u16::MAX)).contains(&schema_version) || revision < 0 {
-            return Err(UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure));
+            return Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure,
+            ));
         }
         let revision = u64::try_from(revision)
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure))?;
@@ -173,13 +183,13 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
                     &[&resource_type, &id, &schema_version, &payload],
                 )
                 .map(|_| ())
-                .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))),
+                .map_err(|error| {
+                    UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))
+                }),
             (ResourceWriteMode::Upsert, Some(expected)) => {
                 let expected_revision = i64::try_from(expected.value)
                     .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Conflict))?;
-                let next_revision = expected
-                    .next()
-                    .map_err(UnitOfWorkError::Persistence)?;
+                let next_revision = expected.next().map_err(UnitOfWorkError::Persistence)?;
                 let next_revision = i64::try_from(next_revision.value)
                     .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Conflict))?;
                 let affected = client
@@ -201,7 +211,9 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
                             &expected_revision,
                         ],
                     )
-                    .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error)))?;
+                    .map_err(|error| {
+                        UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))
+                    })?;
                 if affected == 0 {
                     return Err(UnitOfWorkError::Persistence(PersistenceError::Conflict));
                 }
@@ -220,7 +232,9 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
                     &[&resource_type, &id, &schema_version, &payload],
                 )
                 .map(|_| ())
-                .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))),
+                .map_err(|error| {
+                    UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))
+                }),
         }
     }
 
@@ -354,6 +368,9 @@ mod tests {
     #[test]
     fn postgres_error_mapping_distinguishes_conflicts() {
         let error = postgres::Error::closed();
-        assert_eq!(PostgresUnitOfWork::map_error(error), PersistenceError::Unavailable);
+        assert_eq!(
+            PostgresUnitOfWork::map_error(error),
+            PersistenceError::Unavailable
+        );
     }
 }
