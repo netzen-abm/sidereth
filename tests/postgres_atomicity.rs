@@ -12,7 +12,8 @@ use std::thread;
 
 use serde_json::json;
 use sidereth_core::persistence::{
-    PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkFactory,
+    PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext,
+    UnitOfWorkFactory,
 };
 use sidereth_core::{PostgresUnitOfWorkFactory, ResourceRef, ResourceType};
 
@@ -102,7 +103,7 @@ fn live_postgres_cas_race_allows_exactly_one_writer() {
                         1,
                         json!({"value": value}),
                         ResourceWriteMode::Upsert,
-                    )?
+                    )
                     .with_expected_revision(observed.revision),
                 )
             });
