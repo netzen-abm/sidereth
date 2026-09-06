@@ -39,12 +39,13 @@ impl From<AuthoritativeCommandError> for ServiceError {
                 other => Self::Persistence(other),
             },
             AuthoritativeCommandError::InvalidOperation => Self::InvalidInput,
-            AuthoritativeCommandError::RollbackFailure { operation, rollback } => {
-                Self::RollbackFailure {
-                    operation: Box::new(Self::from(*operation)),
-                    rollback,
-                }
-            }
+            AuthoritativeCommandError::RollbackFailure {
+                operation,
+                rollback,
+            } => Self::RollbackFailure {
+                operation: Box::new(Self::from(*operation)),
+                rollback,
+            },
         }
     }
 }
