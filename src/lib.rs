@@ -50,6 +50,9 @@ pub enum ResourceType {
     ComplianceRequirement,
     LegalSource,
     Timeline,
+    Audit,
+    Provenance,
+    Idempotency,
     Other,
 }
 
@@ -57,6 +60,7 @@ pub mod action;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
+pub mod command;
 pub mod compliance;
 pub mod deadline;
 pub mod document;
@@ -88,6 +92,9 @@ pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatu
 pub use authorization::{
     AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
     AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
+};
+pub use command::{
+    apply_plan, execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
 };
 pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState};
 pub use deadline::{
@@ -148,13 +155,13 @@ impl CaseState {
             (Self::Draft, Self::Active)
                 | (Self::Active, Self::WaitingUser)
                 | (Self::Active, Self::WaitingAuthority)
-                | (Self::Active, Self::ResponseDue)
-                | (Self::Active, Self::Resolved)
                 | (Self::WaitingUser, Self::Active)
                 | (Self::WaitingAuthority, Self::Active)
+                | (Self::Active, Self::ResponseDue)
                 | (Self::ResponseDue, Self::Active)
-                | (Self::ResponseDue, Self::Resolved)
+                | (Self::Active, Self::Resolved)
                 | (Self::Resolved, Self::Closed)
+                | (Self::Resolved, Self::Active)
         )
     }
 }
@@ -178,7 +185,7 @@ impl Case {
 
     pub fn transition(&mut self, next: CaseState) -> Result<(), &'static str> {
         if !self.state.can_transition_to(&next) {
-            return Err("invalid case state transition");
+            return Err("invalid case transition");
         }
         self.state = next;
         Ok(())
@@ -186,71 +193,10 @@ impl Case {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum IncidentState {
     Open,
     Recorded,
     UnderReview,
     Resolved,
     Closed,
-}
-
-impl IncidentState {
-    pub fn can_transition_to(&self, next: &Self) -> bool {
-        matches!(
-            (self, next),
-            (Self::Open, Self::Recorded)
-                | (Self::Recorded, Self::UnderReview)
-                | (Self::UnderReview, Self::Resolved)
-                | (Self::Resolved, Self::Closed)
-        )
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Incident {
-    pub incident_id: Id,
-    pub state: IncidentState,
-}
-
-impl Incident {
-    pub fn new(incident_id: Id) -> Result<Self, &'static str> {
-        if incident_id.is_empty() {
-            return Err("incident id is required");
-        }
-        Ok(Self {
-            incident_id,
-            state: IncidentState::Open,
-        })
-    }
-
-    pub fn transition(&mut self, next: IncidentState) -> Result<(), &'static str> {
-        if !self.state.can_transition_to(&next) {
-            return Err("invalid incident state transition");
-        }
-        self.state = next;
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn resource_ref_is_explicit_and_stable_on_wire() {
-        let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
-        let json = serde_json::to_string(&reference).unwrap();
-        assert_eq!(json, r#"{"resource_type":"document","id":"doc-1"}"#);
-        let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded, reference);
-    }
-
-    #[test]
-    fn empty_resource_ref_is_rejected() {
-        assert_eq!(
-            ResourceRef::new(ResourceType::Case, ""),
-            Err("resource reference id is required")
-        );
-    }
 }
