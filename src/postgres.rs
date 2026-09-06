@@ -278,13 +278,7 @@ impl UnitOfWork for PostgresUnitOfWork {
         let mut context = PostgresUnitOfWorkContext {
             client: Arc::clone(&self.client),
         };
-        match operation(&mut context) {
-            Ok(value) => Ok(value),
-            Err(error) => {
-                let _ = self.rollback_in_place();
-                Err(error)
-            }
-        }
+        operation(&mut context)
     }
 
     fn commit(mut self) -> Result<(), PersistenceError> {
