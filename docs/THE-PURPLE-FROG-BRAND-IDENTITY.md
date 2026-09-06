@@ -33,18 +33,24 @@ The Purple Frog is therefore a product identity, not a replacement of the underl
 
 ## 3. Conservation purpose
 
-The Purple Frog should communicate a broader conservation principle:
+The Purple Frog has a specific conservation-awareness purpose:
 
-> **Every species matters. Every threatened species deserves awareness.**
+> **Build awareness around a Vulnerable species and support protection of threatened species, including Endangered and Critically Endangered species.**
 
-The brand should support awareness of:
+The initial emblem, the Gaur / Indian Bison (*Bos gaurus*), represents the first part of that purpose: bringing public attention to a real **Vulnerable** species and using that species as an ambassador for broader biodiversity awareness.
+
+The broader protection purpose includes:
 
 - Vulnerable species
 - Endangered species
 - Critically Endangered species
-- Other species and ecosystems requiring conservation attention
+- Other threatened species and ecosystems requiring conservation attention
 
-The product must not imply that every species represented by the logo has the same conservation status.
+The product must not imply that every species represented by the logo or future awareness experiences has the same conservation status.
+
+Core public principle:
+
+> **Awareness of one Vulnerable species. Protection of threatened species. Respect for every species.**
 
 ## 4. Primary emblem
 
@@ -52,7 +58,7 @@ The supplied logo uses the **Gaur / Indian Bison (*Bos gaurus*)** as the visual 
 
 The emblem is a symbolic conservation ambassador for biodiversity awareness. It is not intended to mean that Gaur itself is Critically Endangered.
 
-Current verification: *Bos gaurus* is listed as **Vulnerable (VU)**, not Critically Endangered, in the conservation sources reviewed for this decision. India's National Tiger Conservation Authority also lists Gaur as Vulnerable under the IUCN Red List and Schedule I under India's Wildlife (Protection) framework. 
+Current verification: *Bos gaurus* is listed as **Vulnerable (VU)**, not Critically Endangered, in the conservation sources reviewed for this decision. India's National Tiger Conservation Authority also lists Gaur as Vulnerable under the IUCN Red List and Schedule I under India's Wildlife (Protection) framework.
 
 Therefore product copy should say that the Gaur **represents the conservation cause**, rather than describing the logo animal itself as Critically Endangered.
 
@@ -116,9 +122,11 @@ Conservation status is dynamic and should be treated as sourced data rather than
 
 Working positioning:
 
-> **The Purple Frog — technology that helps people act with greater awareness of the living world.**
+> **The Purple Frog — technology that builds awareness around threatened life and helps people act with greater care for the living world.**
 
-This positioning is intentionally broad enough to allow the product to grow while keeping biodiversity awareness at the center of the identity.
+The product's initial conservation story begins with awareness of the Vulnerable Gaur and extends to protection of threatened species, including Endangered and Critically Endangered species.
+
+This positioning is intentionally broad enough to allow the product to grow while keeping biodiversity awareness and conservation action at the center of the identity.
 
 ## 10. Future species-awareness model
 
