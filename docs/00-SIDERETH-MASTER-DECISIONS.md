@@ -3,7 +3,8 @@
 Status: Canonical pre-implementation baseline
 
 ## Product
-- SIDERETH is a standalone Legal & Regulatory Infrastructure product.
+- **The Purple Frog** is the public product identity.
+- **SIDERETH** remains the underlying Legal & Regulatory Infrastructure ecosystem and technical architecture identity unless a separate explicit platform-brand decision is made.
 - North star: help people and businesses understand requirements, prepare correctly, protect lawful rights during official interactions, preserve evidence, meet deadlines, respond intelligently, and reach appropriate human legal help.
 - Philosophy: navigate the rule of law; do not build a government-fighting tool.
 
@@ -54,8 +55,12 @@ Status: Canonical pre-implementation baseline
 - Optional capability implementations must remain replaceable adapters over shared infrastructure and must not duplicate legal/domain logic.
 
 ## Brand
-- SIDERETH is the current working master brand.
+- **The Purple Frog** is the public product brand.
+- The brand's conservation identity honors endangered and critically endangered species broadly.
+- The initial emblem is the **Gaur / Indian Bison (*Bos gaurus*)**, used as a conservation ambassador for biodiversity awareness.
+- The emblem must not be described as Critically Endangered merely because the product honors Critically Endangered species; conservation status claims must be sourced and current.
 - Trademark/legal clearance remains a separate gate; technical architecture must remain brand-independent.
+- Brand assets and species-status claims are governed by `docs/THE-PURPLE-FROG-BRAND-IDENTITY.md`.
 
 ## V1 non-goals
 - Autonomous legal representation.
@@ -63,4 +68,4 @@ Status: Canonical pre-implementation baseline
 - Court-outcome prediction.
 - Full litigation strategy as an MVP feature.
 - Building separate infrastructure for every legal domain.
-- Making any optional decentralized/privacy/execution technology mandatory for core SIDERETH operation.
+- Making any optional decentralized/privacy/execution technology mandatory for core operation.

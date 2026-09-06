@@ -19,6 +19,7 @@ This index defines the documentation hierarchy for the SIDERETH repository. It p
 - `SIDERETH-CAPABILITY-MODEL.md` — capability/function/tool/resource/workflow model.
 - `SIDERETH-ECOSYSTEM-ROADMAP.md` — capability-led ecosystem roadmap.
 - `SIDERETH-ECOSYSTEM-DISCUSSION-RECORD.md` — consolidated strategic discussion record.
+- `THE-PURPLE-FROG-BRAND-IDENTITY.md` — canonical public product-brand and conservation-identity decision.
 - `ESTIMATE-WIREFRAME-PLAN.md` — planning estimate and UX/wireframe scope only.
 - `ROADMAP.md` — phased delivery roadmap.
 - `08-MCP-ARCHITECTURE.md` — MCP interoperability boundary.

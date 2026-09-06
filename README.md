@@ -1,8 +1,12 @@
-# SIDERETH
+# The Purple Frog
 
-**Legal & Regulatory Infrastructure**
+**Privacy-first Legal & Regulatory Infrastructure**
 
-SIDERETH is a privacy-first, modular legal and regulatory workflow platform designed to help people and businesses navigate the rule of law.
+**The Purple Frog** is the public product identity for a privacy-first, modular legal and regulatory infrastructure platform. The underlying ecosystem and technical architecture remain **SIDERETH** until a separate explicit platform-brand decision is made.
+
+> **The Purple Frog — one product, shared infrastructure, many capabilities.**
+
+The product name honors endangered and critically endangered species and uses biodiversity awareness as part of its public identity. The supplied **Gaur / Indian Bison (*Bos gaurus*)** emblem is the initial conservation symbol for the brand and represents awareness for threatened species broadly.
 
 ## What it does
 
@@ -27,6 +31,9 @@ Agents automate bounded workflows, not high-impact legal judgment. MCP is an int
 ## Privacy principle
 Local-first by default. Sensitive case data should remain under user control. External processing is minimized, explicitly authorized, encrypted and auditable. AI-disabled operation must remain possible for core deterministic workflows.
 
+## Conservation identity
+The Purple Frog uses the Gaur as a conservation ambassador. Conservation-status claims are treated as sourced data, not decorative marketing. The product may later introduce structured species-awareness resources covering Vulnerable, Endangered, Critically Endangered and other conservation categories.
+
 ## Initial engineering milestone
 Build the domain-independent Case and Incident Engine first, with evidence, events, source provenance and deterministic state transitions. Then add Panchayat and Municipality domain adapters without duplicating shared infrastructure.
 
@@ -43,6 +50,7 @@ The repository is undergoing a controlled foundation build. Historical prototype
 - `docs/GENKIT-TECHNOLOGY-ASSESSMENT.md`
 - `docs/SIDERETH-GLOSSARY.md`
 - `docs/SIDERETH-MASTER-CHECKLIST.md`
+- `docs/THE-PURPLE-FROG-BRAND-IDENTITY.md`
 - `docs/contracts/`
 - `docs/migration/`
 - `docs/archive/`
