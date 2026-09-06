@@ -1,6 +1,6 @@
 # SIDERETH ResourceLink Semantics
 
-Status: canonical semantic policy (wire-level class extension still pending)
+Status: canonical semantic policy with compatibility-safe wire-level class extension
 
 ## Purpose
 
@@ -10,19 +10,23 @@ Status: canonical semantic policy (wire-level class extension still pending)
 
 The universal semantic model distinguishes three classes:
 
-1. **Strong** — both endpoints are required to exist in the authoritative resource graph. A strong link is validated as part of the command transaction and failure prevents commit.
+1. **Strong** — an internally authoritative relationship whose target is expected to be resolvable when the applicable command policy requires it.
 2. **Forward** — the target may be created later. The source remains valid while the target is unresolved; resolution is observable and can be validated when the target is materialized.
-3. **External** — the target identifies a resource outside the authoritative SIDERETH store. The link is retained as a reference and must not be treated as a local foreign key.
+3. **External** — the relationship is to a target outside the authoritative SIDERETH resource graph and therefore receives no internal referential-integrity guarantee.
 
-The current `ResourceLink` wire contract has no class field. Therefore existing links MUST NOT be interpreted as strong references by inference. Until the wire-level class is added, they are compatibility references only.
+`ResourceLinkClass` is serialized as `strong`, `forward`, or `external`. The compatibility constructor `ResourceLink::new(...)` defaults to `strong`, while `ResourceLink::new_with_class(...)` and the `strong`, `forward`, and `external` helpers make intent explicit.
+
+Legacy serialized links without `class` decode as `strong` to preserve source and wire compatibility. This default is a compatibility interpretation of existing links, not evidence that their targets were historically validated.
 
 ## Duplicate semantics
 
-Duplicate links are idempotent. Repeating the same `(source, relation, target)` tuple must not create multiple logical relationships. The PostgreSQL adapter implements this with a conflict-free insert.
+The logical identity of a link is `(source, relation, target)`. Repeating the same tuple is idempotent. A class is semantic metadata, not part of link identity; the same logical link must not exist simultaneously with conflicting classes.
+
+The PostgreSQL adapter preserves this identity with a primary key and conflict-free insert. A later hardening step must make conflicting-class attempts observable rather than silently accepted.
 
 ## Transaction semantics
 
-Links written by an authoritative command are part of the same Unit-of-Work write set as the resources whose relationships they establish. A strong-link validation failure must therefore roll back the complete command.
+Links written by an authoritative command are part of the same Unit-of-Work write set as the resources whose relationships they establish. A policy-level strong-link validation failure must therefore roll back the complete command.
 
 ## Lifecycle / deletion
 
@@ -32,15 +36,18 @@ Deletion semantics are not yet part of the universal core. No implementation may
 
 The polymorphic link table deliberately does not use blanket SQL foreign keys. Forward and external links cannot safely be represented as ordinary local FKs. Strong-link enforcement belongs at the canonical command/policy boundary.
 
-## Required gate work
+## External references
 
-Before ResourceLink semantics can be marked production-complete:
+`ResourceRef` currently represents SIDERETH resource types. Therefore `External` is presently a relationship class, not a new URL/URI target type. A future external-reference contract may introduce a dedicated opaque URI/reference target without changing the internal `ResourceRef` identity model.
 
-- add an explicit wire-level class (or equivalent typed contract);
-- define backward-compatible decoding for existing links;
-- enforce strong-link existence atomically;
-- define forward-link resolution and lifecycle behavior;
-- define external-reference validation and trust boundaries;
-- add provider-neutral semantic tests and live PostgreSQL integration tests.
+## Remaining gate work
 
-This policy is intentionally separate from the Decision Model. The Decision Model gate remains blocked until these semantics and the live transactional proof are complete.
+ResourceLink semantics are now represented in the universal wire contract and persisted by PostgreSQL. Before marking the semantics production-complete, the ecosystem still needs:
+
+- atomic strong-link target validation;
+- explicit forward-link resolution policy;
+- explicit external-reference validation and trust boundaries;
+- provider-neutral semantic tests for duplicate/conflicting classes;
+- live PostgreSQL tests for link persistence and transactional rollback.
+
+This policy is intentionally separate from the Decision Model. The Decision Model gate remains blocked until the remaining transactional and semantic proof work is complete.
