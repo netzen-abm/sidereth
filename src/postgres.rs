@@ -74,6 +74,9 @@ impl PostgresUnitOfWorkContext {
             ResourceType::LegalSource => "legal_source",
             ResourceType::Timeline => "timeline",
             ResourceType::Evidence => "evidence",
+            ResourceType::Audit => "audit",
+            ResourceType::Provenance => "provenance",
+            ResourceType::Idempotency => "idempotency",
             ResourceType::Other => "other",
         }
     }

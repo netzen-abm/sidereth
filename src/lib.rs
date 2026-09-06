@@ -50,6 +50,9 @@ pub enum ResourceType {
     ComplianceRequirement,
     LegalSource,
     Timeline,
+    Audit,
+    Provenance,
+    Idempotency,
     Other,
 }
 
@@ -57,6 +60,7 @@ pub mod action;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
+pub mod command;
 pub mod compliance;
 pub mod deadline;
 pub mod document;
@@ -88,6 +92,9 @@ pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatu
 pub use authorization::{
     AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
     AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
+};
+pub use command::{
+    apply_plan, execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
 };
 pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState};
 pub use deadline::{
