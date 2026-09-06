@@ -44,6 +44,7 @@ pub struct ResourceWrite {
     pub schema_version: u16,
     pub payload: Value,
     pub mode: ResourceWriteMode,
+    pub expected_revision: Option<Revision>,
 }
 
 impl ResourceWrite {
@@ -61,8 +62,22 @@ impl ResourceWrite {
             schema_version,
             payload,
             mode,
+            expected_revision: None,
         })
     }
+
+    pub fn with_expected_revision(mut self, revision: Revision) -> Self {
+        self.expected_revision = Some(revision);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ResourceRecord {
+    pub resource_ref: ResourceRef,
+    pub schema_version: u16,
+    pub revision: Revision,
+    pub payload: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -90,20 +105,15 @@ impl ResourceLink {
     }
 }
 
-/// Provider-neutral write context used inside a unit of work.
-///
-/// Implementations may persist immediately into a provider transaction, but the
-/// caller receives commit/rollback semantics only from the surrounding UoW.
+/// Provider-neutral read/write context used inside a unit of work.
+/// Reads occur in the same transaction as subsequent CAS writes.
 pub trait UnitOfWorkContext {
+    fn read_resource(&mut self, resource_ref: &ResourceRef) -> Result<Option<ResourceRecord>, UnitOfWorkError>;
     fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError>;
     fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError>;
 }
 
 /// Provider-neutral atomic boundary for a multi-resource workflow.
-///
-/// The contract deliberately knows nothing about PostgreSQL, HTTP, files, or
-/// a specific ORM. A single UoW can therefore contain a Case write plus links
-/// to Document/Evidence resources and commit them as one logical operation.
 pub trait UnitOfWork {
     type Context: UnitOfWorkContext;
 
@@ -261,5 +271,14 @@ mod tests {
             ResourceLink::new(source, "   ", target),
             Err(UnitOfWorkError::InvalidOperation)
         );
+    }
+
+    #[test]
+    fn resource_write_can_carry_expected_revision() {
+        let resource = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
+        let write = ResourceWrite::new(resource, 1, Value::Null, ResourceWriteMode::Upsert)
+            .unwrap()
+            .with_expected_revision(Revision { value: 7 });
+        assert_eq!(write.expected_revision, Some(Revision { value: 7 }));
     }
 }
