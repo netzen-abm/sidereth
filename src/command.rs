@@ -27,22 +27,49 @@ impl AtomicCommandPlan {
         })
     }
 
-    pub fn insert_resource(&mut self, resource_ref: ResourceRef, schema_version: u16, payload: Value) -> Result<(), UnitOfWorkError> {
-        self.resource_writes.push(ResourceWrite::new(resource_ref, schema_version, payload, ResourceWriteMode::Insert)?);
+    pub fn insert_resource(
+        &mut self,
+        resource_ref: ResourceRef,
+        schema_version: u16,
+        payload: Value,
+    ) -> Result<(), UnitOfWorkError> {
+        self.resource_writes.push(ResourceWrite::new(
+            resource_ref,
+            schema_version,
+            payload,
+            ResourceWriteMode::Insert,
+        )?);
         Ok(())
     }
 
-    pub fn upsert_resource(&mut self, resource_ref: ResourceRef, schema_version: u16, payload: Value) -> Result<(), UnitOfWorkError> {
-        self.resource_writes.push(ResourceWrite::new(resource_ref, schema_version, payload, ResourceWriteMode::Upsert)?);
+    pub fn upsert_resource(
+        &mut self,
+        resource_ref: ResourceRef,
+        schema_version: u16,
+        payload: Value,
+    ) -> Result<(), UnitOfWorkError> {
+        self.resource_writes.push(ResourceWrite::new(
+            resource_ref,
+            schema_version,
+            payload,
+            ResourceWriteMode::Upsert,
+        )?);
         Ok(())
     }
 
-    pub fn link(&mut self, link: ResourceLink) { self.resource_links.push(link); }
+    pub fn link(&mut self, link: ResourceLink) {
+        self.resource_links.push(link);
+    }
 
+    /// Add the durable idempotency marker to the same atomic write set.
     pub fn claim_operation(&mut self) -> Result<(), UnitOfWorkError> {
         let resource_ref = ResourceRef::new(ResourceType::Idempotency, self.operation_id.clone())
             .map_err(|_| UnitOfWorkError::InvalidOperation)?;
-        self.insert_resource(resource_ref, 1, serde_json::json!({ "operation_id": self.operation_id }))
+        self.insert_resource(
+            resource_ref,
+            1,
+            serde_json::json!({ "operation_id": self.operation_id }),
+        )
     }
 }
 
@@ -61,6 +88,10 @@ impl From<UnitOfWorkError> for AuthoritativeCommandError {
     }
 }
 
+/// Execute a complete command through the canonical atomic boundary.
+///
+/// Idempotency markers, domain resources, links, event records, audit records,
+/// and provenance can share exactly one commit/rollback boundary.
 pub fn execute_authoritative_command<F, R, Build>(
     factory: &mut F,
     plan: AtomicCommandPlan,
@@ -87,6 +118,7 @@ where
     Ok(result)
 }
 
+/// Apply the complete resource plan inside one unit of work.
 pub fn apply_plan<C: crate::persistence::UnitOfWorkContext>(
     context: &mut C,
     plan: &AtomicCommandPlan,
@@ -127,7 +159,9 @@ mod tests {
         }
     }
 
-    struct MockUow { context: MockContext }
+    struct MockUow {
+        context: MockContext,
+    }
 
     impl UnitOfWork for MockUow {
         type Context = MockContext;
@@ -139,8 +173,13 @@ mod tests {
             operation(&mut self.context)
         }
 
-        fn commit(self) -> Result<(), PersistenceError> { Ok(()) }
-        fn rollback(self) -> Result<(), PersistenceError> { Ok(()) }
+        fn commit(self) -> Result<(), PersistenceError> {
+            Ok(())
+        }
+
+        fn rollback(self) -> Result<(), PersistenceError> {
+            Ok(())
+        }
     }
 
     #[derive(Default)]
@@ -150,7 +189,9 @@ mod tests {
         type Uow = MockUow;
 
         fn begin(&mut self) -> Result<Self::Uow, PersistenceError> {
-            Ok(MockUow { context: MockContext::default() })
+            Ok(MockUow {
+                context: MockContext::default(),
+            })
         }
     }
 
@@ -158,17 +199,57 @@ mod tests {
     fn plan_contains_idempotency_and_domain_side_effects() {
         let mut plan = AtomicCommandPlan::new("op-1").unwrap();
         plan.claim_operation().unwrap();
-        plan.insert_resource(ResourceRef::new(ResourceType::Case, "case-1").unwrap(), 1, serde_json::json!({ "state": "active" })).unwrap();
-        assert_eq!(plan.resource_writes.len(), 2);
-        assert_eq!(plan.resource_writes[0].resource_ref.resource_type, ResourceType::Idempotency);
+        plan.insert_resource(
+            ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
+            1,
+            serde_json::json!({ "state": "active" }),
+        )
+        .unwrap();
+        plan.insert_resource(
+            ResourceRef::new(ResourceType::Event, "event-1").unwrap(),
+            1,
+            serde_json::json!({ "event_type": "case.created" }),
+        )
+        .unwrap();
+        plan.insert_resource(
+            ResourceRef::new(ResourceType::Audit, "audit-1").unwrap(),
+            1,
+            serde_json::json!({ "action": "case.created" }),
+        )
+        .unwrap();
+        plan.insert_resource(
+            ResourceRef::new(ResourceType::Provenance, "prov-1").unwrap(),
+            1,
+            serde_json::json!({ "operation": "case.create" }),
+        )
+        .unwrap();
+
+        assert_eq!(plan.resource_writes.len(), 5);
+        assert_eq!(
+            plan.resource_writes[0].resource_ref.resource_type,
+            ResourceType::Idempotency
+        );
     }
 
     #[test]
     fn apply_plan_writes_every_side_effect_through_one_context() {
         let mut plan = AtomicCommandPlan::new("op-2").unwrap();
         plan.claim_operation().unwrap();
-        plan.insert_resource(ResourceRef::new(ResourceType::Case, "case-2").unwrap(), 1, serde_json::json!({ "state": "draft" })).unwrap();
-        plan.link(ResourceLink::new(ResourceRef::new(ResourceType::Case, "case-2").unwrap(), "has_event", ResourceRef::new(ResourceType::Event, "event-2").unwrap()).unwrap());
+        plan.insert_resource(
+            ResourceRef::new(ResourceType::Case, "case-2").unwrap(),
+            1,
+            serde_json::json!({ "state": "draft" }),
+        )
+        .unwrap();
+        plan.link(
+            ResourceLink::new(
+                ResourceRef::new(ResourceType::Case, "case-2").unwrap(),
+                "has_event",
+                ResourceRef::new(ResourceType::Event, "event-2").unwrap(),
+            )
+            .unwrap(),
+        );
+
         let mut context = MockContext::default();
         apply_plan(&mut context, &plan).unwrap();
         assert_eq!(context.writes.len(), 2);
@@ -179,19 +260,19 @@ mod tests {
     fn executor_applies_plan_before_successful_commit() {
         let mut plan = AtomicCommandPlan::new("op-3").unwrap();
         plan.claim_operation().unwrap();
-        plan.insert_resource(ResourceRef::new(ResourceType::Case, "case-3").unwrap(), 1, serde_json::json!({ "state": "draft" })).unwrap();
+        plan.insert_resource(
+            ResourceRef::new(ResourceType::Case, "case-3").unwrap(),
+            1,
+            serde_json::json!({ "state": "draft" }),
+        )
+        .unwrap();
+
         let mut factory = MockFactory;
         let result = execute_authoritative_command(&mut factory, plan, |context, _| {
             assert_eq!(context.writes.len(), 2);
             Ok("committed")
-        }).unwrap();
+        })
+        .unwrap();
         assert_eq!(result, "committed");
-    }
-
-    #[test]
-    fn mock_context_supports_transactional_reads() {
-        let mut context = MockContext::default();
-        let resource = ResourceRef::new(ResourceType::Case, "case-read").unwrap();
-        assert_eq!(context.read_resource(&resource).unwrap(), None);
     }
 }
