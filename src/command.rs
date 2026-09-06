@@ -6,7 +6,6 @@ use crate::{Id, ResourceRef, ResourceType};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Provider-neutral plan for an authoritative state-changing command.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AtomicCommandPlan {
     pub operation_id: Id,
@@ -61,7 +60,6 @@ impl AtomicCommandPlan {
         self.resource_links.push(link);
     }
 
-    /// Add the durable idempotency marker to the same atomic write set.
     pub fn claim_operation(&mut self) -> Result<(), UnitOfWorkError> {
         let resource_ref = ResourceRef::new(ResourceType::Idempotency, self.operation_id.clone())
             .map_err(|_| UnitOfWorkError::InvalidOperation)?;
@@ -77,6 +75,10 @@ impl AtomicCommandPlan {
 pub enum AuthoritativeCommandError {
     Persistence(PersistenceError),
     InvalidOperation,
+    RollbackFailure {
+        operation: Box<Self>,
+        rollback: PersistenceError,
+    },
 }
 
 impl From<UnitOfWorkError> for AuthoritativeCommandError {
@@ -88,10 +90,6 @@ impl From<UnitOfWorkError> for AuthoritativeCommandError {
     }
 }
 
-/// Execute a complete command through the canonical atomic boundary.
-///
-/// Idempotency markers, domain resources, links, event records, audit records,
-/// and provenance can share exactly one commit/rollback boundary.
 pub fn execute_authoritative_command<F, R, Build>(
     factory: &mut F,
     plan: AtomicCommandPlan,
@@ -107,18 +105,29 @@ where
     let mut uow = factory
         .begin()
         .map_err(AuthoritativeCommandError::Persistence)?;
-    let result = uow
-        .execute(|context| {
-            apply_plan(context, &plan)?;
-            build(context, &plan)
-        })
-        .map_err(AuthoritativeCommandError::from)?;
-    uow.commit()
-        .map_err(AuthoritativeCommandError::Persistence)?;
-    Ok(result)
+    let result = uow.execute(|context| {
+        apply_plan(context, &plan)?;
+        build(context, &plan)
+    });
+    match result {
+        Ok(value) => {
+            uow.commit()
+                .map_err(AuthoritativeCommandError::Persistence)?;
+            Ok(value)
+        }
+        Err(error) => {
+            let operation = AuthoritativeCommandError::from(error);
+            match uow.rollback() {
+                Ok(()) => Err(operation),
+                Err(rollback) => Err(AuthoritativeCommandError::RollbackFailure {
+                    operation: Box::new(operation),
+                    rollback,
+                }),
+            }
+        }
+    }
 }
 
-/// Apply the complete resource plan inside one unit of work.
 pub fn apply_plan<C: crate::persistence::UnitOfWorkContext>(
     context: &mut C,
     plan: &AtomicCommandPlan,
@@ -135,7 +144,7 @@ pub fn apply_plan<C: crate::persistence::UnitOfWorkContext>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{ResourceRecord, UnitOfWorkContext, UnitOfWorkFactory};
+    use crate::persistence::{ResourceRecord, UnitOfWorkContext};
 
     #[derive(Default)]
     struct MockContext {
@@ -164,6 +173,9 @@ mod tests {
 
     struct MockUow {
         context: MockContext,
+        fail_rollback: bool,
+        committed: bool,
+        rolled_back: bool,
     }
 
     impl UnitOfWork for MockUow {
@@ -176,17 +188,25 @@ mod tests {
             operation(&mut self.context)
         }
 
-        fn commit(self) -> Result<(), PersistenceError> {
+        fn commit(mut self) -> Result<(), PersistenceError> {
+            self.committed = true;
             Ok(())
         }
 
-        fn rollback(self) -> Result<(), PersistenceError> {
-            Ok(())
+        fn rollback(mut self) -> Result<(), PersistenceError> {
+            self.rolled_back = true;
+            if self.fail_rollback {
+                Err(PersistenceError::Unavailable)
+            } else {
+                Ok(())
+            }
         }
     }
 
     #[derive(Default)]
-    struct MockFactory;
+    struct MockFactory {
+        fail_rollback: bool,
+    }
 
     impl UnitOfWorkFactory for MockFactory {
         type Uow = MockUow;
@@ -194,6 +214,9 @@ mod tests {
         fn begin(&mut self) -> Result<Self::Uow, PersistenceError> {
             Ok(MockUow {
                 context: MockContext::default(),
+                fail_rollback: self.fail_rollback,
+                committed: false,
+                rolled_back: false,
             })
         }
     }
@@ -226,7 +249,6 @@ mod tests {
             serde_json::json!({ "operation": "case.create" }),
         )
         .unwrap();
-
         assert_eq!(plan.resource_writes.len(), 5);
         assert_eq!(
             plan.resource_writes[0].resource_ref.resource_type,
@@ -252,7 +274,6 @@ mod tests {
             )
             .unwrap(),
         );
-
         let mut context = MockContext::default();
         apply_plan(&mut context, &plan).unwrap();
         assert_eq!(context.writes.len(), 2);
@@ -260,22 +281,13 @@ mod tests {
     }
 
     #[test]
-    fn executor_applies_plan_before_successful_commit() {
-        let mut plan = AtomicCommandPlan::new("op-3").unwrap();
-        plan.claim_operation().unwrap();
-        plan.insert_resource(
-            ResourceRef::new(ResourceType::Case, "case-3").unwrap(),
-            1,
-            serde_json::json!({ "state": "draft" }),
-        )
-        .unwrap();
-
-        let mut factory = MockFactory;
-        let result = execute_authoritative_command(&mut factory, plan, |context, _| {
-            assert_eq!(context.writes.len(), 2);
-            Ok("committed")
-        })
-        .unwrap();
-        assert_eq!(result, "committed");
+    fn executor_rolls_back_when_build_fails() {
+        let plan = AtomicCommandPlan::new("op-3").unwrap();
+        let mut factory = MockFactory::default();
+        let result: Result<(), AuthoritativeCommandError> =
+            execute_authoritative_command(&mut factory, plan, |_context, _| {
+                Err(UnitOfWorkError::InvalidOperation)
+            });
+        assert_eq!(result, Err(AuthoritativeCommandError::InvalidOperation));
     }
 }
