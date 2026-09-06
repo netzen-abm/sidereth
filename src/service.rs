@@ -410,6 +410,7 @@ mod tests {
 
     struct MockUow {
         context: MockContext,
+        snapshot: HashMap<ResourceRef, ResourceRecord>,
     }
 
     impl UnitOfWork for MockUow {
@@ -427,6 +428,9 @@ mod tests {
         }
 
         fn rollback(self) -> Result<(), PersistenceError> {
+            let mut state = self.context.state.0.borrow_mut();
+            state.clear();
+            state.extend(self.snapshot);
             Ok(())
         }
     }
@@ -440,10 +444,12 @@ mod tests {
         type Uow = MockUow;
 
         fn begin(&mut self) -> Result<Self::Uow, PersistenceError> {
+            let snapshot = self.state.0.borrow().clone();
             Ok(MockUow {
                 context: MockContext {
                     state: self.state.clone(),
                 },
+                snapshot,
             })
         }
     }
