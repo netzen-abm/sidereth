@@ -99,7 +99,10 @@ pub fn execute_authoritative_command<F, R, Build>(
 ) -> Result<R, AuthoritativeCommandError>
 where
     F: UnitOfWorkFactory,
-    Build: FnOnce(&mut F::Uow::Context, &AtomicCommandPlan) -> Result<R, UnitOfWorkError>,
+    Build: FnOnce(
+        &mut <F::Uow as UnitOfWork>::Context,
+        &AtomicCommandPlan,
+    ) -> Result<R, UnitOfWorkError>,
 {
     let mut uow = factory
         .begin()
