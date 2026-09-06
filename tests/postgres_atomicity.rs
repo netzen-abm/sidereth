@@ -103,7 +103,7 @@ fn live_postgres_cas_race_allows_exactly_one_writer() {
                         1,
                         json!({"value": value}),
                         ResourceWriteMode::Upsert,
-                    )
+                    )?
                     .with_expected_revision(observed.revision),
                 )
             });
