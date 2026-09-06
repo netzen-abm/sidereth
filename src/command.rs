@@ -135,7 +135,7 @@ pub fn apply_plan<C: crate::persistence::UnitOfWorkContext>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{UnitOfWorkContext, UnitOfWorkFactory};
+    use crate::persistence::{ResourceRecord, UnitOfWorkContext, UnitOfWorkFactory};
 
     #[derive(Default)]
     struct MockContext {
@@ -144,6 +144,13 @@ mod tests {
     }
 
     impl UnitOfWorkContext for MockContext {
+        fn read_resource(
+            &mut self,
+            _resource_ref: &ResourceRef,
+        ) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
+            Ok(None)
+        }
+
         fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
             self.writes.push(write);
             Ok(())
