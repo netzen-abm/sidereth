@@ -284,9 +284,10 @@ mod tests {
     fn executor_rolls_back_when_build_fails() {
         let plan = AtomicCommandPlan::new("op-3").unwrap();
         let mut factory = MockFactory::default();
-        let result = execute_authoritative_command(&mut factory, plan, |_context, _| {
-            Err(UnitOfWorkError::InvalidOperation)
-        });
+        let result: Result<(), AuthoritativeCommandError> =
+            execute_authoritative_command(&mut factory, plan, |_context, _| {
+                Err(UnitOfWorkError::InvalidOperation)
+            });
         assert_eq!(result, Err(AuthoritativeCommandError::InvalidOperation));
     }
 }
