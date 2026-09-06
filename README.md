@@ -6,7 +6,13 @@
 
 > **The Purple Frog — one product, shared infrastructure, many capabilities.**
 
-The product name honors endangered and critically endangered species and uses biodiversity awareness as part of its public identity. The supplied **Gaur / Indian Bison (*Bos gaurus*)** emblem is the initial conservation symbol for the brand and represents awareness for threatened species broadly.
+The product name honors endangered and critically endangered species and uses biodiversity awareness as part of its public identity. The supplied **Gaur / Indian Bison (*Bos gaurus*)** emblem is the initial conservation symbol for the brand: a Vulnerable species used to build awareness of threatened life and support protection of threatened species, including Endangered and Critically Endangered species.
+
+## Conservation mission
+
+> **Awareness of a Vulnerable species. Protection of threatened species. Respect for every species.**
+
+The Gaur is the initial ambassador for this mission. It must not be described as Critically Endangered; conservation status claims must remain sourced and current.
 
 ## What it does
 
@@ -32,7 +38,7 @@ Agents automate bounded workflows, not high-impact legal judgment. MCP is an int
 Local-first by default. Sensitive case data should remain under user control. External processing is minimized, explicitly authorized, encrypted and auditable. AI-disabled operation must remain possible for core deterministic workflows.
 
 ## Conservation identity
-The Purple Frog uses the Gaur as a conservation ambassador. Conservation-status claims are treated as sourced data, not decorative marketing. The product may later introduce structured species-awareness resources covering Vulnerable, Endangered, Critically Endangered and other conservation categories.
+The Purple Frog uses the Gaur as a conservation ambassador. Its mission begins with awareness of a Vulnerable species and extends to protection of threatened species, including Endangered and Critically Endangered species. Conservation-status claims are treated as sourced data, not decorative marketing. The product may later introduce structured species-awareness resources covering Vulnerable, Endangered, Critically Endangered and other conservation categories.
 
 ## Initial engineering milestone
 Build the domain-independent Case and Incident Engine first, with evidence, events, source provenance and deterministic state transitions. Then add Panchayat and Municipality domain adapters without duplicating shared infrastructure.
