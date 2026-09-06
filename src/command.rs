@@ -101,7 +101,9 @@ where
     F: UnitOfWorkFactory,
     Build: FnOnce(&mut F::Uow::Context, &AtomicCommandPlan) -> Result<R, UnitOfWorkError>,
 {
-    let mut uow = factory.begin().map_err(AuthoritativeCommandError::Persistence)?;
+    let mut uow = factory
+        .begin()
+        .map_err(AuthoritativeCommandError::Persistence)?;
     let result = uow
         .execute(|context| {
             apply_plan(context, &plan)?;
