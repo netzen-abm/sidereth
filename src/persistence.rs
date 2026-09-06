@@ -108,7 +108,10 @@ impl ResourceLink {
 /// Provider-neutral read/write context used inside a unit of work.
 /// Reads occur in the same transaction as subsequent CAS writes.
 pub trait UnitOfWorkContext {
-    fn read_resource(&mut self, resource_ref: &ResourceRef) -> Result<Option<ResourceRecord>, UnitOfWorkError>;
+    fn read_resource(
+        &mut self,
+        resource_ref: &ResourceRef,
+    ) -> Result<Option<ResourceRecord>, UnitOfWorkError>;
     fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError>;
     fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError>;
 }
