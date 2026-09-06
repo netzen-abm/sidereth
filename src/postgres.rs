@@ -241,6 +241,11 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
     fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError> {
         let source_type = Self::resource_type_name(link.source_ref.resource_type);
         let target_type = Self::resource_type_name(link.target_ref.resource_type);
+        let class = match link.class {
+            crate::persistence::ResourceLinkClass::Strong => "strong",
+            crate::persistence::ResourceLinkClass::Forward => "forward",
+            crate::persistence::ResourceLinkClass::External => "external",
+        };
         let mut client = self
             .client
             .lock()
@@ -248,8 +253,8 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
         client
             .execute(
                 "INSERT INTO sidereth_resource_links
-                    (source_type, source_id, relation, target_type, target_id)
-                 VALUES ($1, $2, $3, $4, $5)
+                    (source_type, source_id, relation, target_type, target_id, class)
+                 VALUES ($1, $2, $3, $4, $5, $6)
                  ON CONFLICT (source_type, source_id, relation, target_type, target_id)
                  DO NOTHING",
                 &[
@@ -258,6 +263,7 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
                     &link.relation,
                     &target_type,
                     &link.target_ref.id,
+                    &class,
                 ],
             )
             .map(|_| ())
