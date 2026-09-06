@@ -7,11 +7,21 @@ CREATE TABLE IF NOT EXISTS sidereth_resource_records (
     resource_type TEXT NOT NULL,
     resource_id TEXT NOT NULL,
     schema_version INTEGER NOT NULL CHECK (schema_version > 0),
+    revision BIGINT NOT NULL DEFAULT 0 CHECK (revision >= 0),
     payload JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (resource_type, resource_id)
 );
+
+ALTER TABLE sidereth_resource_records
+    ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE sidereth_resource_records
+    DROP CONSTRAINT IF EXISTS sidereth_resource_records_revision_check;
+
+ALTER TABLE sidereth_resource_records
+    ADD CONSTRAINT sidereth_resource_records_revision_check CHECK (revision >= 0);
 
 CREATE TABLE IF NOT EXISTS sidereth_resource_links (
     source_type TEXT NOT NULL,
