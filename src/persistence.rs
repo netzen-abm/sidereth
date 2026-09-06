@@ -243,8 +243,14 @@ mod tests {
 
     #[test]
     fn resource_write_mode_uses_canonical_snake_case_wire_values() {
-        assert_eq!(serde_json::to_string(&ResourceWriteMode::Insert).unwrap(), "\"insert\"");
-        assert_eq!(serde_json::to_string(&ResourceWriteMode::Upsert).unwrap(), "\"upsert\"");
+        assert_eq!(
+            serde_json::to_string(&ResourceWriteMode::Insert).unwrap(),
+            "\"insert\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ResourceWriteMode::Upsert).unwrap(),
+            "\"upsert\""
+        );
     }
 
     #[test]
