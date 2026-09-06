@@ -470,9 +470,8 @@ mod tests {
             records.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap())
         );
         assert!(records.contains_key(&ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()));
-        assert!(records.contains_key(
-            &ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()
-        ));
+        assert!(records
+            .contains_key(&ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()));
         assert!(records.contains_key(&ResourceRef::new(ResourceType::Idempotency, "op-1").unwrap()));
     }
 
