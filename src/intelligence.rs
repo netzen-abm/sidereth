@@ -20,8 +20,11 @@ pub enum EpistemicStatus {
 }
 
 impl EpistemicStatus {
-    pub fn can_be_upgraded_to_authoritative(&self) -> bool {
-        matches!(self, Self::Observed | Self::EvidenceSupported | Self::SourceSupported | Self::SystemDerived)
+    pub fn is_uncertain(&self) -> bool {
+        matches!(
+            self,
+            Self::Inferred | Self::Unverified | Self::Contested | Self::Unknown
+        )
     }
 }
 
@@ -109,11 +112,6 @@ impl IntelligenceClaim {
         if self.content.is_empty() {
             return Err("intelligence claim content is required");
         }
-        if matches!(self.status, EpistemicStatus::Inferred | EpistemicStatus::Unverified | EpistemicStatus::Contested | EpistemicStatus::Unknown)
-            && self.source_refs.is_empty() && self.evidence_refs.is_empty()
-        {
-            return Ok(());
-        }
         Ok(())
     }
 }
@@ -141,6 +139,7 @@ pub struct IntelligenceResponse {
 
 impl IntelligenceResponse {
     pub fn validate_against(&self, request: &IntelligenceRequest) -> Result<(), &'static str> {
+        request.validate()?;
         if self.request_id != request.request_id {
             return Err("intelligence response request id mismatch");
         }
@@ -155,9 +154,6 @@ impl IntelligenceResponse {
         }
         if request.provenance_required && self.provenance_refs.is_empty() {
             return Err("intelligence response provenance is required");
-        }
-        if request.risk_class == IntelligenceRiskClass::HighImpact && !request.human_approval_required {
-            return Err("high-impact intelligence requires human approval");
         }
         Ok(())
     }
@@ -198,7 +194,7 @@ mod tests {
             model_version: Some("1".into()),
             task_type: "analysis".into(),
             context_refs: vec![reference(crate::ResourceType::Document, "doc-1")],
-            jurisdiction_ref: Some(reference(crate::ResourceType::Jurisdiction, "india") ),
+            jurisdiction_ref: Some(reference(crate::ResourceType::Jurisdiction, "india")),
             data_class: IntelligenceDataClass::Confidential,
             required_output_schema: "intelligence.response.v1".into(),
             tool_permissions: Vec::new(),
@@ -284,10 +280,11 @@ mod tests {
     }
 
     #[test]
-    fn provider_cannot_turn_uncertain_status_into_authority() {
-        assert!(!EpistemicStatus::Inferred.can_be_upgraded_to_authoritative());
-        assert!(!EpistemicStatus::Unverified.can_be_upgraded_to_authoritative());
-        assert!(!EpistemicStatus::Contested.can_be_upgraded_to_authoritative());
-        assert!(!EpistemicStatus::Unknown.can_be_upgraded_to_authoritative());
+    fn uncertain_epistemic_status_remains_uncertain() {
+        assert!(EpistemicStatus::Inferred.is_uncertain());
+        assert!(EpistemicStatus::Unverified.is_uncertain());
+        assert!(EpistemicStatus::Contested.is_uncertain());
+        assert!(EpistemicStatus::Unknown.is_uncertain());
+        assert!(!EpistemicStatus::Observed.is_uncertain());
     }
 }
