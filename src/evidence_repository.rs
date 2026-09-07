@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use serde_json::Value;
-
 use crate::persistence::{
     PersistenceError, ResourceRef, ResourceWrite, ResourceWriteMode, UnitOfWorkContext,
 };
@@ -134,8 +132,11 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
     }
 
     pub fn create(&mut self, evidence: PersistedEvidence) -> Result<(), PersistenceError> {
-        let resource_ref = ResourceRef::new(ResourceType::Evidence, evidence.original.evidence_id.clone())
-            .map_err(|_| PersistenceError::IntegrityFailure)?;
+        let resource_ref = ResourceRef::new(
+            ResourceType::Evidence,
+            evidence.original.evidence_id.clone(),
+        )
+        .map_err(|_| PersistenceError::IntegrityFailure)?;
         let payload = serde_json::to_value(&evidence)
             .map_err(|_| PersistenceError::SerializationFailure)?;
         let write = ResourceWrite::new(
@@ -179,10 +180,9 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
         &mut self,
         evidence_id: &Id,
     ) -> Result<Vec<EvidenceTransformation>, PersistenceError> {
-        Ok(self
-            .get(evidence_id)?
+        self.get(evidence_id)?
             .map(|evidence| evidence.transformations)
-            .unwrap_or_default())
+            .ok_or(PersistenceError::NotFound)
     }
 }
 
@@ -320,7 +320,10 @@ mod tests {
             Ok(())
         }
 
-        fn link_resources(&mut self, _link: crate::persistence::ResourceLink) -> Result<(), UnitOfWorkError> {
+        fn link_resources(
+            &mut self,
+            _link: crate::persistence::ResourceLink,
+        ) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
     }
@@ -340,7 +343,10 @@ mod tests {
         {
             let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
             repository.create(evidence.clone()).unwrap();
-            assert_eq!(repository.get(&"evidence-1".into()).unwrap(), Some(evidence));
+            assert_eq!(
+                repository.get(&"evidence-1".into()).unwrap(),
+                Some(evidence)
+            );
         }
     }
 
@@ -357,5 +363,15 @@ mod tests {
                 Err(PersistenceError::Duplicate)
             );
         }
+    }
+
+    #[test]
+    fn uow_adapter_returns_not_found_for_missing_transformations() {
+        let mut context = FakeContext::default();
+        let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
+        assert_eq!(
+            repository.list_transformations(&"missing".into()),
+            Err(PersistenceError::NotFound)
+        );
     }
 }
