@@ -39,6 +39,7 @@ pub enum ResourceType {
     Authority,
     Jurisdiction,
     Party,
+    PartyRelationship,
     Document,
     Action,
     Deadline,
@@ -75,6 +76,7 @@ pub mod legal_source_registry;
 pub mod lifecycle;
 pub mod local_store;
 pub mod party;
+pub mod party_repository;
 pub mod persistence;
 #[cfg(feature = "postgres")]
 pub mod postgres;
@@ -127,6 +129,7 @@ pub use legal_source_registry::LegalSourceRegistry;
 pub use lifecycle::{LifecycleMeta, LifecycleTransition};
 pub use local_store::LocalFileStore;
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
+pub use party_repository::PartyUnitOfWorkRepository;
 pub use persistence::{
     CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
     PersistenceError, ResourceLink, ResourceWrite, ResourceWriteMode, Revision, Transaction,
@@ -269,6 +272,14 @@ mod tests {
         assert_eq!(
             ResourceRef::new(ResourceType::Case, ""),
             Err("resource reference id is required")
+        );
+    }
+
+    #[test]
+    fn party_relationship_resource_type_has_canonical_wire_value() {
+        assert_eq!(
+            serde_json::to_string(&ResourceType::PartyRelationship).unwrap(),
+            "\"party_relationship\""
         );
     }
 }
