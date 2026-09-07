@@ -55,6 +55,31 @@ impl PersistedEvidence {
         })
     }
 
+    pub fn validate(&self) -> Result<(), EvidencePersistenceError> {
+        if self.schema_version == 0 {
+            return Err(EvidencePersistenceError::ValidationFailure);
+        }
+        self.original
+            .validate()
+            .map_err(|_| EvidencePersistenceError::ValidationFailure)?;
+        self.trust
+            .validate()
+            .map_err(|_| EvidencePersistenceError::ValidationFailure)?;
+        let mut transformation_ids = std::collections::HashSet::new();
+        for transformation in &self.transformations {
+            transformation
+                .validate()
+                .map_err(|_| EvidencePersistenceError::ValidationFailure)?;
+            if transformation.source_evidence_id != self.original.evidence_id {
+                return Err(EvidencePersistenceError::IntegrityFailure);
+            }
+            if !transformation_ids.insert(&transformation.transformation_id) {
+                return Err(EvidencePersistenceError::Duplicate);
+            }
+        }
+        Ok(())
+    }
+
     pub fn with_transformation(
         mut self,
         transformation: EvidenceTransformation,
@@ -93,6 +118,7 @@ pub struct InMemoryEvidenceTrustRepository {
 
 impl EvidenceTrustRepository for InMemoryEvidenceTrustRepository {
     fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError> {
+        evidence.validate()?;
         if self.records.contains_key(&evidence.original.evidence_id) {
             return Err(EvidencePersistenceError::Duplicate);
         }
@@ -132,6 +158,7 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
     }
 
     pub fn create(&mut self, evidence: PersistedEvidence) -> Result<(), PersistenceError> {
+        evidence.validate().map_err(PersistenceError::from)?;
         let resource_ref = ResourceRef::new(
             ResourceType::Evidence,
             evidence.original.evidence_id.clone(),
@@ -170,8 +197,10 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
             })?;
         record
             .map(|record| {
-                serde_json::from_value::<PersistedEvidence>(record.payload)
-                    .map_err(|_| PersistenceError::SerializationFailure)
+                let evidence = serde_json::from_value::<PersistedEvidence>(record.payload)
+                    .map_err(|_| PersistenceError::SerializationFailure)?;
+                evidence.validate().map_err(PersistenceError::from)?;
+                Ok(evidence)
             })
             .transpose()
     }
@@ -219,6 +248,40 @@ mod tests {
         assert_eq!(
             repository.get(&"evidence-1".into()).unwrap(),
             Some(evidence)
+        );
+    }
+
+    #[test]
+    fn repository_rejects_invalid_persisted_evidence() {
+        let mut repository = InMemoryEvidenceTrustRepository::default();
+        let mut evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        evidence.schema_version = 0;
+        assert_eq!(
+            repository.create(evidence),
+            Err(EvidencePersistenceError::ValidationFailure)
+        );
+    }
+
+    #[test]
+    fn repository_rejects_invalid_transformation_in_persisted_record() {
+        let mut repository = InMemoryEvidenceTrustRepository::default();
+        let mut evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        evidence.transformations.push(EvidenceTransformation {
+            transformation_id: "transform-invalid".into(),
+            source_evidence_id: "other-evidence".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "system".into(),
+            tool_id: None,
+            tool_version: None,
+            input_hash: None,
+            output_hash: None,
+        });
+        assert_eq!(
+            repository.create(evidence),
+            Err(EvidencePersistenceError::IntegrityFailure)
         );
     }
 
