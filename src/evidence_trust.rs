@@ -251,6 +251,9 @@ mod tests {
             input_hash: None,
             output_hash: None,
         };
-        assert_eq!(transformation.validate(), Err("source evidence id is required"));
+        assert_eq!(
+            transformation.validate(),
+            Err("source evidence id is required")
+        );
     }
 }
