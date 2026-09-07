@@ -30,9 +30,13 @@ fn prepare(factory: &mut PostgresUnitOfWorkFactory) {
     uow.execute(|ctx| {
         let mut client = postgres::Client::connect(factory.connection_string(), postgres::NoTls)
             .expect("connect for setup");
+        // Multiple live integration tests can initialize the shared schema concurrently.
+        // Serialize only the test-fixture DDL; production transaction semantics are unchanged.
         client
             .batch_execute(
-                "CREATE TABLE IF NOT EXISTS sidereth_resource_records (
+                "BEGIN;
+                 SELECT pg_advisory_xact_lock(7483912051);
+                 CREATE TABLE IF NOT EXISTS sidereth_resource_records (
                     resource_type TEXT NOT NULL,
                     resource_id TEXT NOT NULL,
                     schema_version INTEGER NOT NULL CHECK (schema_version > 0),
@@ -50,7 +54,8 @@ fn prepare(factory: &mut PostgresUnitOfWorkFactory) {
                     target_id TEXT NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (source_type, source_id, relation, target_type, target_id)
-                );",
+                );
+                COMMIT;",
             )
             .expect("create test tables");
         let _ = ctx;
@@ -126,7 +131,7 @@ fn live_postgres_cas_race_allows_exactly_one_writer() {
                         1,
                         json!({"value": value}),
                         ResourceWriteMode::Upsert,
-                    )?
+                    )
                     .with_expected_revision(observed.revision),
                 )
             });
