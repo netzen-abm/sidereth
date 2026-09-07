@@ -68,6 +68,7 @@ impl PostgresUnitOfWorkContext {
             ResourceType::Authority => "authority",
             ResourceType::Jurisdiction => "jurisdiction",
             ResourceType::Party => "party",
+            ResourceType::PartyRelationship => "party_relationship",
             ResourceType::Document => "document",
             ResourceType::Action => "action",
             ResourceType::Deadline => "deadline",
@@ -95,6 +96,7 @@ impl PostgresUnitOfWorkContext {
             "authority" => ResourceType::Authority,
             "jurisdiction" => ResourceType::Jurisdiction,
             "party" => ResourceType::Party,
+            "party_relationship" => ResourceType::PartyRelationship,
             "document" => ResourceType::Document,
             "action" => ResourceType::Action,
             "deadline" => ResourceType::Deadline,
@@ -111,23 +113,16 @@ impl PostgresUnitOfWorkContext {
             "provenance" => ResourceType::Provenance,
             "idempotency" => ResourceType::Idempotency,
             "other" => ResourceType::Other,
-            _ => {
-                return Err(UnitOfWorkError::Persistence(
-                    PersistenceError::IntegrityFailure,
-                ))
-            }
+            _ => return Err(UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure)),
         };
         ResourceRef::new(kind, id)
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure))
     }
-}
 
-impl UnitOfWorkContext for PostgresUnitOfWorkContext {
-    fn read_resource(
-        &mut self,
+    fn read_record(
+        &self,
         resource_ref: &ResourceRef,
     ) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
-        let resource_type = Self::resource_type_name(resource_ref.resource_type);
         let mut client = self
             .client
             .lock()
@@ -137,110 +132,104 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
                 "SELECT resource_type, resource_id, schema_version, revision, payload
                  FROM sidereth_resource_records
                  WHERE resource_type = $1 AND resource_id = $2",
-                &[&resource_type, &resource_ref.id],
+                &[
+                    &Self::resource_type_name(resource_ref.resource_type),
+                    &resource_ref.id,
+                ],
             )
-            .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error)))?;
-
-        let Some(row) = row else {
-            return Ok(None);
-        };
-
-        let stored_type: &str = row.get(0);
-        let schema_version: i32 = row.get(2);
-        let revision: i64 = row.get(3);
-        if !(1..=i32::from(u16::MAX)).contains(&schema_version) || revision < 0 {
-            return Err(UnitOfWorkError::Persistence(
-                PersistenceError::IntegrityFailure,
-            ));
-        }
-        let revision = u64::try_from(revision)
-            .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure))?;
-        Ok(Some(ResourceRecord {
-            resource_ref: Self::resource_ref(stored_type, row.get(1))?,
-            schema_version: schema_version as u16,
-            revision: Revision { value: revision },
-            payload: row.get(4),
-        }))
+            .map_err(PostgresUnitOfWork::map_error)?;
+        row.map(|row| {
+            let resource_type: String = row.get(0);
+            let resource_id: String = row.get(1);
+            let schema_version: i32 = row.get(2);
+            let revision: i64 = row.get(3);
+            let payload: Value = row.get(4);
+            let resource_ref = Self::resource_ref(&resource_type, resource_id)?;
+            let schema_version = u16::try_from(schema_version).map_err(|_| {
+                UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure)
+            })?;
+            let revision = Revision::try_from(revision).map_err(|_| {
+                UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure)
+            })?;
+            Ok(ResourceRecord {
+                resource_ref,
+                schema_version,
+                revision,
+                payload,
+            })
+        })
+        .transpose()
     }
 
-    fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
-        let resource_type = Self::resource_type_name(write.resource_ref.resource_type);
-        let id = write.resource_ref.id;
-        let schema_version = i32::from(write.schema_version);
-        let payload = write.payload;
+    fn write_record(&self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
+        let expected_revision = write.expected_revision;
         let mut client = self
             .client
             .lock()
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Unavailable))?;
+        let resource_type = Self::resource_type_name(write.resource_ref.resource_type);
+        let resource_id = write.resource_ref.id.clone();
+        let schema_version = i32::from(write.schema_version);
+        let payload = write.payload;
 
-        match (write.mode, write.expected_revision) {
-            (ResourceWriteMode::Insert, Some(_)) => Err(UnitOfWorkError::InvalidOperation),
-            (ResourceWriteMode::Insert, None) => client
-                .execute(
-                    "INSERT INTO sidereth_resource_records
-                        (resource_type, resource_id, schema_version, revision, payload)
-                     VALUES ($1, $2, $3, 0, $4)",
-                    &[&resource_type, &id, &schema_version, &payload],
-                )
-                .map(|_| ())
-                .map_err(|error| {
-                    UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))
-                }),
-            (ResourceWriteMode::Upsert, Some(expected)) => {
-                let expected_revision = i64::try_from(expected.value)
-                    .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Conflict))?;
-                let next_revision = expected.next().map_err(UnitOfWorkError::Persistence)?;
-                let next_revision = i64::try_from(next_revision.value)
-                    .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Conflict))?;
-                let affected = client
+        match write.mode {
+            ResourceWriteMode::Insert => {
+                client
                     .execute(
-                        "UPDATE sidereth_resource_records
-                         SET schema_version = $3,
-                             revision = $4,
-                             payload = $5,
-                             updated_at = CURRENT_TIMESTAMP
-                         WHERE resource_type = $1
-                           AND resource_id = $2
-                           AND revision = $6",
-                        &[
-                            &resource_type,
-                            &id,
-                            &schema_version,
-                            &next_revision,
-                            &payload,
-                            &expected_revision,
-                        ],
+                        "INSERT INTO sidereth_resource_records
+                         (resource_type, resource_id, schema_version, revision, payload)
+                         VALUES ($1, $2, $3, 1, $4)",
+                        &[&resource_type, &resource_id, &schema_version, &payload],
                     )
-                    .map_err(|error| {
-                        UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))
-                    })?;
-                if affected == 0 {
-                    return Err(UnitOfWorkError::Persistence(PersistenceError::Conflict));
-                }
-                Ok(())
+                    .map_err(PostgresUnitOfWork::map_error)?;
             }
-            (ResourceWriteMode::Upsert, None) => client
-                .execute(
-                    "INSERT INTO sidereth_resource_records
-                        (resource_type, resource_id, schema_version, revision, payload)
-                     VALUES ($1, $2, $3, 0, $4)
-                     ON CONFLICT (resource_type, resource_id)
-                     DO UPDATE SET schema_version = EXCLUDED.schema_version,
-                                   revision = sidereth_resource_records.revision + 1,
-                                   payload = EXCLUDED.payload,
-                                   updated_at = CURRENT_TIMESTAMP",
-                    &[&resource_type, &id, &schema_version, &payload],
-                )
-                .map(|_| ())
-                .map_err(|error| {
-                    UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error))
-                }),
+            ResourceWriteMode::Upsert => {
+                if let Some(expected) = expected_revision {
+                    let expected = i64::try_from(expected.get()).map_err(|_| {
+                        UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure)
+                    })?;
+                    let updated = client
+                        .execute(
+                            "UPDATE sidereth_resource_records
+                             SET schema_version = $3, revision = revision + 1, payload = $4, updated_at = CURRENT_TIMESTAMP
+                             WHERE resource_type = $1 AND resource_id = $2 AND revision = $5",
+                            &[&resource_type, &resource_id, &schema_version, &payload, &expected],
+                        )
+                        .map_err(PostgresUnitOfWork::map_error)?;
+                    if updated == 0 {
+                        let exists = client
+                            .query_opt(
+                                "SELECT revision FROM sidereth_resource_records WHERE resource_type = $1 AND resource_id = $2",
+                                &[&resource_type, &resource_id],
+                            )
+                            .map_err(PostgresUnitOfWork::map_error)?;
+                        return Err(UnitOfWorkError::Persistence(if exists.is_some() {
+                            PersistenceError::Conflict
+                        } else {
+                            PersistenceError::NotFound
+                        }));
+                    }
+                } else {
+                    client
+                        .execute(
+                            "INSERT INTO sidereth_resource_records
+                             (resource_type, resource_id, schema_version, revision, payload)
+                             VALUES ($1, $2, $3, 1, $4)
+                             ON CONFLICT (resource_type, resource_id)
+                             DO UPDATE SET schema_version = EXCLUDED.schema_version,
+                                           revision = sidereth_resource_records.revision + 1,
+                                           payload = EXCLUDED.payload,
+                                           updated_at = CURRENT_TIMESTAMP",
+                            &[&resource_type, &resource_id, &schema_version, &payload],
+                        )
+                        .map_err(PostgresUnitOfWork::map_error)?;
+                }
+            }
         }
+        Ok(())
     }
 
-    fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError> {
-        let source_type = Self::resource_type_name(link.source_ref.resource_type);
-        let target_type = Self::resource_type_name(link.target_ref.resource_type);
+    fn link_record(&self, link: ResourceLink) -> Result<(), UnitOfWorkError> {
         let mut client = self
             .client
             .lock()
@@ -248,114 +237,100 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
         client
             .execute(
                 "INSERT INTO sidereth_resource_links
-                    (source_type, source_id, relation, target_type, target_id)
+                 (source_type, source_id, relation, target_type, target_id)
                  VALUES ($1, $2, $3, $4, $5)
-                 ON CONFLICT (source_type, source_id, relation, target_type, target_id)
-                 DO NOTHING",
+                 ON CONFLICT DO NOTHING",
                 &[
-                    &source_type,
-                    &link.source_ref.id,
+                    &Self::resource_type_name(link.source.resource_type),
+                    &link.source.id,
                     &link.relation,
-                    &target_type,
-                    &link.target_ref.id,
+                    &Self::resource_type_name(link.target.resource_type),
+                    &link.target.id,
                 ],
             )
-            .map(|_| ())
-            .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error)))
+            .map_err(PostgresUnitOfWork::map_error)?;
+        Ok(())
+    }
+}
+
+impl UnitOfWorkContext for PostgresUnitOfWorkContext {
+    fn read_resource(
+        &mut self,
+        resource_ref: &ResourceRef,
+    ) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
+        self.read_record(resource_ref)
+    }
+
+    fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
+        self.write_record(write)
+    }
+
+    fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError> {
+        self.link_record(link)
     }
 }
 
 impl UnitOfWork for PostgresUnitOfWork {
-    type Context = PostgresUnitOfWorkContext;
-
-    fn execute<R, F>(&mut self, operation: F) -> Result<R, UnitOfWorkError>
+    fn execute<T, F>(&mut self, operation: F) -> Result<T, UnitOfWorkError>
     where
-        F: FnOnce(&mut Self::Context) -> Result<R, UnitOfWorkError>,
+        F: FnOnce(&mut dyn UnitOfWorkContext) -> Result<T, UnitOfWorkError>,
     {
         if !self.active {
-            return Err(UnitOfWorkError::Persistence(PersistenceError::Conflict));
+            return Err(UnitOfWorkError::InvalidOperation);
         }
+        let mut client = self.lock_client()?;
+        client.batch_execute("BEGIN").map_err(Self::map_error)?;
+        drop(client);
+
         let mut context = PostgresUnitOfWorkContext {
             client: Arc::clone(&self.client),
         };
-        operation(&mut context)
+        let result = operation(&mut context);
+        let mut client = self.lock_client()?;
+        match result {
+            Ok(value) => {
+                client.batch_execute("COMMIT").map_err(Self::map_error)?;
+                self.active = false;
+                Ok(value)
+            }
+            Err(error) => {
+                client.batch_execute("ROLLBACK").map_err(Self::map_error)?;
+                self.active = false;
+                Err(error)
+            }
+        }
     }
 
-    fn commit(mut self) -> Result<(), PersistenceError> {
+    fn commit(&mut self) -> Result<(), UnitOfWorkError> {
         if !self.active {
-            return Err(PersistenceError::Conflict);
+            return Err(UnitOfWorkError::InvalidOperation);
         }
-        let result = {
-            let mut client = self
-                .client
-                .lock()
-                .map_err(|_| PersistenceError::Unavailable)?;
-            client.batch_execute("COMMIT").map_err(Self::map_error)
-        };
-        result?;
+        let mut client = self.lock_client()?;
+        client.batch_execute("COMMIT").map_err(Self::map_error)?;
         self.active = false;
         Ok(())
     }
 
-    fn rollback(mut self) -> Result<(), PersistenceError> {
-        self.rollback_in_place()
-    }
-}
-
-impl PostgresUnitOfWork {
-    fn rollback_in_place(&mut self) -> Result<(), PersistenceError> {
+    fn rollback(&mut self) -> Result<(), UnitOfWorkError> {
         if !self.active {
-            return Ok(());
+            return Err(UnitOfWorkError::InvalidOperation);
         }
-        let result = {
-            let mut client = self
-                .lock_client()
-                .map_err(|_| PersistenceError::Unavailable)?;
-            let result = client.batch_execute("ROLLBACK").map_err(Self::map_error);
-            drop(client);
-            result
-        };
-        result?;
+        let mut client = self.lock_client()?;
+        client.batch_execute("ROLLBACK").map_err(Self::map_error)?;
         self.active = false;
         Ok(())
-    }
-}
-
-impl Drop for PostgresUnitOfWork {
-    fn drop(&mut self) {
-        if self.active {
-            let _ = self.rollback_in_place();
-        }
     }
 }
 
 impl UnitOfWorkFactory for PostgresUnitOfWorkFactory {
     type Uow = PostgresUnitOfWork;
 
-    fn begin(&mut self) -> Result<Self::Uow, PersistenceError> {
-        let mut client = Client::connect(&self.connection_string, NoTls)
-            .map_err(PostgresUnitOfWork::map_error)?;
-        client
-            .batch_execute("BEGIN")
+    fn begin(&mut self) -> Result<Self::Uow, UnitOfWorkError> {
+        let client = Client::connect(&self.connection_string, NoTls)
             .map_err(PostgresUnitOfWork::map_error)?;
         Ok(PostgresUnitOfWork {
             client: Arc::new(Mutex::new(client)),
             active: true,
         })
-    }
-}
-
-pub fn to_json<T: serde::Serialize>(value: &T) -> Result<Value, PersistenceError> {
-    serde_json::to_value(value).map_err(|_| PersistenceError::SerializationFailure)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn factory_preserves_connection_configuration() {
-        let factory = PostgresUnitOfWorkFactory::new("host=localhost user=sidereth");
-        assert_eq!(factory.connection_string(), "host=localhost user=sidereth");
     }
 }
