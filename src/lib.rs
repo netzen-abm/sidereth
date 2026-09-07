@@ -66,6 +66,7 @@ pub mod deadline;
 pub mod document;
 pub mod event;
 pub mod evidence;
+pub mod evidence_repository;
 pub mod evidence_store;
 pub mod evidence_trust;
 pub mod jurisdiction;
@@ -108,6 +109,10 @@ pub use document::{
 };
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
+pub use evidence_repository::{
+    EvidencePersistenceError, EvidenceTrustRepository, InMemoryEvidenceTrustRepository,
+    PersistedEvidence,
+};
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use evidence_trust::{
     CaptureLocation, EvidencePassport, EvidenceTransformation, EvidenceTrustMetadata,
