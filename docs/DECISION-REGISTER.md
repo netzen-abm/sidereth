@@ -24,6 +24,7 @@
 | D-020 | Panchayat/Municipality are first domain adapters | LOCKED | Initial domain scope is controlled |
 | D-021 | Advanced legal intelligence comes later | LOCKED | MVP remains bounded |
 | D-022 | SIDERETH is working brand; commercial clearance is separate | OPEN | Naming cannot block architecture |
+| D-023 | Intelligence contract precedes model/provider implementation | LOCKED | Providers remain replaceable and AI remains bounded by policy, provenance, evaluation and approval |
 
 ## Decision protocol
 Every material future decision should record context, options, selected decision, rationale, consequences, rejected alternatives, dependencies and review trigger. A decision is not considered superseded merely because implementation evolves; update this register explicitly.
