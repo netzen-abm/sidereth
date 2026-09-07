@@ -177,6 +177,9 @@ impl Action {
         if self.authorization_ref.as_deref() != Some(approval.authorization_ref.id.as_str()) {
             return Err("approval authorization reference does not match action");
         }
+        if !approval.grants_execution() {
+            return Err("approval decision does not grant execution");
+        }
         if updated_at.is_empty() {
             return Err("action update timestamp is required");
         }
@@ -296,6 +299,19 @@ mod tests {
         value.transition(ActionStatus::Approved, "2026-09-04T10:03:00Z".into()).unwrap();
         assert_eq!(value.status, ActionStatus::Approved);
         assert_eq!(value.approval_ref.as_deref(), Some("approval-1"));
+    }
+
+    #[test]
+    fn rejected_or_revoked_approval_cannot_bind_execution_authority() {
+        for decision in [ApprovalDecision::Rejected, ApprovalDecision::Revoked] {
+            let mut value = action();
+            value.requires_explicit_approval = true;
+            value.authorization_ref = Some("auth-1".into());
+            assert_eq!(
+                value.bind_approval(&approval(decision), "2026-09-04T10:02:00Z".into()),
+                Err("approval decision does not grant execution")
+            );
+        }
     }
 
     #[test]
