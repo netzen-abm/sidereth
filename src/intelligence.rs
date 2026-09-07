@@ -173,7 +173,10 @@ pub enum IntelligenceError {
 /// computation and must not bypass SIDERETH policy, authorization, tool,
 /// provenance or approval boundaries.
 pub trait IntelligenceProvider {
-    fn execute(&self, request: &IntelligenceRequest) -> Result<IntelligenceResponse, IntelligenceError>;
+    fn execute(
+        &self,
+        request: &IntelligenceRequest,
+    ) -> Result<IntelligenceResponse, IntelligenceError>;
 }
 
 #[cfg(test)]
@@ -216,7 +219,10 @@ mod tests {
     fn high_impact_request_requires_approval() {
         let mut value = request();
         value.risk_class = IntelligenceRiskClass::HighImpact;
-        assert_eq!(value.validate(), Err("high-impact intelligence requires human approval"));
+        assert_eq!(
+            value.validate(),
+            Err("high-impact intelligence requires human approval")
+        );
         value.human_approval_required = true;
         assert!(value.validate().is_ok());
     }
@@ -237,7 +243,10 @@ mod tests {
             warnings: Vec::new(),
             provenance_refs: vec![reference(crate::ResourceType::Provenance, "prov-1")],
         };
-        assert_eq!(response.validate_against(&req), Err("intelligence response request id mismatch"));
+        assert_eq!(
+            response.validate_against(&req),
+            Err("intelligence response request id mismatch")
+        );
     }
 
     #[test]
@@ -256,7 +265,10 @@ mod tests {
             warnings: Vec::new(),
             provenance_refs: Vec::new(),
         };
-        assert_eq!(response.validate_against(&req), Err("intelligence response provenance is required"));
+        assert_eq!(
+            response.validate_against(&req),
+            Err("intelligence response provenance is required")
+        );
     }
 
     #[test]
