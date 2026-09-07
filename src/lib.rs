@@ -110,8 +110,8 @@ pub use document::{
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
 pub use evidence_repository::{
-    EvidencePersistenceError, EvidenceTrustRepository, InMemoryEvidenceTrustRepository,
-    PersistedEvidence,
+    EvidencePersistenceError, EvidenceTrustRepository, EvidenceTrustUnitOfWorkRepository,
+    InMemoryEvidenceTrustRepository, PersistedEvidence,
 };
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use evidence_trust::{

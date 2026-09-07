@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id};
+use crate::persistence::{PersistenceError, ResourceWrite, ResourceWriteMode, UnitOfWorkContext};
+use crate::{
+    EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id, ResourceRef, ResourceType,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EvidencePersistenceError {
@@ -10,7 +13,18 @@ pub enum EvidencePersistenceError {
     IntegrityFailure,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl From<EvidencePersistenceError> for PersistenceError {
+    fn from(error: EvidencePersistenceError) -> Self {
+        match error {
+            EvidencePersistenceError::ValidationFailure => PersistenceError::ValidationFailure,
+            EvidencePersistenceError::NotFound => PersistenceError::NotFound,
+            EvidencePersistenceError::Duplicate => PersistenceError::Duplicate,
+            EvidencePersistenceError::IntegrityFailure => PersistenceError::IntegrityFailure,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PersistedEvidence {
     pub schema_version: u16,
     pub original: EvidenceOriginal,
@@ -103,9 +117,79 @@ impl EvidenceTrustRepository for InMemoryEvidenceTrustRepository {
     }
 }
 
+/// Evidence Trust persistence adapter over the canonical Unit-of-Work context.
+///
+/// The adapter deliberately does not begin, commit, or roll back a transaction.
+/// The caller owns the surrounding Unit-of-Work so evidence can be committed
+/// atomically with Case, Incident, or other resources.
+pub struct EvidenceTrustUnitOfWorkRepository<'a, C: UnitOfWorkContext> {
+    context: &'a mut C,
+}
+
+impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
+    pub fn new(context: &'a mut C) -> Self {
+        Self { context }
+    }
+
+    pub fn create(&mut self, evidence: PersistedEvidence) -> Result<(), PersistenceError> {
+        let resource_ref = ResourceRef::new(
+            ResourceType::Evidence,
+            evidence.original.evidence_id.clone(),
+        )
+        .map_err(|_| PersistenceError::IntegrityFailure)?;
+        let payload =
+            serde_json::to_value(&evidence).map_err(|_| PersistenceError::SerializationFailure)?;
+        let write = ResourceWrite::new(
+            resource_ref,
+            evidence.schema_version,
+            payload,
+            ResourceWriteMode::Insert,
+        )
+        .map_err(|_| PersistenceError::ValidationFailure)?;
+        self.context
+            .write_resource(write)
+            .map_err(|error| match error {
+                crate::persistence::UnitOfWorkError::Persistence(error) => error,
+                crate::persistence::UnitOfWorkError::InvalidOperation => {
+                    PersistenceError::ValidationFailure
+                }
+            })
+    }
+
+    pub fn get(&mut self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, PersistenceError> {
+        let resource_ref = ResourceRef::new(ResourceType::Evidence, evidence_id.clone())
+            .map_err(|_| PersistenceError::IntegrityFailure)?;
+        let record = self
+            .context
+            .read_resource(&resource_ref)
+            .map_err(|error| match error {
+                crate::persistence::UnitOfWorkError::Persistence(error) => error,
+                crate::persistence::UnitOfWorkError::InvalidOperation => {
+                    PersistenceError::ValidationFailure
+                }
+            })?;
+        record
+            .map(|record| {
+                serde_json::from_value::<PersistedEvidence>(record.payload)
+                    .map_err(|_| PersistenceError::SerializationFailure)
+            })
+            .transpose()
+    }
+
+    pub fn list_transformations(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Vec<EvidenceTransformation>, PersistenceError> {
+        self.get(evidence_id)?
+            .map(|evidence| evidence.transformations)
+            .ok_or(PersistenceError::NotFound)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::persistence::{ResourceRecord, Revision, UnitOfWorkError};
     use crate::{EvidenceCapture, MediaOrigin};
 
     fn original() -> EvidenceOriginal {
@@ -203,6 +287,91 @@ mod tests {
         assert_eq!(
             PersistedEvidence::new(0, original(), EvidenceTrustMetadata::default()),
             Err(EvidencePersistenceError::ValidationFailure)
+        );
+    }
+
+    #[derive(Default)]
+    struct FakeContext {
+        record: Option<ResourceRecord>,
+    }
+
+    impl UnitOfWorkContext for FakeContext {
+        fn read_resource(
+            &mut self,
+            resource_ref: &ResourceRef,
+        ) -> Result<Option<ResourceRecord>, UnitOfWorkError> {
+            Ok(self
+                .record
+                .as_ref()
+                .filter(|record| record.resource_ref == *resource_ref)
+                .cloned())
+        }
+
+        fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
+            if self.record.is_some() && write.mode == ResourceWriteMode::Insert {
+                return Err(UnitOfWorkError::Persistence(PersistenceError::Duplicate));
+            }
+            self.record = Some(ResourceRecord {
+                resource_ref: write.resource_ref,
+                schema_version: write.schema_version,
+                revision: Revision::initial(),
+                payload: write.payload,
+            });
+            Ok(())
+        }
+
+        fn link_resources(
+            &mut self,
+            _link: crate::persistence::ResourceLink,
+        ) -> Result<(), UnitOfWorkError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn uow_adapter_round_trips_without_owning_transaction() {
+        let evidence = PersistedEvidence::new(
+            1,
+            original(),
+            EvidenceTrustMetadata {
+                media_origin: MediaOrigin::LiveCapture,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let mut context = FakeContext::default();
+        {
+            let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
+            repository.create(evidence.clone()).unwrap();
+            assert_eq!(
+                repository.get(&"evidence-1".into()).unwrap(),
+                Some(evidence)
+            );
+        }
+    }
+
+    #[test]
+    fn uow_adapter_preserves_duplicate_error_from_provider() {
+        let evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        let mut context = FakeContext::default();
+        {
+            let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
+            repository.create(evidence.clone()).unwrap();
+            assert_eq!(
+                repository.create(evidence),
+                Err(PersistenceError::Duplicate)
+            );
+        }
+    }
+
+    #[test]
+    fn uow_adapter_returns_not_found_for_missing_transformations() {
+        let mut context = FakeContext::default();
+        let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
+        assert_eq!(
+            repository.list_transformations(&"missing".into()),
+            Err(PersistenceError::NotFound)
         );
     }
 }
