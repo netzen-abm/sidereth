@@ -132,14 +132,17 @@ mod tests {
         };
         let evidence = PersistedEvidence::new(1, original(), trust).unwrap();
         repository.create(evidence.clone()).unwrap();
-        assert_eq!(repository.get(&"evidence-1".into()).unwrap(), Some(evidence));
+        assert_eq!(
+            repository.get(&"evidence-1".into()).unwrap(),
+            Some(evidence)
+        );
     }
 
     #[test]
     fn original_is_immutable_by_rejecting_duplicate_create() {
         let mut repository = InMemoryEvidenceTrustRepository::default();
-        let evidence = PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default())
-            .unwrap();
+        let evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
         repository.create(evidence.clone()).unwrap();
         assert_eq!(
             repository.create(evidence),
@@ -188,7 +191,9 @@ mod tests {
             .unwrap();
         repository.create(evidence).unwrap();
         assert_eq!(
-            repository.list_transformations(&"evidence-1".into()).unwrap(),
+            repository
+                .list_transformations(&"evidence-1".into())
+                .unwrap(),
             vec![transformation]
         );
     }
