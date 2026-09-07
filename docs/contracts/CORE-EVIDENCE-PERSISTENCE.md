@@ -30,18 +30,7 @@ A provider MUST reject a record whose referenced original bytes are unavailable 
 
 ## Provider neutrality
 
-The canonical contract MUST NOT depend on:
-
-- PostgreSQL
-- Supabase
-- SQLite
-- S3-compatible storage
-- a filesystem
-- a mobile database
-- a cloud provider
-- a particular ORM
-
-These may implement adapters independently.
+The canonical contract MUST NOT depend on PostgreSQL, Supabase, SQLite, S3-compatible storage, a filesystem, a mobile database, a cloud provider, or a particular ORM. These may implement adapters independently.
 
 ## Invariants
 
