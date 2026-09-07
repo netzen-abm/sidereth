@@ -30,6 +30,7 @@ This index defines the documentation hierarchy for the SIDERETH repository. It p
 Important capability contracts include:
 - `CAPABILITY-CONTRACT.md` — capability definition and governance boundary.
 - `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.
+- `CORE-EVIDENCE-TRUST-CAPABILITY.md` — canonical evidence capture, context, integrity, provenance, hardware-attestation and privacy boundary.
 - `CORE-V1.2-DESIGN.md` — provider-neutral durable persistence contract.
 - `CORE-V1.2-B-DESIGN.md` — reference local durable adapter boundary.
 - `CORE-V1.2-PERSISTENCE-AUDIT.md` — reference audit and findings for the v1.2 persistence boundary.
