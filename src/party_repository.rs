@@ -22,8 +22,8 @@ impl<'a, C: UnitOfWorkContext> PartyUnitOfWorkRepository<'a, C> {
             .map_err(|_| PersistenceError::ValidationFailure)?;
         let resource_ref = ResourceRef::new(ResourceType::Party, party.party_id.clone())
             .map_err(|_| PersistenceError::IntegrityFailure)?;
-        let payload = serde_json::to_value(&party)
-            .map_err(|_| PersistenceError::SerializationFailure)?;
+        let payload =
+            serde_json::to_value(&party).map_err(|_| PersistenceError::SerializationFailure)?;
         let write = ResourceWrite::new(
             resource_ref,
             party.schema_version as u16,
@@ -81,11 +81,9 @@ impl<'a, C: UnitOfWorkContext> PartyUnitOfWorkRepository<'a, C> {
         &mut self,
         relationship_id: &Id,
     ) -> Result<Option<PartyRelationship>, PersistenceError> {
-        let resource_ref = ResourceRef::new(
-            ResourceType::PartyRelationship,
-            relationship_id.clone(),
-        )
-        .map_err(|_| PersistenceError::IntegrityFailure)?;
+        let resource_ref =
+            ResourceRef::new(ResourceType::PartyRelationship, relationship_id.clone())
+                .map_err(|_| PersistenceError::IntegrityFailure)?;
         let record = self
             .context
             .read_resource(&resource_ref)
@@ -135,7 +133,10 @@ mod tests {
         }
 
         fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
-            let key = (write.resource_ref.resource_type, write.resource_ref.id.clone());
+            let key = (
+                write.resource_ref.resource_type,
+                write.resource_ref.id.clone(),
+            );
             if write.mode == ResourceWriteMode::Insert && self.records.contains_key(&key) {
                 return Err(UnitOfWorkError::Persistence(PersistenceError::Duplicate));
             }
