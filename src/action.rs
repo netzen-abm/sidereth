@@ -295,8 +295,12 @@ mod tests {
         value.requires_explicit_approval = true;
         value.authorization_ref = Some("auth-1".into());
         let record = approval(ApprovalDecision::Granted);
-        value.bind_approval(&record, "2026-09-04T10:02:00Z".into()).unwrap();
-        value.transition(ActionStatus::Approved, "2026-09-04T10:03:00Z".into()).unwrap();
+        value
+            .bind_approval(&record, "2026-09-04T10:02:00Z".into())
+            .unwrap();
+        value
+            .transition(ActionStatus::Approved, "2026-09-04T10:03:00Z".into())
+            .unwrap();
         assert_eq!(value.status, ActionStatus::Approved);
         assert_eq!(value.approval_ref.as_deref(), Some("approval-1"));
     }
@@ -330,7 +334,9 @@ mod tests {
     #[test]
     fn approved_action_requires_proposal_first() {
         let mut value = action();
-        value.transition(ActionStatus::Approved, "2026-09-04T10:01:00Z".into()).unwrap();
+        value
+            .transition(ActionStatus::Approved, "2026-09-04T10:01:00Z".into())
+            .unwrap();
         assert_eq!(value.status, ActionStatus::Approved);
     }
 
