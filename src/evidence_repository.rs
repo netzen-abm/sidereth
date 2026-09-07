@@ -137,8 +137,8 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
             evidence.original.evidence_id.clone(),
         )
         .map_err(|_| PersistenceError::IntegrityFailure)?;
-        let payload = serde_json::to_value(&evidence)
-            .map_err(|_| PersistenceError::SerializationFailure)?;
+        let payload =
+            serde_json::to_value(&evidence).map_err(|_| PersistenceError::SerializationFailure)?;
         let write = ResourceWrite::new(
             resource_ref,
             evidence.schema_version,
