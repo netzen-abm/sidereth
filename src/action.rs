@@ -245,7 +245,7 @@ mod tests {
             approval_id: "approval-1".into(),
             action_ref: ResourceRef::new(ResourceType::Action, "action-1").unwrap(),
             approver_ref: ResourceRef::new(ResourceType::Party, "approver-1").unwrap(),
-            authorization_ref: ResourceRef::new(ResourceType::Authorization, "auth-1").unwrap(),
+            authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
             decision,
             rationale: "Reviewed and approved within delegated authority".into(),
             provenance_ref: ResourceRef::new(ResourceType::Provenance, "prov-approval-1").unwrap(),
