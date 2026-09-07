@@ -31,9 +31,7 @@ impl<'a, C: UnitOfWorkContext> PartyUnitOfWorkRepository<'a, C> {
             ResourceWriteMode::Insert,
         )
         .map_err(|_| PersistenceError::ValidationFailure)?;
-        self.context
-            .write_resource(write)
-            .map_err(map_uow_error)
+        self.context.write_resource(write).map_err(map_uow_error)
     }
 
     pub fn get_party(&mut self, party_id: &Id) -> Result<Option<Party>, PersistenceError> {
@@ -76,9 +74,7 @@ impl<'a, C: UnitOfWorkContext> PartyUnitOfWorkRepository<'a, C> {
             ResourceWriteMode::Insert,
         )
         .map_err(|_| PersistenceError::ValidationFailure)?;
-        self.context
-            .write_resource(write)
-            .map_err(map_uow_error)
+        self.context.write_resource(write).map_err(map_uow_error)
     }
 
     pub fn get_relationship(
@@ -110,15 +106,17 @@ impl<'a, C: UnitOfWorkContext> PartyUnitOfWorkRepository<'a, C> {
 fn map_uow_error(error: crate::persistence::UnitOfWorkError) -> PersistenceError {
     match error {
         crate::persistence::UnitOfWorkError::Persistence(error) => error,
-        crate::persistence::UnitOfWorkError::InvalidOperation => PersistenceError::ValidationFailure,
+        crate::persistence::UnitOfWorkError::InvalidOperation => {
+            PersistenceError::ValidationFailure
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{ResourceRecord, Revision, UnitOfWorkError};
     use crate::party::{PartyKind, PartyStatus};
+    use crate::persistence::{ResourceRecord, Revision, UnitOfWorkError};
 
     #[derive(Default)]
     struct FakeContext {
