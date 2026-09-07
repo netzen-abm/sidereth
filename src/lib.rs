@@ -70,6 +70,7 @@ pub mod evidence;
 pub mod evidence_repository;
 pub mod evidence_store;
 pub mod evidence_trust;
+pub mod intelligence;
 pub mod jurisdiction;
 pub mod legal_source;
 pub mod legal_source_registry;
@@ -120,6 +121,11 @@ pub use evidence_trust::{
     CaptureLocation, EvidencePassport, EvidenceTransformation, EvidenceTrustMetadata,
     HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus, LocationDisclosure,
     MediaOrigin,
+};
+pub use intelligence::{
+    EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
+    IntelligenceProvider, IntelligenceRequest, IntelligenceResponse, IntelligenceRiskClass,
+    IntelligenceToolProposal,
 };
 pub use jurisdiction::{Jurisdiction, JurisdictionRegistry, JurisdictionStatus, JurisdictionType};
 pub use legal_source::{
