@@ -30,6 +30,7 @@ This index defines the documentation hierarchy for the SIDERETH repository. It p
 Important capability contracts include:
 - `CAPABILITY-CONTRACT.md` — capability definition and governance boundary.
 - `INTELLIGENCE-CONTRACT.md` — provider-neutral intelligence/model boundary, epistemic status, retrieval, tool, data and evaluation requirements.
+- `INTELLIGENCE-CONTRACT-TEST-MATRIX.md` — pre-implementation conformance and safety test matrix for the Intelligence Contract.
 - `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.
 - `CORE-EVIDENCE-TRUST-CAPABILITY.md` — canonical evidence capture, context, integrity, provenance, hardware-attestation and privacy boundary.
 - `CORE-EVIDENCE-PERSISTENCE.md` — canonical provider-neutral durable persistence boundary for Evidence Trust state.
