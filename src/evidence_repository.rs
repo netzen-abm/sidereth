@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::persistence::{PersistenceError, ResourceWrite, ResourceWriteMode, UnitOfWorkContext};
-use crate::{EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id, ResourceRef, ResourceType};
+use crate::{
+    EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id, ResourceRef, ResourceType,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EvidencePersistenceError {
