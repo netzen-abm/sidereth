@@ -15,6 +15,7 @@ pub enum ActionStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum ActionKind {
     Information,
     Communication,
@@ -123,7 +124,10 @@ pub struct ExecutionGateInput<'a> {
 pub struct ExecutionGate;
 
 impl ExecutionGate {
-    pub fn permit(action: &Action, input: ExecutionGateInput<'_>) -> Result<(), ExecutionGateError> {
+    pub fn permit(
+        action: &Action,
+        input: ExecutionGateInput<'_>,
+    ) -> Result<(), ExecutionGateError> {
         if !action.requires_explicit_approval {
             return if input.authorization_granted {
                 Ok(())
@@ -146,7 +150,9 @@ impl ExecutionGate {
             return Err(ExecutionGateError::AuthorizationDenied);
         }
 
-        let approval = input.approval.ok_or(ExecutionGateError::ApprovalRequired)?;
+        let approval = input
+            .approval
+            .ok_or(ExecutionGateError::ApprovalRequired)?;
         if approval.action_ref.id != action.action_id
             || approval.authorization_ref.id != *action_authorization
         {
