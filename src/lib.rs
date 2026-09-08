@@ -91,7 +91,10 @@ pub mod security;
 pub mod service;
 pub mod timeline;
 
-pub use action::{Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalRecord};
+pub use action::{
+    Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
+    ExecutionGate, ExecutionGateError, ExecutionGateInput,
+};
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{
