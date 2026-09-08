@@ -1,6 +1,6 @@
 use sidereth::{
-    Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord, ExecutionGate,
-    ExecutionGateError, ExecutionGateInput, ResourceRef, ResourceType,
+    Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
+    ExecutionGate, ExecutionGateError, ExecutionGateInput, ResourceRef, ResourceType,
 };
 
 fn action() -> Action {

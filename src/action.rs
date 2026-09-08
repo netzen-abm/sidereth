@@ -150,9 +150,7 @@ impl ExecutionGate {
             return Err(ExecutionGateError::AuthorizationDenied);
         }
 
-        let approval = input
-            .approval
-            .ok_or(ExecutionGateError::ApprovalRequired)?;
+        let approval = input.approval.ok_or(ExecutionGateError::ApprovalRequired)?;
         if approval.action_ref.id != action.action_id
             || approval.authorization_ref.id != *action_authorization
         {
