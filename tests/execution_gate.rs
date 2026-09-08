@@ -1,4 +1,4 @@
-use sidereth::{
+use sidereth_core::{
     Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
     ExecutionGate, ExecutionGateError, ExecutionGateInput, ResourceRef, ResourceType,
 };
