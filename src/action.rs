@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Id, ResourceRef, ResourceType};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionStatus {
     Proposed,
@@ -15,7 +15,6 @@ pub enum ActionStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum ActionKind {
     Information,
     Communication,
@@ -26,6 +25,14 @@ pub enum ActionKind {
     Decision,
     ExternalOperation,
     Other,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalOrigin {
+    Human,
+    System,
+    Intelligence,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -43,6 +50,7 @@ pub struct ApprovalRecord {
     pub approver_ref: ResourceRef,
     pub authorization_ref: ResourceRef,
     pub decision: ApprovalDecision,
+    pub origin: ApprovalOrigin,
     pub rationale: String,
     pub provenance_ref: ResourceRef,
     pub decided_at: String,
@@ -75,7 +83,85 @@ impl ApprovalRecord {
     }
 
     pub fn grants_execution(&self) -> bool {
-        self.decision == ApprovalDecision::Granted
+        self.decision == ApprovalDecision::Granted && self.origin == ApprovalOrigin::Human
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExecutionGateError {
+    AuthorizationRequired,
+    AuthorizationDenied,
+    ApprovalRequired,
+    ApprovalMismatch,
+    ApprovalNotGranted,
+    ApprovalNotHuman,
+    ActionNotApproved,
+}
+
+impl ExecutionGateError {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AuthorizationRequired => "authorization is required for execution",
+            Self::AuthorizationDenied => "authorization does not permit execution",
+            Self::ApprovalRequired => "human approval is required for execution",
+            Self::ApprovalMismatch => "approval does not match the action authorization",
+            Self::ApprovalNotGranted => "approval decision does not grant execution",
+            Self::ApprovalNotHuman => "only human approval can permit consequential execution",
+            Self::ActionNotApproved => "action must be approved before execution",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExecutionGateInput<'a> {
+    pub authorization_ref: Option<&'a Id>,
+    pub authorization_granted: bool,
+    pub approval: Option<&'a ApprovalRecord>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExecutionGate;
+
+impl ExecutionGate {
+    pub fn permit(action: &Action, input: ExecutionGateInput<'_>) -> Result<(), ExecutionGateError> {
+        if !action.requires_explicit_approval {
+            return if input.authorization_granted {
+                Ok(())
+            } else {
+                Err(ExecutionGateError::AuthorizationDenied)
+            };
+        }
+
+        let action_authorization = action
+            .authorization_ref
+            .as_ref()
+            .ok_or(ExecutionGateError::AuthorizationRequired)?;
+        let supplied_authorization = input
+            .authorization_ref
+            .ok_or(ExecutionGateError::AuthorizationRequired)?;
+        if action_authorization != supplied_authorization {
+            return Err(ExecutionGateError::ApprovalMismatch);
+        }
+        if !input.authorization_granted {
+            return Err(ExecutionGateError::AuthorizationDenied);
+        }
+
+        let approval = input.approval.ok_or(ExecutionGateError::ApprovalRequired)?;
+        if approval.action_ref.id != action.action_id
+            || approval.authorization_ref.id != *action_authorization
+        {
+            return Err(ExecutionGateError::ApprovalMismatch);
+        }
+        if approval.origin != ApprovalOrigin::Human {
+            return Err(ExecutionGateError::ApprovalNotHuman);
+        }
+        if approval.decision != ApprovalDecision::Granted {
+            return Err(ExecutionGateError::ApprovalNotGranted);
+        }
+        if action.status != ActionStatus::Approved {
+            return Err(ExecutionGateError::ActionNotApproved);
+        }
+        Ok(())
     }
 }
 
@@ -130,7 +216,6 @@ impl Action {
             created_at: created_at.clone(),
             updated_at: created_at,
         };
-
         value.validate()?;
         Ok(value)
     }
@@ -250,6 +335,7 @@ mod tests {
             approver_ref: ResourceRef::new(ResourceType::Party, "approver-1").unwrap(),
             authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
             decision,
+            origin: ApprovalOrigin::Human,
             rationale: "Reviewed and approved within delegated authority".into(),
             provenance_ref: ResourceRef::new(ResourceType::Provenance, "prov-approval-1").unwrap(),
             decided_at: "2026-09-04T10:01:00Z".into(),
