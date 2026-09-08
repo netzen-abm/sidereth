@@ -15,7 +15,6 @@ pub enum ActionStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum ActionKind {
     Information,
     Communication,
@@ -152,7 +151,7 @@ impl ExecutionGate {
 
         let approval = input.approval.ok_or(ExecutionGateError::ApprovalRequired)?;
         if approval.action_ref.id != action.action_id
-            || approval.authorization_ref.id != *action_authorization
+            || approval.authorization_ref.id.as_str() != action_authorization.as_str()
         {
             return Err(ExecutionGateError::ApprovalMismatch);
         }
