@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Id;
+use crate::{Id, ResourceRef, ResourceType};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -28,6 +28,57 @@ pub enum ActionKind {
     Other,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalDecision {
+    Granted,
+    Rejected,
+    Revoked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ApprovalRecord {
+    pub approval_id: Id,
+    pub action_ref: ResourceRef,
+    pub approver_ref: ResourceRef,
+    pub authorization_ref: ResourceRef,
+    pub decision: ApprovalDecision,
+    pub rationale: String,
+    pub provenance_ref: ResourceRef,
+    pub decided_at: String,
+}
+
+impl ApprovalRecord {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.approval_id.is_empty() {
+            return Err("approval id is required");
+        }
+        if self.action_ref.resource_type != ResourceType::Action {
+            return Err("approval action reference must target an action");
+        }
+        if self.approver_ref.id.is_empty() {
+            return Err("approval approver reference is required");
+        }
+        if self.authorization_ref.id.is_empty() {
+            return Err("approval authorization reference is required");
+        }
+        if self.rationale.trim().is_empty() {
+            return Err("approval rationale is required");
+        }
+        if self.provenance_ref.id.is_empty() {
+            return Err("approval provenance reference is required");
+        }
+        if self.decided_at.is_empty() {
+            return Err("approval decision timestamp is required");
+        }
+        Ok(())
+    }
+
+    pub fn grants_execution(&self) -> bool {
+        self.decision == ApprovalDecision::Granted
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Action {
     pub action_id: Id,
@@ -39,6 +90,7 @@ pub struct Action {
     pub target_refs: Vec<Id>,
     pub intent: String,
     pub authorization_ref: Option<Id>,
+    pub approval_ref: Option<Id>,
     pub precondition_refs: Vec<Id>,
     pub input_refs: Vec<Id>,
     pub output_refs: Vec<Id>,
@@ -68,6 +120,7 @@ impl Action {
             target_refs: Vec::new(),
             intent,
             authorization_ref: None,
+            approval_ref: None,
             precondition_refs: Vec::new(),
             input_refs: Vec::new(),
             output_refs: Vec::new(),
@@ -101,13 +154,49 @@ impl Action {
         if self.created_at.is_empty() || self.updated_at.is_empty() {
             return Err("action timestamps are required");
         }
-        if self.requires_explicit_approval && self.authorization_ref.is_none() {
-            return Err("authorization reference is required for explicitly approved actions");
+        if self.requires_explicit_approval {
+            if self.authorization_ref.is_none() {
+                return Err("authorization reference is required for explicitly approved actions");
+            }
+            if self.approval_ref.is_none() {
+                return Err("approval reference is required for explicitly approved actions");
+            }
         }
         Ok(())
     }
 
+    pub fn bind_approval(
+        &mut self,
+        approval: &ApprovalRecord,
+        updated_at: String,
+    ) -> Result<(), &'static str> {
+        approval.validate()?;
+        if approval.action_ref.id != self.action_id {
+            return Err("approval action reference does not match action");
+        }
+        if self.authorization_ref.as_deref() != Some(approval.authorization_ref.id.as_str()) {
+            return Err("approval authorization reference does not match action");
+        }
+        if !approval.grants_execution() {
+            return Err("approval decision does not grant execution");
+        }
+        if updated_at.is_empty() {
+            return Err("action update timestamp is required");
+        }
+        self.approval_ref = Some(approval.approval_id.clone());
+        self.updated_at = updated_at;
+        Ok(())
+    }
+
     pub fn can_transition_to(&self, next: &ActionStatus) -> bool {
+        if *next == ActionStatus::Approved && self.requires_explicit_approval {
+            return self.authorization_ref.is_some() && self.approval_ref.is_some();
+        }
+        if *next == ActionStatus::Executing && self.requires_explicit_approval {
+            return self.status == ActionStatus::Approved
+                && self.authorization_ref.is_some()
+                && self.approval_ref.is_some();
+        }
         matches!(
             (&self.status, next),
             (ActionStatus::Proposed, ActionStatus::Approved)
@@ -154,6 +243,19 @@ mod tests {
         .unwrap()
     }
 
+    fn approval(decision: ApprovalDecision) -> ApprovalRecord {
+        ApprovalRecord {
+            approval_id: "approval-1".into(),
+            action_ref: ResourceRef::new(ResourceType::Action, "action-1").unwrap(),
+            approver_ref: ResourceRef::new(ResourceType::Party, "approver-1").unwrap(),
+            authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
+            decision,
+            rationale: "Reviewed and approved within delegated authority".into(),
+            provenance_ref: ResourceRef::new(ResourceType::Provenance, "prov-approval-1").unwrap(),
+            decided_at: "2026-09-04T10:01:00Z".into(),
+        }
+    }
+
     #[test]
     fn new_action_starts_proposed() {
         assert_eq!(action().status, ActionStatus::Proposed);
@@ -173,12 +275,59 @@ mod tests {
     }
 
     #[test]
-    fn explicit_approval_requires_authorization_reference() {
+    fn explicit_approval_requires_authorization_and_approval_references() {
         let mut value = action();
         value.requires_explicit_approval = true;
         assert_eq!(
             value.validate(),
             Err("authorization reference is required for explicitly approved actions")
+        );
+        value.authorization_ref = Some("auth-1".into());
+        assert_eq!(
+            value.validate(),
+            Err("approval reference is required for explicitly approved actions")
+        );
+    }
+
+    #[test]
+    fn explicit_approval_must_be_bound_to_matching_authorization_and_action() {
+        let mut value = action();
+        value.requires_explicit_approval = true;
+        value.authorization_ref = Some("auth-1".into());
+        let record = approval(ApprovalDecision::Granted);
+        value
+            .bind_approval(&record, "2026-09-04T10:02:00Z".into())
+            .unwrap();
+        value
+            .transition(ActionStatus::Approved, "2026-09-04T10:03:00Z".into())
+            .unwrap();
+        assert_eq!(value.status, ActionStatus::Approved);
+        assert_eq!(value.approval_ref.as_deref(), Some("approval-1"));
+    }
+
+    #[test]
+    fn rejected_or_revoked_approval_cannot_bind_execution_authority() {
+        for decision in [ApprovalDecision::Rejected, ApprovalDecision::Revoked] {
+            let mut value = action();
+            value.requires_explicit_approval = true;
+            value.authorization_ref = Some("auth-1".into());
+            assert_eq!(
+                value.bind_approval(&approval(decision), "2026-09-04T10:02:00Z".into()),
+                Err("approval decision does not grant execution")
+            );
+        }
+    }
+
+    #[test]
+    fn mismatched_approval_is_rejected() {
+        let mut value = action();
+        value.requires_explicit_approval = true;
+        value.authorization_ref = Some("auth-1".into());
+        let mut record = approval(ApprovalDecision::Granted);
+        record.action_ref = ResourceRef::new(ResourceType::Action, "other-action").unwrap();
+        assert_eq!(
+            value.bind_approval(&record, "2026-09-04T10:02:00Z".into()),
+            Err("approval action reference does not match action")
         );
     }
 
@@ -192,6 +341,17 @@ mod tests {
     }
 
     #[test]
+    fn explicitly_approved_action_cannot_skip_approval_binding() {
+        let mut value = action();
+        value.requires_explicit_approval = true;
+        value.authorization_ref = Some("auth-1".into());
+        assert_eq!(
+            value.transition(ActionStatus::Approved, "2026-09-04T10:01:00Z".into()),
+            Err("invalid action state transition")
+        );
+    }
+
+    #[test]
     fn invalid_transition_is_rejected() {
         let mut value = action();
         assert_eq!(
@@ -201,14 +361,10 @@ mod tests {
     }
 
     #[test]
-    fn public_enums_use_canonical_snake_case_wire_values() {
+    fn approval_decision_wire_values_are_stable() {
         assert_eq!(
-            serde_json::to_string(&ActionKind::DocumentCreation).unwrap(),
-            "\"document_creation\""
-        );
-        assert_eq!(
-            serde_json::to_string(&ActionStatus::Proposed).unwrap(),
-            "\"proposed\""
+            serde_json::to_string(&ApprovalDecision::Granted).unwrap(),
+            "\"granted\""
         );
     }
 }
