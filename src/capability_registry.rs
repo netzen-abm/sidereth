@@ -18,7 +18,11 @@ pub struct CapabilityVersion {
 
 impl CapabilityVersion {
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 }
 
