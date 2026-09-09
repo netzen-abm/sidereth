@@ -174,7 +174,10 @@ impl InMemoryCapabilityRegistry {
         Self::default()
     }
 
-    pub fn validate(&self, entry: &CapabilityRegistryEntry) -> Result<(), CapabilityRegistryError> {
+    pub fn validate(
+        &self,
+        entry: &CapabilityRegistryEntry,
+    ) -> Result<(), CapabilityRegistryError> {
         if entry.capability_id.is_empty() {
             return Err(CapabilityRegistryError::EmptyId);
         }
@@ -193,7 +196,8 @@ impl InMemoryCapabilityRegistry {
 
         let mut implementation_ids = BTreeSet::new();
         for implementation in &entry.implementations {
-            if implementation.implementation_id.is_empty() || implementation.provider_id.is_empty()
+            if implementation.implementation_id.is_empty()
+                || implementation.provider_id.is_empty()
             {
                 return Err(CapabilityRegistryError::InvalidContractReference);
             }
@@ -452,7 +456,10 @@ mod tests {
     #[test]
     fn compatible_major_selects_highest_version() {
         let mut r = InMemoryCapabilityRegistry::new();
-        for v in [CapabilityVersion::new(1, 0, 0), CapabilityVersion::new(1, 2, 0)] {
+        for v in [
+            CapabilityVersion::new(1, 0, 0),
+            CapabilityVersion::new(1, 2, 0),
+        ] {
             r.register(entry("x", v), audit("x", v)).unwrap();
         }
         assert_eq!(
@@ -504,7 +511,9 @@ mod tests {
         let v = CapabilityVersion::new(1, 0, 0);
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(entry("x", v), audit("x", v)).unwrap();
-        assert!(r.promote("x", v, CapabilityLifecycle::Active, audit("x", v)).is_err());
+        assert!(r
+            .promote("x", v, CapabilityLifecycle::Active, audit("x", v))
+            .is_err());
     }
 
     #[test]
