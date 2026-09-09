@@ -28,6 +28,7 @@
 | D-024 | Action is the canonical consequential-execution primitive; explicit approval is a first-class binding, distinct from authorization | LOCKED | Consequential Actions cannot reach Approved or Executing without the required authorization and a matching granted approval; AI cannot create approval authority |
 | D-025 | Consequential execution requires a deterministic Action execution gate | LOCKED | Matching authorization, granted human approval, and Approved Action state are mandatory; system/intelligence-generated approval cannot authorize execution |
 | D-026 | Capability is the primary reusable ecosystem abstraction | LOCKED | Capability contracts own semantics; functions, tools, resources, workflows, implementations and adapters compose around them without provider/framework lock-in |
+| D-027 | Capability Registry is a discovery and resolution boundary, not an authority boundary | LOCKED | Registry owns capability metadata, version resolution and lifecycle discovery; authorization, approval, execution, provenance and canonical semantics remain governed by their existing contracts |
 
 ## Decision protocol
 Every material future decision should record context, options, selected decision, rationale, consequences, rejected alternatives, dependencies and review trigger. A decision is not considered superseded merely because implementation evolves; update this register explicitly.
