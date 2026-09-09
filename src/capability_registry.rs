@@ -54,7 +54,7 @@ pub enum CapabilityRiskClass {
     HighImpact,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CapabilityDataClass {
     Public,
     Internal,
@@ -62,7 +62,7 @@ pub enum CapabilityDataClass {
     Restricted,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ExecutionMode {
     Sync,
     Async,
@@ -246,7 +246,7 @@ impl InMemoryCapabilityRegistry {
         capability_id: &str,
         requirement: &VersionRequirement,
     ) -> Result<&CapabilityRegistryEntry, CapabilityRegistryError> {
-        let mut candidates = self.entries.iter().filter(|((id, version), entry)| {
+        let candidates = self.entries.iter().filter(|((id, version), entry)| {
             (id == capability_id
                 && matches!(requirement, VersionRequirement::Exact(v) if *version == *v))
                 || (id == capability_id
