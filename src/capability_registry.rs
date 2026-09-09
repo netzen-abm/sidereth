@@ -18,11 +18,7 @@ pub struct CapabilityVersion {
 
 impl CapabilityVersion {
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        Self {
-            major,
-            minor,
-            patch,
-        }
+        Self { major, minor, patch }
     }
 }
 
@@ -193,7 +189,8 @@ impl InMemoryCapabilityRegistry {
 
         let mut implementation_ids = BTreeSet::new();
         for implementation in &entry.implementations {
-            if implementation.implementation_id.is_empty() || implementation.provider_id.is_empty() {
+            if implementation.implementation_id.is_empty() || implementation.provider_id.is_empty()
+            {
                 return Err(CapabilityRegistryError::InvalidContractReference);
             }
             if !implementation_ids.insert(implementation.implementation_id.clone()) {
@@ -272,7 +269,10 @@ impl InMemoryCapabilityRegistry {
             .entries
             .values()
             .filter(|entry| {
-                criteria.capability_id.as_deref().is_none_or(|id| entry.capability_id == id)
+                criteria
+                    .capability_id
+                    .as_deref()
+                    .is_none_or(|id| entry.capability_id == id)
                     && criteria.version.is_none_or(|v| entry.version == v)
                     && criteria.risk_class.is_none_or(|v| entry.risk_class == v)
                     && criteria
@@ -345,7 +345,8 @@ impl InMemoryCapabilityRegistry {
                 continue;
             }
             let key_exists = self.entries.keys().any(|(id, version)| {
-                id == &dependency.capability_id && version_matches(*version, &dependency.requirement)
+                id == &dependency.capability_id
+                    && version_matches(*version, &dependency.requirement)
             });
             if !key_exists {
                 return Err(CapabilityRegistryError::MissingRequiredDependency);
@@ -498,10 +499,9 @@ mod tests {
         let v = CapabilityVersion::new(1, 0, 0);
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(entry("x", v), audit("x", v)).unwrap();
-        assert!(
-            r.promote("x", v, CapabilityLifecycle::Active, audit("x", v))
-                .is_err()
-        );
+        assert!(r
+            .promote("x", v, CapabilityLifecycle::Active, audit("x", v))
+            .is_err());
     }
 
     #[test]
