@@ -38,7 +38,7 @@ fn gate_input<'a>(
     approval: Option<&'a ApprovalRecord>,
 ) -> ExecutionGateInput<'a> {
     ExecutionGateInput {
-        authorization_ref: authorization_ref.map(|value| value.as_str()),
+        authorization_ref,
         authorization_granted,
         approval,
     }
