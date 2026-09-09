@@ -305,30 +305,31 @@ impl InMemoryCapabilityRegistry {
         capability_id: &str,
         version: CapabilityVersion,
         lifecycle: CapabilityLifecycle,
-        mut audit: RegistryAuditRecord,
+        audit: RegistryAuditRecord,
     ) -> Result<(), CapabilityRegistryError> {
         let entry = self
             .entries
             .get_mut(&(capability_id.to_owned(), version))
             .ok_or(CapabilityRegistryError::NotFound)?;
-        let allowed = match (entry.lifecycle, lifecycle) {
+        let allowed = matches!(
+            (entry.lifecycle, lifecycle),
             (CapabilityLifecycle::Proposed, CapabilityLifecycle::Designed)
-            | (CapabilityLifecycle::Designed, CapabilityLifecycle::Contracted)
-            | (CapabilityLifecycle::Contracted, CapabilityLifecycle::Implemented)
-            | (CapabilityLifecycle::Implemented, CapabilityLifecycle::Tested)
-            | (CapabilityLifecycle::Tested, CapabilityLifecycle::SecurityReviewed)
-            | (CapabilityLifecycle::SecurityReviewed, CapabilityLifecycle::OperationallyVerified)
-            | (CapabilityLifecycle::OperationallyVerified, CapabilityLifecycle::Active)
-            | (CapabilityLifecycle::Active, CapabilityLifecycle::Deprecated)
-            | (CapabilityLifecycle::Deprecated, CapabilityLifecycle::Retired) => true,
-            _ => false,
-        };
+                | (CapabilityLifecycle::Designed, CapabilityLifecycle::Contracted)
+                | (CapabilityLifecycle::Contracted, CapabilityLifecycle::Implemented)
+                | (CapabilityLifecycle::Implemented, CapabilityLifecycle::Tested)
+                | (CapabilityLifecycle::Tested, CapabilityLifecycle::SecurityReviewed)
+                | (CapabilityLifecycle::SecurityReviewed, CapabilityLifecycle::OperationallyVerified)
+                | (CapabilityLifecycle::OperationallyVerified, CapabilityLifecycle::Active)
+                | (CapabilityLifecycle::Active, CapabilityLifecycle::Deprecated)
+                | (CapabilityLifecycle::Deprecated, CapabilityLifecycle::Retired)
+        );
         if !allowed {
             return Err(CapabilityRegistryError::InvalidLifecyclePromotion);
         }
         if lifecycle == CapabilityLifecycle::Active && entry.implementations.is_empty() {
             return Err(CapabilityRegistryError::InvalidLifecyclePromotion);
         }
+        let mut audit = audit;
         audit.previous_lifecycle = Some(entry.lifecycle);
         audit.new_lifecycle = Some(lifecycle);
         entry.lifecycle = lifecycle;
@@ -451,10 +452,7 @@ mod tests {
     #[test]
     fn compatible_major_selects_highest_version() {
         let mut r = InMemoryCapabilityRegistry::new();
-        for v in [
-            CapabilityVersion::new(1, 0, 0),
-            CapabilityVersion::new(1, 2, 0),
-        ] {
+        for v in [CapabilityVersion::new(1, 0, 0), CapabilityVersion::new(1, 2, 0)] {
             r.register(entry("x", v), audit("x", v)).unwrap();
         }
         assert_eq!(
@@ -488,14 +486,17 @@ mod tests {
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(entry("b", v), audit("b", v)).unwrap();
         r.register(entry("a", v), audit("a", v)).unwrap();
-        let q = RegistryCriteria {
+        let found = r.discover(&RegistryCriteria {
             risk_class: Some(CapabilityRiskClass::ReadOnly),
-            ..Default::default()
-        };
-        let a = r.discover(&q);
-        let b = r.discover(&q);
-        assert_eq!(a, b);
-        assert_eq!(a[0].capability_id, "a");
+            ..RegistryCriteria::default()
+        });
+        assert_eq!(
+            found
+                .iter()
+                .map(|e| e.capability_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
     }
 
     #[test]
@@ -503,9 +504,7 @@ mod tests {
         let v = CapabilityVersion::new(1, 0, 0);
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(entry("x", v), audit("x", v)).unwrap();
-        assert!(r
-            .promote("x", v, CapabilityLifecycle::Active, audit("x", v))
-            .is_err());
+        assert!(r.promote("x", v, CapabilityLifecycle::Active, audit("x", v)).is_err());
     }
 
     #[test]
@@ -513,7 +512,7 @@ mod tests {
         let v = CapabilityVersion::new(1, 0, 0);
         let mut e = entry("x", v);
         e.dependencies.push(CapabilityDependency {
-            capability_id: "dep".into(),
+            capability_id: "missing".into(),
             requirement: VersionRequirement::Exact(v),
             optional: false,
         });
