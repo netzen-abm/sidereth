@@ -328,7 +328,7 @@ impl InMemoryCapabilityRegistry {
                         .is_none_or(|v| entry.jurisdiction_scope.contains(v))
                     && criteria
                         .execution_mode
-                        .is_none_or(|v| entry.execution_modes.contains(v))
+                        .is_none_or(|v| entry.execution_modes.contains(&v))
                     && criteria.lifecycle.is_none_or(|v| entry.lifecycle == v)
             })
             .collect();
