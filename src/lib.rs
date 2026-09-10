@@ -61,6 +61,7 @@ pub mod action;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
+pub mod capability_registry;
 pub mod command;
 pub mod compliance;
 pub mod deadline;
@@ -100,6 +101,12 @@ pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatu
 pub use authorization::{
     AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
     AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
+};
+pub use capability_registry::{
+    CapabilityDataClass, CapabilityDependency, CapabilityImplementation, CapabilityLifecycle,
+    CapabilityRegistryEntry, CapabilityRegistryError, CapabilityRiskClass, CapabilityVersion,
+    ExecutionMode, InMemoryCapabilityRegistry, RegistryAuditRecord, RegistryCriteria,
+    VersionRequirement,
 };
 pub use command::{
     apply_plan, execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
