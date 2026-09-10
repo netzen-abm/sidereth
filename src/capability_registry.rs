@@ -284,9 +284,10 @@ impl InMemoryCapabilityRegistry {
                 Ok(entry)
             }
             VersionRequirement::CompatibleMajor(major) => {
-                let mut matching = self.entries.iter().filter(|((id, version), _)| {
-                    id == capability_id && version.major == *major
-                });
+                let mut matching = self
+                    .entries
+                    .iter()
+                    .filter(|((id, version), _)| id == capability_id && version.major == *major);
                 let has_match = matching.next().is_some();
                 let active = self
                     .entries
@@ -480,12 +481,10 @@ fn dependency_graph_has_cycle(
                         && version_matches(*dep_version, &dependency.requirement)
                 })
                 .map(|(_, dep_version)| *dep_version)
-                .chain(
-                    std::iter::once(candidate.version).filter(|dep_version| {
-                        candidate.capability_id == dependency.capability_id
-                            && version_matches(*dep_version, &dependency.requirement)
-                    }),
-                )
+                .chain(std::iter::once(candidate.version).filter(|dep_version| {
+                    candidate.capability_id == dependency.capability_id
+                        && version_matches(*dep_version, &dependency.requirement)
+                }))
                 .collect();
             for dep_version in versions {
                 if visit(
@@ -668,7 +667,12 @@ mod tests {
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(entry("x", v), audit("x", v)).unwrap();
         assert!(r
-            .promote("x", v, CapabilityLifecycle::Contracted, promotion_audit("x", v))
+            .promote(
+                "x",
+                v,
+                CapabilityLifecycle::Contracted,
+                promotion_audit("x", v)
+            )
             .is_err());
     }
 
