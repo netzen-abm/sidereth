@@ -15,9 +15,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@d1031068b2b7e2e4f7a7a8f7f2a3d0c4a2c4f8e9
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         with:
-          toolchain: stable
+          toolchain: 1.98.0
+          components: rustfmt
       - name: Format
         run: cargo fmt --all
       - name: Commit formatted source
