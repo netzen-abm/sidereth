@@ -18,19 +18,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
         with:
           toolchain: 1.98.0
-      - name: Compile diagnostics
+      - name: Apply compile fix
         run: |
-          set +e
-          cargo check --all-targets > /tmp/compile.out 2>&1
-          status=$?
-          cp /tmp/compile.out /tmp/compile-error.txt
-          echo "cargo check exit status: $status" >> /tmp/compile-error.txt
-          exit 0
-      - name: Commit diagnostics
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/capability_registry.rs")
+          text = path.read_text()
+          old = ".is_none_or(|v| entry.execution_modes.contains(v))"
+          new = ".is_none_or(|v| entry.execution_modes.contains(&v))"
+          if old not in text:
+              raise SystemExit("expected target text not found")
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Verify compile fix
+        run: cargo check --all-targets
+      - name: Commit fix
         run: |
-          cp /tmp/compile-error.txt tmp-capability-registry-compile-error.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tmp-capability-registry-compile-error.txt
-          git commit -m "chore: record temporary registry compile diagnostics"
+          git add src/capability_registry.rs
+          git commit -m "fix: correct capability registry execution mode filter"
           git push
