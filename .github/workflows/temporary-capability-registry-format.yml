@@ -1,0 +1,32 @@
+name: Temporary Capability Registry Formatter
+
+on:
+  push:
+    branches:
+      - sidereth-capability-registry-hardening-v2
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@d1031068b2b7e2e4f7a7a8f7f2a3d0c4a2c4f8e9
+        with:
+          toolchain: stable
+      - name: Format
+        run: cargo fmt --all
+      - name: Commit formatted source
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/capability_registry.rs
+          git commit -m "style: apply rustfmt to capability registry"
+          git push
