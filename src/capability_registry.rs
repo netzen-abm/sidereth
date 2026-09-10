@@ -18,7 +18,11 @@ pub struct CapabilityVersion {
 
 impl CapabilityVersion {
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 }
 
@@ -323,7 +327,7 @@ impl InMemoryCapabilityRegistry {
                         .is_none_or(|v| entry.jurisdiction_scope.contains(v))
                     && criteria
                         .execution_mode
-                        .is_none_or(|v| entry.execution_modes.contains(&v))
+                        .is_none_or(|v| entry.execution_modes.contains(v))
                     && criteria.lifecycle.is_none_or(|v| entry.lifecycle == v)
             })
             .collect();
@@ -362,10 +366,22 @@ impl InMemoryCapabilityRegistry {
         let allowed = matches!(
             (entry.lifecycle, lifecycle),
             (CapabilityLifecycle::Proposed, CapabilityLifecycle::Designed)
-                | (CapabilityLifecycle::Designed, CapabilityLifecycle::Contracted)
-                | (CapabilityLifecycle::Contracted, CapabilityLifecycle::Implemented)
-                | (CapabilityLifecycle::Implemented, CapabilityLifecycle::Tested)
-                | (CapabilityLifecycle::Tested, CapabilityLifecycle::SecurityReviewed)
+                | (
+                    CapabilityLifecycle::Designed,
+                    CapabilityLifecycle::Contracted
+                )
+                | (
+                    CapabilityLifecycle::Contracted,
+                    CapabilityLifecycle::Implemented
+                )
+                | (
+                    CapabilityLifecycle::Implemented,
+                    CapabilityLifecycle::Tested
+                )
+                | (
+                    CapabilityLifecycle::Tested,
+                    CapabilityLifecycle::SecurityReviewed
+                )
                 | (
                     CapabilityLifecycle::SecurityReviewed,
                     CapabilityLifecycle::OperationallyVerified
@@ -375,7 +391,10 @@ impl InMemoryCapabilityRegistry {
                     CapabilityLifecycle::Active
                 )
                 | (CapabilityLifecycle::Active, CapabilityLifecycle::Deprecated)
-                | (CapabilityLifecycle::Deprecated, CapabilityLifecycle::Retired)
+                | (
+                    CapabilityLifecycle::Deprecated,
+                    CapabilityLifecycle::Retired
+                )
         );
         if !allowed {
             return Err(CapabilityRegistryError::InvalidLifecyclePromotion);
