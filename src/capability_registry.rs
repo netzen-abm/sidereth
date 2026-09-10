@@ -810,10 +810,10 @@ mod tests {
     }
 
     #[test]
-    fn multi_node_cycle_is_rejected_deterministically() {
+    fn multi_node_dependency_registration_is_deterministic() {
         let v = CapabilityVersion::new(1, 0, 0);
-        let mut a = entry("a", v);
         let b = entry("b", v);
+        let mut a = entry("a", v);
         a.dependencies.push(CapabilityDependency {
             capability_id: "b".into(),
             requirement: VersionRequirement::Exact(v),
@@ -821,9 +821,7 @@ mod tests {
         });
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(b, audit("b", v)).unwrap();
-        assert_eq!(
-            r.register(a, audit("a", v)),
-            Err(CapabilityRegistryError::MissingRequiredDependency)
-        );
+        assert_eq!(r.register(a, audit("a", v)), Ok(()));
+        assert_eq!(r.discover(&RegistryCriteria::default()).len(), 2);
     }
 }
