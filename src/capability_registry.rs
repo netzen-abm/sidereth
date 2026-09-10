@@ -174,10 +174,7 @@ impl InMemoryCapabilityRegistry {
         Self::default()
     }
 
-    pub fn validate(
-        &self,
-        entry: &CapabilityRegistryEntry,
-    ) -> Result<(), CapabilityRegistryError> {
+    pub fn validate(&self, entry: &CapabilityRegistryEntry) -> Result<(), CapabilityRegistryError> {
         if entry.capability_id.is_empty() {
             return Err(CapabilityRegistryError::EmptyId);
         }
@@ -309,7 +306,7 @@ impl InMemoryCapabilityRegistry {
         capability_id: &str,
         version: CapabilityVersion,
         lifecycle: CapabilityLifecycle,
-        audit: RegistryAuditRecord,
+        mut audit: RegistryAuditRecord,
     ) -> Result<(), CapabilityRegistryError> {
         let entry = self
             .entries
@@ -333,7 +330,6 @@ impl InMemoryCapabilityRegistry {
         if lifecycle == CapabilityLifecycle::Active && entry.implementations.is_empty() {
             return Err(CapabilityRegistryError::InvalidLifecyclePromotion);
         }
-        let mut audit = audit;
         audit.previous_lifecycle = Some(entry.lifecycle);
         audit.new_lifecycle = Some(lifecycle);
         entry.lifecycle = lifecycle;
@@ -511,9 +507,7 @@ mod tests {
         let v = CapabilityVersion::new(1, 0, 0);
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(entry("x", v), audit("x", v)).unwrap();
-        assert!(r
-            .promote("x", v, CapabilityLifecycle::Active, audit("x", v))
-            .is_err());
+        assert!(r.promote("x", v, CapabilityLifecycle::Active, audit("x", v)).is_err());
     }
 
     #[test]
