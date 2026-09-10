@@ -193,9 +193,7 @@ impl InMemoryCapabilityRegistry {
 
         let mut implementation_ids = BTreeSet::new();
         for implementation in &entry.implementations {
-            if implementation.implementation_id.is_empty()
-                || implementation.provider_id.is_empty()
-            {
+            if implementation.implementation_id.is_empty() || implementation.provider_id.is_empty() {
                 return Err(CapabilityRegistryError::InvalidContractReference);
             }
             if !implementation_ids.insert(implementation.implementation_id.clone()) {
@@ -507,7 +505,10 @@ mod tests {
         let v = CapabilityVersion::new(1, 0, 0);
         let mut r = InMemoryCapabilityRegistry::new();
         r.register(entry("x", v), audit("x", v)).unwrap();
-        assert!(r.promote("x", v, CapabilityLifecycle::Active, audit("x", v)).is_err());
+        assert!(
+            r.promote("x", v, CapabilityLifecycle::Active, audit("x", v))
+                .is_err()
+        );
     }
 
     #[test]
