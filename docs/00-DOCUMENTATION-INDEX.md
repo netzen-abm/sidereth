@@ -31,6 +31,7 @@ Important capability contracts include:
 - `CAPABILITY-CONTRACT.md` — capability definition and governance boundary.
 - `CAPABILITY-REGISTRY-CONTRACT.md` — capability discovery, identity, version resolution and lifecycle boundary.
 - `CAPABILITY-REGISTRY-CONFORMANCE.md` — pre-implementation registry conformance and safety test design.
+- `TOOL-REGISTRY-CONTRACT.md` — tool identity, capability/function binding, compatibility, discovery and lifecycle boundary.
 - `INTELLIGENCE-CONTRACT.md` — provider-neutral intelligence/model boundary, epistemic status, retrieval, tool, data and evaluation requirements.
 - `INTELLIGENCE-CONTRACT-TEST-MATRIX.md` — pre-implementation conformance and safety test matrix for the Intelligence Contract.
 - `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.

@@ -30,6 +30,7 @@
 | D-026 | Capability is the primary reusable ecosystem abstraction | LOCKED | Capability contracts own semantics; functions, tools, resources, workflows, implementations and adapters compose around them without provider/framework lock-in |
 | D-027 | Capability Registry is a discovery and resolution boundary, not an authority boundary | LOCKED | Registry owns capability metadata, version resolution and lifecycle discovery; authorization, approval, execution, provenance and canonical semantics remain governed by their existing contracts |
 | D-028 | Capability Registry conformance is implementation-independent | LOCKED | Every registry implementation must satisfy the canonical registry behavior through deterministic provider-neutral conformance tests; storage and discovery technology remain replaceable |
+| D-029 | Tool Registry is a discovery/interface boundary, not an execution authority boundary | LOCKED | Tool Registry owns tool identity, compatibility, capability/function binding and lifecycle metadata; Tool Gateway remains authoritative for identity, policy, authorization, approval, data minimisation and execution |
 
 ## Decision protocol
 Every material future decision should record context, options, selected decision, rationale, consequences, rejected alternatives, dependencies and review trigger. A decision is not considered superseded merely because implementation evolves; update this register explicitly.
