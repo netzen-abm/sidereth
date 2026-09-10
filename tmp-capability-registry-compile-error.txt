@@ -1,0 +1,66 @@
+[1m[92m    Updating[0m crates.io index
+[1m[92m     Locking[0m 95 packages to latest compatible versions
+[1m[92m      Adding[0m generic-array v0.14.7 [1m[33m(available: v0.14.9)[0m
+[1m[92m      Adding[0m sha2 v0.10.9 [1m[33m(available: v0.11.0)[0m
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m block-buffer v0.10.4
+[1m[92m  Downloaded[0m crypto-common v0.1.7
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m digest v0.10.7
+[1m[92m  Downloaded[0m cpufeatures v0.2.17
+[1m[92m  Downloaded[0m zmij v1.0.23
+[1m[92m  Downloaded[0m itoa v1.0.18
+[1m[92m  Downloaded[0m version_check v0.9.5
+[1m[92m  Downloaded[0m unicode-ident v1.0.24
+[1m[92m  Downloaded[0m generic-array v0.14.7
+[1m[92m  Downloaded[0m sha2 v0.10.9
+[1m[92m  Downloaded[0m quote v1.0.47
+[1m[92m  Downloaded[0m serde_core v1.0.229
+[1m[92m  Downloaded[0m proc-macro2 v1.0.107
+[1m[92m  Downloaded[0m serde_derive v1.0.229
+[1m[92m  Downloaded[0m serde v1.0.229
+[1m[92m  Downloaded[0m memchr v2.8.3
+[1m[92m  Downloaded[0m typenum v1.20.1
+[1m[92m  Downloaded[0m serde_json v1.0.151
+[1m[92m  Downloaded[0m syn v3.0.5
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m proc-macro2 v1.0.107
+[1m[92m   Compiling[0m unicode-ident v1.0.24
+[1m[92m   Compiling[0m quote v1.0.47
+[1m[92m    Checking[0m typenum v1.20.1
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m syn v3.0.5
+[1m[92m   Compiling[0m serde_json v1.0.151
+[1m[92m    Checking[0m block-buffer v0.10.4
+[1m[92m    Checking[0m crypto-common v0.1.7
+[1m[92m    Checking[0m itoa v1.0.18
+[1m[92m    Checking[0m digest v0.10.7
+[1m[92m    Checking[0m cfg-if v1.0.4
+[1m[92m    Checking[0m memchr v2.8.3
+[1m[92m    Checking[0m cpufeatures v0.2.17
+[1m[92m    Checking[0m sha2 v0.10.9
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m    Checking[0m sidereth-core v0.1.0 (/home/runner/work/sidereth/sidereth)
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/capability_registry.rs:331:72
+    [1m[94m|[0m
+[1m[94m331[0m [1m[94m|[0m                         .is_none_or(|v| entry.execution_modes.contains(v))
+    [1m[94m|[0m                                                               [1m[94m--------[0m [1m[91m^[0m [1m[91mexpected `&ExecutionMode`, found `ExecutionMode`[0m
+    [1m[94m|[0m                                                               [1m[94m|[0m
+    [1m[94m|[0m                                                               [1m[94marguments to this method are incorrect[0m
+    [1m[94m|[0m
+[1m[92mnote[0m: method defined here
+   [1m[94m--> [0m/rustc/88d9e12ae178fab0fb5cc050a94da85685d449ea/library/alloc/src/collections/btree/set.rs:606:11
+[1m[96mhelp[0m: consider borrowing here
+    [1m[94m|[0m
+[1m[94m331[0m [1m[94m| [0m                        .is_none_or(|v| entry.execution_modes.contains([92m&[0mv))
+    [1m[94m|[0m                                                                        [92m+[0m
+
+[1mFor more information about this error, try `rustc --explain E0308`.[0m
+[1m[91merror[0m: could not compile `sidereth-core` (lib) due to 1 previous error
+[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+[1m[91merror[0m: could not compile `sidereth-core` (lib test) due to 1 previous error
+cargo check exit status: 101
