@@ -1,7 +1,8 @@
-# SIDERETH Documentation Cleanup Plan V2
+# SIDERETH Documentation Cleanup Plan V3
 
-**Status:** ACTIVE MIGRATION PLAN
-**Scope:** Documentation deduplication, authority normalization and safe repository organization
+**Status:** ACTIVE MIGRATION PLAN  
+**Scope:** Documentation deduplication, authority normalization, semantic audit and safe repository organization  
+**Latest audit evidence:** `docs/evidence/DOCUMENTATION-AUDIT-2026-09-11.md`
 
 ## Objective
 
@@ -18,35 +19,31 @@ Maintain one authoritative documentation system for SIDERETH before and during p
 7. New adapters must reference shared contracts rather than copy them.
 8. Do not perform cosmetic mass moves when link/reference impact has not been audited.
 9. Archive first; delete only after evidence.
+10. Prefer extending an existing canonical document over creating a parallel specification.
 
 ## Completed findings
 
 ### Architecture blueprint
 
-The former `docs/ARCHITECTURE-BLUEPRINT.md` is already preserved under:
+The former `docs/ARCHITECTURE-BLUEPRINT.md` is preserved under:
 
 `docs/archive/superseded/ARCHITECTURE-BLUEPRINT.md`
 
-It is no longer an active specification path. No additional deletion is required for that file.
+It is no longer an active specification path.
 
-### Documentation index
+### Documentation governance
 
-The index now explicitly defines:
+The documentation index and governance authority map now define authority hierarchy, lifecycle vocabulary, canonical document families, AI-agent/developer reading protocols, duplicate detection rules and archive-first movement rules.
 
-- authority hierarchy;
-- status vocabulary;
-- canonical architecture scope distinctions;
-- Tool Gateway status;
-- AI/developer reading rules;
-- archive-first movement rules.
+### Markdown audit evidence
 
-See `docs/00-DOCUMENTATION-INDEX.md` and `docs/SIDERETH-DOCUMENTATION-GOVERNANCE.md`.
+A targeted semantic audit has confirmed that the principal architecture, decision, roadmap and contract families are complementary rather than safe candidates for blind consolidation. See `docs/evidence/DOCUMENTATION-AUDIT-2026-09-11.md`.
 
-## Audited active-document relationships
+## Current canonical relationships
 
 ### Master Decisions vs Decision Register
 
-Keep both. They serve different purposes:
+Keep both:
 
 - Master Decisions = concise locked baseline.
 - Decision Register = numbered history, consequences and review protocol.
@@ -55,31 +52,38 @@ Do not create a third general decision specification.
 
 ### Architecture vs Ecosystem Architecture
 
-Keep both for now.
+Keep both:
 
 - `SIDERETH-ARCHITECTURE.md` = target system architecture, universal infrastructure, lifecycle and delivery order.
 - `SIDERETH-ECOSYSTEM-ARCHITECTURE.md` = ecosystem composition, capability abstraction, domain packs, surface independence, provider neutrality and Trust Kernel.
 
-They are complementary, not duplicate enough to justify a risky move at this stage.
+They are complementary and should not be merged merely to reduce file count.
+
+### Capability Model vs Capability Contract
+
+Keep both:
+
+- `SIDERETH-CAPABILITY-MODEL.md` explains the ecosystem abstraction and composition model.
+- `contracts/CAPABILITY-CONTRACT.md` is the implementation-facing normative boundary.
+
+The explanatory model must not silently redefine the contract.
 
 ### Ecosystem roadmap vs delivery roadmap
 
-Keep both, but prevent divergence:
+Keep both, with explicit scope:
 
 - `SIDERETH-ECOSYSTEM-ROADMAP.md` = strategic/capability-led roadmap.
-- `ROADMAP.md` = phased delivery sequencing.
+- `ROADMAP.md` = delivery sequencing.
 
-Any future overlap should be consolidated rather than copied.
+Any future convergence should be handled by explicit consolidation, not duplicated edits.
 
 ### Tool Gateway
 
-Keep the contract and conformance matrix as the canonical specification in `docs/contracts/`. Implementation evidence belongs in code, tests, CI and the conformance evidence process.
+Keep the contract and conformance matrix as the canonical specification in `docs/contracts/`. Implementation evidence belongs in source code, tests, CI and conformance evidence.
 
-## Documents requiring later targeted review
+## Targeted semantic-audit queue
 
-The repository contains a large contract surface. Before renaming or physically moving contract documents, audit them as families rather than individually by filename.
-
-Priority families:
+The next audit must inspect complete document contents for these families, not just filenames:
 
 1. authorization / policy;
 2. action / approval / execution;
@@ -90,32 +94,30 @@ Priority families:
 7. intelligence;
 8. domain model / Case / Incident / Party / Document.
 
-The objective is not to reduce file count artificially. The objective is to ensure each contract has one authority and each conformance document clearly points to it.
+For each family record canonical authority, supporting explanations, conformance/evidence documents, planning material, duplicated sections, unique material, proposed disposition and inbound/outbound references.
 
-## Future documentation structure
+## Physical organization gate
 
-The repository may eventually use:
+Physical movement remains **BLOCKED** until the Markdown link/reference inventory is complete.
 
-```text
-docs/
-├── governance/
-├── architecture/
-├── contracts/
-├── evidence/
-├── planning/
-├── migration/
-└── archive/
-```
+Do not create taxonomy folders simply for appearance. If physical migration is later justified: create the destination, migrate unique content, update every reference, archive the old source, verify links and CI, and delete only after evidence.
 
-However, physical migration is deferred until a link/reference inventory and CI validation strategy exist. The current normalization through `00-DOCUMENTATION-INDEX.md` and `SIDERETH-DOCUMENTATION-GOVERNANCE.md` is safer and sufficient for this bounded phase.
+## Current Tool Gateway gate
+
+PR #73 remains below production-ready. The implementation head previously audited was `7a028da2dd200b6cdf45950d69dff43b61ffadaf`.
+
+Remaining semantic gates include trusted authorization expiry/freshness, returned authorization constraints, registry-driven implementation/provider selection, richer audit/provenance, durable/concurrent idempotency, direct adapter bypass evidence and TG-001–TG-060 conformance.
+
+The conformance matrix explicitly requires executable evidence before requirements can be considered tested.
 
 ## Next cleanup phase
 
-1. Inventory every active Markdown file and classify it as decision, architecture, contract, conformance/evidence, planning, migration, reference or archive.
-2. Detect semantic duplicates using headings/content, not filenames alone.
-3. For each duplicate, identify the surviving authority and migrate unique content before archiving/removing the superseded file.
-4. Audit all internal Markdown links after any rename/move.
-5. Add a lightweight documentation-consistency CI check when the final taxonomy is stable.
+1. Complete the full active-Markdown inventory.
+2. Build inbound/outbound Markdown link map.
+3. Run family-by-family semantic duplicate analysis.
+4. Consolidate only where authority is genuinely duplicated.
+5. Rename/move only after reference impact is known.
+6. Add lightweight documentation-consistency CI after taxonomy stabilizes.
 
 ## Completion rule
 
