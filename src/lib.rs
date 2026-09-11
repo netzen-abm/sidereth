@@ -91,6 +91,8 @@ pub mod response;
 pub mod security;
 pub mod service;
 pub mod timeline;
+#[allow(clippy::manual_flatten)]
+pub mod tool_registry;
 
 pub use action::{
     Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
@@ -162,6 +164,11 @@ pub use security::{
 };
 pub use service::{CaseCommand, CaseService, CommandContext, CommandResult, ServiceError};
 pub use timeline::Timeline;
+pub use tool_registry::{
+    InMemoryToolRegistry, ToolDataClass, ToolDependency, ToolExecutionMode, ToolImplementation,
+    ToolLifecycle, ToolRegistryAuditRecord, ToolRegistryCriteria, ToolRegistryEntry,
+    ToolRegistryError, ToolRiskClass, ToolVersion, ToolVersionRequirement,
+};
 
 #[cfg(feature = "postgres")]
 pub use postgres::{to_json, PostgresUnitOfWork, PostgresUnitOfWorkFactory};
