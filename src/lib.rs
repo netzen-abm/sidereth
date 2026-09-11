@@ -35,6 +35,7 @@ pub enum ResourceType {
     Case,
     Incident,
     Event,
+    Observation,
     Evidence,
     Authority,
     Jurisdiction,
@@ -77,6 +78,7 @@ pub mod legal_source;
 pub mod legal_source_registry;
 pub mod lifecycle;
 pub mod local_store;
+pub mod observation;
 pub mod party;
 pub mod party_repository;
 pub mod persistence;
@@ -146,6 +148,7 @@ pub use legal_source::{
 pub use legal_source_registry::LegalSourceRegistry;
 pub use lifecycle::{LifecycleMeta, LifecycleTransition};
 pub use local_store::LocalFileStore;
+pub use observation::{Observation, ObservationOrigin, ObservationType};
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use party_repository::PartyUnitOfWorkRepository;
 pub use persistence::{
@@ -304,6 +307,14 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&ResourceType::PartyRelationship).unwrap(),
             "\"party_relationship\""
+        );
+    }
+
+    #[test]
+    fn observation_resource_type_has_canonical_wire_value() {
+        assert_eq!(
+            serde_json::to_string(&ResourceType::Observation).unwrap(),
+            "\"observation\""
         );
     }
 }
