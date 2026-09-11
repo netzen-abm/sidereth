@@ -9,7 +9,9 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::action::{Action, ApprovalRecord, ExecutionGate, ExecutionGateError, ExecutionGateInput};
+use crate::action::{
+    Action, ApprovalRecord, ExecutionGate, ExecutionGateError, ExecutionGateInput,
+};
 use crate::authorization::{AuthorizationDecision, AuthorizationResult};
 use crate::tool_registry::{
     InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolLifecycle, ToolRegistryError,
@@ -45,7 +47,11 @@ pub struct ToolExecutionResult {
 }
 
 pub trait ToolAdapter {
-    fn invoke(&self, invocation: &ToolInvocation, tool_version: ToolVersion) -> Result<Value, ToolGatewayError>;
+    fn invoke(
+        &self,
+        invocation: &ToolInvocation,
+        tool_version: ToolVersion,
+    ) -> Result<Value, ToolGatewayError>;
 }
 
 pub trait ToolGatewayAuditSink {
@@ -147,7 +153,10 @@ impl InMemoryToolGateway {
         audit: &mut S,
     ) -> Result<ToolExecutionResult, ToolGatewayError> {
         self.validate_invocation(invocation)?;
-        if self.completed_invocations.contains(&invocation.invocation_id) {
+        if self
+            .completed_invocations
+            .contains(&invocation.invocation_id)
+        {
             return Err(ToolGatewayError::DuplicateInvocation);
         }
 
@@ -162,7 +171,10 @@ impl InMemoryToolGateway {
             return Err(ToolGatewayError::FunctionMismatch);
         }
         if let Some(action_ref) = &invocation.action_ref {
-            let action = invocation.action.as_ref().ok_or(ToolGatewayError::ActionMismatch)?;
+            let action = invocation
+                .action
+                .as_ref()
+                .ok_or(ToolGatewayError::ActionMismatch)?;
             if action.action_id != action_ref.id {
                 return Err(ToolGatewayError::ActionMismatch);
             }
@@ -192,11 +204,19 @@ impl InMemoryToolGateway {
 
         let authorization = &invocation.authorization;
         if authorization.decision != AuthorizationDecision::Allow {
-            audit.record(Self::audit_record(invocation, entry.version, ToolGatewayAuditOutcome::Rejected));
+            audit.record(Self::audit_record(
+                invocation,
+                entry.version,
+                ToolGatewayAuditOutcome::Rejected,
+            ));
             return Err(ToolGatewayError::AuthorizationDenied);
         }
         if authorization.authorization_ref.id.trim().is_empty() {
-            audit.record(Self::audit_record(invocation, entry.version, ToolGatewayAuditOutcome::Rejected));
+            audit.record(Self::audit_record(
+                invocation,
+                entry.version,
+                ToolGatewayAuditOutcome::Rejected,
+            ));
             return Err(ToolGatewayError::AuthorizationRequired);
         }
         if authorization.subject_ref != invocation.subject_ref
@@ -204,18 +224,30 @@ impl InMemoryToolGateway {
             || authorization.resource_ref != invocation.capability_ref
             || authorization.purpose != invocation.purpose
             || authorization.jurisdiction_ref != invocation.jurisdiction_ref
-            || authorization.data_class != invocation.data_class.map(|v| format!("{v:?}"))
+            || authorization.data_class
+                != invocation.data_class.map(|v| format!("{v:?}"))
         {
-            audit.record(Self::audit_record(invocation, entry.version, ToolGatewayAuditOutcome::Rejected));
+            audit.record(Self::audit_record(
+                invocation,
+                entry.version,
+                ToolGatewayAuditOutcome::Rejected,
+            ));
             return Err(ToolGatewayError::AuthorizationContextMismatch);
         }
         if authorization.expires_at_epoch_seconds == Some(0) {
-            audit.record(Self::audit_record(invocation, entry.version, ToolGatewayAuditOutcome::Rejected));
+            audit.record(Self::audit_record(
+                invocation,
+                entry.version,
+                ToolGatewayAuditOutcome::Rejected,
+            ));
             return Err(ToolGatewayError::AuthorizationExpired);
         }
 
         if entry.approval_required {
-            let action = invocation.action.as_ref().ok_or(ToolGatewayError::ApprovalRequired)?;
+            let action = invocation
+                .action
+                .as_ref()
+                .ok_or(ToolGatewayError::ApprovalRequired)?;
             ExecutionGate::permit(
                 action,
                 ExecutionGateInput {
@@ -226,8 +258,13 @@ impl InMemoryToolGateway {
         }
 
         let output = adapter.invoke(invocation, entry.version)?;
-        self.completed_invocations.insert(invocation.invocation_id.clone());
-        audit.record(Self::audit_record(invocation, entry.version, ToolGatewayAuditOutcome::Accepted));
+        self.completed_invocations
+            .insert(invocation.invocation_id.clone());
+        audit.record(Self::audit_record(
+            invocation,
+            entry.version,
+            ToolGatewayAuditOutcome::Accepted,
+        ));
         Ok(ToolExecutionResult {
             invocation_id: invocation.invocation_id.clone(),
             tool_id: entry.tool_id.clone(),
@@ -271,15 +308,17 @@ impl InMemoryToolGateway {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tool_registry::{
-        ToolImplementation, ToolRegistryAuditRecord, ToolRiskClass,
-    };
-    use crate::{ResourceType};
+    use crate::tool_registry::{ToolImplementation, ToolRegistryAuditRecord, ToolRiskClass};
+    use crate::ResourceType;
 
     struct EchoAdapter;
 
     impl ToolAdapter for EchoAdapter {
-        fn invoke(&self, invocation: &ToolInvocation, _version: ToolVersion) -> Result<Value, ToolGatewayError> {
+        fn invoke(
+            &self,
+            invocation: &ToolInvocation,
+            _version: ToolVersion,
+        ) -> Result<Value, ToolGatewayError> {
             Ok(invocation.input.clone())
         }
     }
@@ -403,8 +442,12 @@ mod tests {
         let mut gateway = InMemoryToolGateway::new();
         let mut audit = InMemoryToolGatewayAudit::default();
         let request = invocation();
-        gateway.invoke(&registry(), &request, &EchoAdapter, &mut audit).unwrap();
-        let error = gateway.invoke(&registry(), &request, &EchoAdapter, &mut audit).unwrap_err();
+        gateway
+            .invoke(&registry(), &request, &EchoAdapter, &mut audit)
+            .unwrap();
+        let error = gateway
+            .invoke(&registry(), &request, &EchoAdapter, &mut audit)
+            .unwrap_err();
         assert_eq!(error, ToolGatewayError::DuplicateInvocation);
     }
 }
