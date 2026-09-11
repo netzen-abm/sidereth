@@ -37,7 +37,6 @@ pub enum ApprovalOrigin {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
     Granted,
     Rejected,
@@ -149,6 +148,7 @@ impl ExecutionGate {
         let approval = input.approval.ok_or(ExecutionGateError::ApprovalRequired)?;
         if approval.action_ref.id != action.action_id
             || approval.authorization_ref.id.as_str() != action_authorization.as_str()
+            || action.approval_ref.as_deref() != Some(approval.approval_id.as_str())
         {
             return Err(ExecutionGateError::ApprovalMismatch);
         }
@@ -415,6 +415,46 @@ mod tests {
         assert_eq!(
             value.bind_approval(&record, "2026-09-04T10:02:00Z".into()),
             Err("approval action reference does not match action")
+        );
+    }
+
+    #[test]
+    fn execution_gate_rejects_approval_record_not_bound_to_action() {
+        let mut value = action();
+        value.requires_explicit_approval = true;
+        value.authorization_ref = Some("auth-1".into());
+        value.approval_ref = Some("approval-1".into());
+        value.status = ActionStatus::Approved;
+        let mut authorization = crate::AuthorizationResult::from_request(
+            &crate::AuthorizationRequest {
+                request_id: "request-1".into(),
+                authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
+                subject_ref: ResourceRef::new(ResourceType::Party, "actor-1").unwrap(),
+                action: ResourceRef::new(ResourceType::Action, "action-1").unwrap(),
+                resource_ref: ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
+                purpose: "execute action".into(),
+                policy_refs: vec!["policy-1".into()],
+                jurisdiction_ref: Some(ResourceRef::new(ResourceType::Jurisdiction, "jur-1").unwrap()),
+                data_class: crate::DataClass::Public,
+                requested_at_epoch_seconds: 1,
+                freshness_seconds: 60,
+            },
+            AuthorizationDecision::Allow,
+            1,
+            Some(61),
+        );
+        authorization.authorization_ref = ResourceRef::new(ResourceType::Other, "auth-1").unwrap();
+        let mut record = approval(ApprovalDecision::Granted);
+        record.approval_id = "different-approval".into();
+        assert_eq!(
+            ExecutionGate::permit(
+                &value,
+                ExecutionGateInput {
+                    authorization: Some(&authorization),
+                    approval: Some(&record),
+                },
+            ),
+            Err(ExecutionGateError::ApprovalMismatch)
         );
     }
 
