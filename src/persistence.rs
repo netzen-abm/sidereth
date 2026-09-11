@@ -351,8 +351,8 @@ mod tests {
             ResourceLinkClass::Forward,
             ResourceLinkClass::External,
         ] {
-            let link = ResourceLink::new_with_class(source.clone(), "rel", target.clone(), class)
-                .unwrap();
+            let link =
+                ResourceLink::new_with_class(source.clone(), "rel", target.clone(), class).unwrap();
             let encoded = serde_json::to_string(&link).unwrap();
             let decoded: ResourceLink = serde_json::from_str(&encoded).unwrap();
             assert_eq!(decoded, link);
