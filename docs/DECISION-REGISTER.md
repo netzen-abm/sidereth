@@ -33,6 +33,7 @@
 | D-029 | Tool Registry is a discovery/interface boundary, not an execution authority boundary | LOCKED | Tool Registry owns tool identity, compatibility, capability/function binding and lifecycle metadata; Tool Gateway remains authoritative for identity, policy, authorization, approval, data minimisation and execution |
 | D-030 | Tool Registry conformance is implementation-independent | LOCKED | Every Tool Registry implementation must satisfy the provider-neutral behavioral matrix; storage, transport, provider and discovery technology remain replaceable and cannot weaken execution boundaries |
 | D-031 | Canonical authorization/policy semantics must be contracted and proven before Tool Gateway implementation | LOCKED | The Gateway consumes one provider-neutral authorization boundary; no parallel permission system may emerge in the Gateway, tool registry, AI layer or adapters |
+| D-032 | Observation is a distinct universal semantic primitive, separate from Event and Evidence | LOCKED | Observation uses explicit epistemic, temporal, provenance, evidence and privacy semantics; it does not create a mandatory repository, longitudinal aggregate, legal-responsibility model or AI authority boundary |
 
 ## Decision protocol
 Every material future decision should record context, options, selected decision, rationale, consequences, rejected alternatives, dependencies and review trigger. A decision is not considered superseded merely because implementation evolves; update this register explicitly.
