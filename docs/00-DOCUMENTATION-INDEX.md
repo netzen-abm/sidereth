@@ -1,71 +1,180 @@
 # SIDERETH Documentation Index
 
-## Purpose
-This index defines the documentation hierarchy for the SIDERETH repository. It prevents duplicate specifications and separates decisions, architecture, contracts, plans, implementation evidence and historical material.
+**Status:** CANONICAL / DOCUMENTATION INDEX
+**Purpose:** Single navigation and authority map for humans, developers and AI agents.
 
-## Canonical hierarchy
+## 1. Read this first
 
-### 00 — Governance and decisions
-- `00-SIDERETH-MASTER-DECISIONS.md` — locked product and architectural decisions.
-- `DECISION-REGISTER.md` — decision history and rationale.
-- `DOCUMENTATION-INDEX.md` — this map.
+The documentation system follows one rule:
+
+> **One concept has one canonical authority. Supporting documents explain, test, plan or preserve history; they do not silently redefine the canonical concept.**
+
+Before creating or modifying documentation, read:
+
+1. this index;
+2. `00-SIDERETH-MASTER-DECISIONS.md`;
+3. `DECISION-REGISTER.md` when the change is architectural/product-level;
+4. the relevant canonical contract before changing implementation;
+5. implementation/tests before making implementation-status claims.
+
+For the detailed documentation governance protocol, see `SIDERETH-DOCUMENTATION-GOVERNANCE.md`.
+
+## 2. Authority hierarchy
+
+1. **Locked decisions** — `00-SIDERETH-MASTER-DECISIONS.md`, `DECISION-REGISTER.md`.
+2. **Canonical contracts** — `contracts/`.
+3. **Canonical architecture** — master blueprint and architecture documents.
+4. **Canonical domain/framework specifications** — capability model, data model, glossary and equivalent specifications.
+5. **Conformance/evidence** — proves implementation behavior; does not redefine the contract.
+6. **Planning** — roadmap, estimates and UX; not implementation proof.
+7. **Migration/audit records** — historical or process evidence.
+8. **Archive** — reference only; never an active authority.
+
+A lower-level document cannot override a higher-level contract merely because it was edited later.
+
+## 3. Governance and decisions
+
+- `00-SIDERETH-MASTER-DECISIONS.md` — locked product and architecture decisions.
+- `DECISION-REGISTER.md` — numbered decision history, consequences and review triggers.
+- `DECISIONS/` — detailed decision records requiring context, alternatives and rationale.
+- `SIDERETH-DOCUMENTATION-GOVERNANCE.md` — documentation authority, lifecycle, duplication and AI/developer reading rules.
 - `SIDERETH-GLOSSARY.md` — canonical terminology.
-- `DECISIONS/ECOSYSTEM-STRATEGY-2026-09-03.md` — locked full-ecosystem strategy.
 
-### 01 — Product and architecture
+Do not create another general-purpose decision list.
+
+## 4. Product and architecture
+
 - `01-SIDERETH-MASTER-BLUEPRINT.md` — master product/system blueprint.
-- `SIDERETH-ARCHITECTURE.md` — current target architecture and boundaries.
-- `SIDERETH-ECOSYSTEM-ARCHITECTURE.md` — canonical full-ecosystem architecture and layer boundaries.
-- `SIDERETH-CAPABILITY-MODEL.md` — capability/function/tool/resource/workflow model.
-- `SIDERETH-ECOSYSTEM-ROADMAP.md` — capability-led ecosystem roadmap.
-- `SIDERETH-ECOSYSTEM-DISCUSSION-RECORD.md` — consolidated strategic discussion record.
-- `THE-PURPLE-FROG-BRAND-IDENTITY.md` — canonical public product-brand and conservation-identity decision.
-- `ESTIMATE-WIREFRAME-PLAN.md` — planning estimate and UX/wireframe scope only.
-- `ROADMAP.md` — phased delivery roadmap.
+- `SIDERETH-ARCHITECTURE.md` — target system architecture, universal infrastructure and delivery boundaries.
+- `SIDERETH-ECOSYSTEM-ARCHITECTURE.md` — ecosystem composition, shared capabilities, domain packs, surfaces, provider neutrality and Trust Kernel.
+- `SIDERETH-CAPABILITY-MODEL.md` — capability/function/tool/resource/workflow abstraction.
+- `SIDERETH-ECOSYSTEM-ROADMAP.md` — strategic capability-led roadmap.
+- `ROADMAP.md` — delivery roadmap and execution sequencing; must remain consistent with the ecosystem roadmap.
+- `SIDERETH-ECOSYSTEM-DISCUSSION-RECORD.md` — consolidated discussion context; not a contract.
+- `THE-PURPLE-FROG-BRAND-IDENTITY.md` — public brand/conservation identity.
 - `08-MCP-ARCHITECTURE.md` — MCP interoperability boundary.
+- `ESTIMATE-WIREFRAME-PLAN.md` — planning/UX estimate only.
 
-### 02 — Contracts
-`docs/contracts/` contains canonical domain, capability, lifecycle/event, authorization, API semantics, audit/storage and contract-test definitions.
+### Architecture scope distinction
 
-Important capability contracts include:
-- `CAPABILITY-CONTRACT.md` — capability definition and governance boundary.
-- `CAPABILITY-REGISTRY-CONTRACT.md` — capability discovery, identity, version resolution and lifecycle boundary.
-- `CAPABILITY-REGISTRY-CONFORMANCE.md` — pre-implementation registry conformance and safety test design.
-- `TOOL-REGISTRY-CONTRACT.md` — tool identity, capability/function binding, compatibility, discovery and lifecycle boundary.
-- `TOOL-REGISTRY-CONFORMANCE.md` — implementation-independent behavioral and safety conformance matrix for Tool Registry implementations.
-- `AUTHORIZATION-POLICY-CONTRACT.md` — canonical authorization/policy decision boundary consumed by protected operations and the future Tool Gateway.
-- `AUTHORIZATION-POLICY-CONFORMANCE.md` — implementation-independent authorization/policy safety and behavioral conformance matrix.
-- `INTELLIGENCE-CONTRACT.md` — provider-neutral intelligence/model boundary, epistemic status, retrieval, tool, data and evaluation requirements.
-- `INTELLIGENCE-CONTRACT-TEST-MATRIX.md` — pre-implementation conformance and safety test matrix for the Intelligence Contract.
-- `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.
-- `CORE-EVIDENCE-TRUST-CAPABILITY.md` — canonical evidence capture, context, integrity, provenance, hardware-attestation and privacy boundary.
-- `CORE-EVIDENCE-PERSISTENCE.md` — canonical provider-neutral durable persistence boundary for Evidence Trust state.
-- `CORE-V1.2-DESIGN.md` — provider-neutral durable persistence contract.
-- `CORE-V1.2-B-DESIGN.md` — reference local durable adapter boundary.
-- `CORE-V1.2-PERSISTENCE-AUDIT.md` — reference audit and findings for the v1.2 persistence boundary.
-- `CORE-V1.2-C-DESIGN.md` — persistence contract hardening decisions.
-- `CORE-V1.2-C-TEST-MATRIX.md` — executable acceptance matrix for persistence hardening.
+`SIDERETH-ARCHITECTURE.md` and `SIDERETH-ECOSYSTEM-ARCHITECTURE.md` are intentionally complementary:
 
-### 03 — Migration and legacy
-`docs/migration/` records repository migration and disposition decisions.
-`docs/archive/` contains preserved historical material that is no longer active product specification.
+- system architecture defines the target system boundary, lifecycle and universal infrastructure;
+- ecosystem architecture defines composition, reusable capability semantics, domain packs, adapters, provider neutrality and Trust Kernel rules.
 
-Important historical audit records include:
-- `docs/archive/historical-migration/DECENTRALIZED-SYSTEM-BRANCH-AUDIT.md` — evidence-based disposition of the legacy `decentralized-system` branch and its Freenet prototype.
+Do not merge them merely to reduce file count unless a future audit proves their scopes can be consolidated without loss of authority clarity.
 
-## Documentation status vocabulary
-- **LOCKED** — governing decision; changes require an explicit decision update.
+## 5. Implementation control
+
+- `SIDERETH-MASTER-CHECKLIST.md` — master implementation gates and completion state.
+- `contracts/` — implementation-facing contracts and conformance matrices.
+- `migration/` — migration and repository audit records.
+- `archive/` — historical material excluded from active implementation authority.
+
+## 6. Contracts
+
+`docs/contracts/` is the authoritative home for implementation-facing contracts and their conformance matrices.
+
+Key contract families include:
+
+- canonical domain model;
+- Case/Incident/Event;
+- Party, Document, Evidence and Evidence Trust;
+- capability and Capability Registry;
+- Tool Registry;
+- authorization/policy;
+- Action/Approval/Execution Gate;
+- intelligence;
+- persistence/storage;
+- API/error/idempotency/versioning;
+- audit/security/encryption;
+- Tool Gateway.
+
+A contract defines a boundary. Code must conform to it. A convenient implementation must not redefine the boundary.
+
+## 7. Current Tool Gateway status
+
+The Tool Gateway contract is canonical in:
+
+- `contracts/TOOL-GATEWAY-CONTRACT.md`
+- `contracts/TOOL-GATEWAY-CONFORMANCE.md`
+
+The implementation in PR #73 is evidence against those contracts and is **not production-ready** until the mandatory conformance evidence is complete.
+
+Exact implementation head audited: `7a028da2dd200b6cdf45950d69dff43b61ffadaf`.
+
+Known remaining semantic gates include authorization freshness/expiry, returned-constraint enforcement, registry-driven implementation selection, richer audit/provenance, durable/concurrent idempotency, direct-bypass evidence and TG-001–TG-060 conformance.
+
+## 8. Migration and archive
+
+- `migration/` — active repository cleanup, migration and audit plans/results.
+- `archive/` — historical/superseded material; never use it as current implementation authority.
+
+The former `docs/ARCHITECTURE-BLUEPRINT.md` is already preserved under `docs/archive/superseded/`.
+
+## 9. Documentation status vocabulary
+
+### Specification status
+
+- **LOCKED** — governing decision.
 - **CANONICAL** — authoritative specification for its scope.
-- **DRAFT** — proposed design awaiting executable verification or decision.
-- **PLANNING** — estimate/UX/roadmap material; not implementation evidence.
-- **REFERENCE** — useful supporting material but not authoritative.
-- **ARCHIVED** — retained for historical traceability; must not drive implementation.
+- **DRAFT** — proposed design awaiting decision/verification.
+- **PLANNING** — estimate, UX or roadmap material.
+- **REFERENCE** — supporting material, not authoritative.
+- **ARCHIVED** — historical reference only.
 
-## Non-negotiable documentation rule
+### Implementation evidence status
+
+```text
+VISION → DESIGNED → IMPLEMENTED → FUNCTIONAL → TESTED
+        → SECURITY-VERIFIED → PRIVACY-VERIFIED → PRODUCTION-READY
+```
+
+Never infer an implementation status from prose alone.
+
+## 10. Change rules
+
+Before creating a new specification:
+
+1. search this index and active docs;
+2. identify the existing canonical authority;
+3. extend it if the subject belongs to the same scope;
+4. create a new document only for a genuinely distinct scope;
+5. update this index and all cross-references in the same change.
+
+Before moving or deleting a document:
+
+1. read the complete document;
+2. identify unique content and references;
+3. merge unique content into the surviving authority where appropriate;
+4. create/update the destination;
+5. update links;
+6. verify CI and documentation consistency;
+7. archive first;
+8. delete only after evidence.
+
+## 11. Repository structure
+
+The active documentation organization is intentionally logical before it is physical:
+
+```text
+docs/
+├── 00-DOCUMENTATION-INDEX.md
+├── 00-SIDERETH-MASTER-DECISIONS.md
+├── 01-SIDERETH-MASTER-BLUEPRINT.md
+├── SIDERETH-DOCUMENTATION-GOVERNANCE.md
+├── SIDERETH-GLOSSARY.md
+├── DECISION-REGISTER.md
+├── DECISIONS/
+├── contracts/
+├── migration/
+└── archive/
+```
+
+Additional physical folders such as `architecture/`, `planning/` and `evidence/` should be introduced only through a separate link-audited migration. Cosmetic mass moves are not justified.
+
+## 12. Non-negotiable documentation rule
+
 Documentation must never imply implementation that is not supported by source code, automated tests, deployment evidence or other reproducible evidence.
 
-## Change rule
-Before creating a new specification, search this index and existing docs. Extend the canonical document when the subject already exists. Create a new document only when the scope is genuinely distinct.
-
-## Branch hygiene rule
-Do not create a new branch when a suitable existing branch can safely carry the work. Create a new branch only when isolation is genuinely required. After work is merged and its branch is no longer relevant, archive any unique material first and delete the obsolete branch when repository tooling permits.
+If a human, developer or AI agent cannot determine the authoritative document for a major decision without tribal knowledge, the documentation system is not complete.
