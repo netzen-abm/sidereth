@@ -33,6 +33,8 @@ Important capability contracts include:
 - `CAPABILITY-REGISTRY-CONFORMANCE.md` — pre-implementation registry conformance and safety test design.
 - `TOOL-REGISTRY-CONTRACT.md` — tool identity, capability/function binding, compatibility, discovery and lifecycle boundary.
 - `TOOL-REGISTRY-CONFORMANCE.md` — implementation-independent behavioral and safety conformance matrix for Tool Registry implementations.
+- `AUTHORIZATION-POLICY-CONTRACT.md` — canonical authorization/policy decision boundary consumed by protected operations and the future Tool Gateway.
+- `AUTHORIZATION-POLICY-CONFORMANCE.md` — implementation-independent authorization/policy safety and behavioral conformance matrix.
 - `INTELLIGENCE-CONTRACT.md` — provider-neutral intelligence/model boundary, epistemic status, retrieval, tool, data and evaluation requirements.
 - `INTELLIGENCE-CONTRACT-TEST-MATRIX.md` — pre-implementation conformance and safety test matrix for the Intelligence Contract.
 - `OPTIONAL-CAPABILITY-CONTRACT.md` — plug-and-play policy for optional Nostr, Nym, Reticulum, ZKP, blockchain, Freenet and WASM capabilities.
