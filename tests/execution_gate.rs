@@ -21,7 +21,14 @@ fn action() -> Action {
 
 fn authorization(decision: AuthorizationDecision) -> AuthorizationResult {
     AuthorizationResult {
+        request_id: "req-1".into(),
         authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
+        subject_ref: ResourceRef::new(ResourceType::Party, "actor-1").unwrap(),
+        action: ResourceRef::new(ResourceType::Action, "submit-filing").unwrap(),
+        resource_ref: ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
+        purpose: "case submission".into(),
+        jurisdiction_ref: Some(ResourceRef::new(ResourceType::Jurisdiction, "jurisdiction-1").unwrap()),
+        data_class: Some("case-restricted".into()),
         decision,
         constraints: Vec::new(),
         policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
