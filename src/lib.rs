@@ -91,6 +91,7 @@ pub mod response;
 pub mod security;
 pub mod service;
 pub mod timeline;
+#[allow(clippy::manual_flatten)]
 pub mod tool_registry;
 
 pub use action::{
