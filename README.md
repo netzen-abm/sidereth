@@ -46,20 +46,31 @@ Build the domain-independent Case and Incident Engine first, with evidence, even
 ## Repository status
 The repository is undergoing a controlled foundation build. Historical prototype artifacts were audited for usefulness before disposition; obsolete material is removed from the active product path while repository history remains preserved.
 
+## Documentation entry point
+**Before changing architecture, contracts, implementation boundaries or documentation, read `docs/00-DOCUMENTATION-INDEX.md` and `docs/SIDERETH-DOCUMENTATION-GOVERNANCE.md`.**
+
+The documentation system uses one canonical authority per concept, separates decisions from contracts and plans, and requires evidence before implementation-status claims. Archive material is historical only.
+
 ## Current foundation documents
 - `docs/00-DOCUMENTATION-INDEX.md`
 - `docs/00-SIDERETH-MASTER-DECISIONS.md`
 - `docs/01-SIDERETH-MASTER-BLUEPRINT.md`
+- `docs/SIDERETH-DOCUMENTATION-GOVERNANCE.md`
 - `docs/SIDERETH-ARCHITECTURE.md`
-- `docs/ESTIMATE-WIREFRAME-PLAN.md`
-- `docs/08-MCP-ARCHITECTURE.md`
-- `docs/GENKIT-TECHNOLOGY-ASSESSMENT.md`
+- `docs/SIDERETH-ECOSYSTEM-ARCHITECTURE.md`
+- `docs/SIDERETH-CAPABILITY-MODEL.md`
+- `docs/SIDERETH-ECOSYSTEM-ROADMAP.md`
 - `docs/SIDERETH-GLOSSARY.md`
 - `docs/SIDERETH-MASTER-CHECKLIST.md`
 - `docs/THE-PURPLE-FROG-BRAND-IDENTITY.md`
+- `docs/08-MCP-ARCHITECTURE.md`
+- `docs/ESTIMATE-WIREFRAME-PLAN.md`
 - `docs/contracts/`
 - `docs/migration/`
 - `docs/archive/`
 
 ## Development rule
 Do not infer implementation from architecture documents. A capability becomes complete only when its contract, implementation, tests, security controls, documentation and observability are present and verified.
+
+## Current implementation priority
+The current bounded platform priority is the Tool Gateway implementation. PR #73 has green exact-head foundation/security CI but remains below production-ready until the canonical Tool Gateway conformance evidence is complete. See `docs/SIDERETH-DOCUMENTATION-GOVERNANCE.md` and `docs/SIDERETH-MASTER-CHECKLIST.md` for the current evidence-based status.
