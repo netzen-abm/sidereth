@@ -52,6 +52,7 @@ pub enum AuthorizationDecision {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizationRequest {
     pub request_id: Id,
+    pub authorization_ref: ResourceRef,
     pub subject_ref: ResourceRef,
     pub action: ResourceRef,
     pub resource_ref: ResourceRef,
@@ -71,6 +72,7 @@ pub struct AuthorizationConstraint {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizationResult {
+    pub authorization_ref: ResourceRef,
     pub decision: AuthorizationDecision,
     pub constraints: Vec<AuthorizationConstraint>,
     pub policy_refs: Vec<ResourceRef>,
@@ -105,6 +107,7 @@ pub struct StaticAuthorizationEvaluator {
 impl StaticAuthorizationEvaluator {
     fn fail_closed(&self, request: &AuthorizationRequest) -> AuthorizationResult {
         AuthorizationResult {
+            authorization_ref: request.authorization_ref.clone(),
             decision: AuthorizationDecision::Deny,
             constraints: Vec::new(),
             policy_refs: request.policy_refs.clone(),
@@ -115,6 +118,7 @@ impl StaticAuthorizationEvaluator {
 
     fn valid_request(&self, request: &AuthorizationRequest) -> bool {
         !request.request_id.is_empty()
+            && !request.authorization_ref.id.is_empty()
             && !request.purpose.is_empty()
             && !request.subject_ref.id.is_empty()
             && !request.action.id.is_empty()
@@ -153,6 +157,7 @@ impl AuthorizationEvaluator for StaticAuthorizationEvaluator {
 
         if matches.is_empty() {
             return AuthorizationResult {
+                authorization_ref: request.authorization_ref.clone(),
                 decision: AuthorizationDecision::NotApplicable,
                 constraints: Vec::new(),
                 policy_refs: request.policy_refs.clone(),
@@ -176,6 +181,7 @@ impl AuthorizationEvaluator for StaticAuthorizationEvaluator {
         }
 
         AuthorizationResult {
+            authorization_ref: request.authorization_ref.clone(),
             decision: first_decision,
             constraints,
             policy_refs,
@@ -199,6 +205,7 @@ mod tests {
     fn canonical_request() -> AuthorizationRequest {
         AuthorizationRequest {
             request_id: "req-1".into(),
+            authorization_ref: reference(ResourceType::Other, "auth-1"),
             subject_ref: reference(ResourceType::Party, "party-1"),
             action: reference(ResourceType::Action, "read-document"),
             resource_ref: reference(ResourceType::Document, "doc-1"),
@@ -260,6 +267,7 @@ mod tests {
         let request = canonical_request();
         let json = serde_json::to_string(&request).unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(value["authorization_ref"]["id"], "auth-1");
         assert_eq!(value["subject_ref"]["resource_type"], "party");
         assert_eq!(value["purpose"], "case preparation");
         assert_eq!(value["data_class"], "case-restricted");
@@ -274,6 +282,7 @@ mod tests {
             now_epoch_seconds: 110,
         };
         let result = evaluator.evaluate(&canonical_request());
+        assert_eq!(result.authorization_ref.id, "auth-1");
         assert_eq!(result.decision, AuthorizationDecision::Allow);
         assert_eq!(result.constraints.len(), 1);
         assert_eq!(result.policy_refs.len(), 1);
@@ -344,6 +353,7 @@ mod tests {
     #[test]
     fn authorization_decision_is_not_approval_or_legal_authority() {
         let result = AuthorizationResult {
+            authorization_ref: reference(ResourceType::Other, "auth-1"),
             decision: AuthorizationDecision::Allow,
             constraints: vec![AuthorizationConstraint {
                 key: "access_mode".into(),

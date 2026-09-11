@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Id, ResourceRef, ResourceType};
+use crate::{AuthorizationDecision, AuthorizationResult, Id, ResourceRef, ResourceType};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -14,7 +14,7 @@ pub enum ActionStatus {
     Cancelled,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionKind {
     Information,
@@ -115,8 +115,7 @@ impl ExecutionGateError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecutionGateInput<'a> {
-    pub authorization_ref: Option<&'a Id>,
-    pub authorization_granted: bool,
+    pub authorization: Option<&'a AuthorizationResult>,
     pub approval: Option<&'a ApprovalRecord>,
 }
 
@@ -128,26 +127,23 @@ impl ExecutionGate {
         action: &Action,
         input: ExecutionGateInput<'_>,
     ) -> Result<(), ExecutionGateError> {
-        if !action.requires_explicit_approval {
-            return if input.authorization_granted {
-                Ok(())
-            } else {
-                Err(ExecutionGateError::AuthorizationDenied)
-            };
+        let authorization = input
+            .authorization
+            .ok_or(ExecutionGateError::AuthorizationRequired)?;
+        if authorization.decision != AuthorizationDecision::Allow {
+            return Err(ExecutionGateError::AuthorizationDenied);
         }
 
         let action_authorization = action
             .authorization_ref
             .as_ref()
             .ok_or(ExecutionGateError::AuthorizationRequired)?;
-        let supplied_authorization = input
-            .authorization_ref
-            .ok_or(ExecutionGateError::AuthorizationRequired)?;
-        if action_authorization != supplied_authorization {
+        if authorization.authorization_ref.id.as_str() != action_authorization.as_str() {
             return Err(ExecutionGateError::ApprovalMismatch);
         }
-        if !input.authorization_granted {
-            return Err(ExecutionGateError::AuthorizationDenied);
+
+        if !action.requires_explicit_approval {
+            return Ok(());
         }
 
         let approval = input.approval.ok_or(ExecutionGateError::ApprovalRequired)?;
@@ -319,6 +315,7 @@ impl Action {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ResourceType;
 
     fn action() -> Action {
         Action::new(
