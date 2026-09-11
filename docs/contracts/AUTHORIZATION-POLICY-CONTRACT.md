@@ -41,12 +41,23 @@ The request is evaluated as a whole. Adapters may translate transport identity, 
 
 A result must contain:
 
+- stable identity of the request that was evaluated;
+- the evaluated subject/actor reference;
+- the evaluated action/operation reference;
+- the evaluated resource/case scope;
+- the evaluated declared purpose;
+- the evaluated jurisdiction/scope context;
+- the evaluated data class/sensitivity;
 - deterministic decision: `allow`, `deny`, or `not_applicable`;
 - policy references used for the decision;
 - enforceable constraints where applicable;
 - scope/data-minimisation requirements where applicable;
 - freshness/expiry information where required;
 - provenance/audit context sufficient to reproduce attribution.
+
+The result MUST preserve the evaluated request context rather than requiring a downstream consumer to infer it from mutable caller state. A consuming boundary must be able to compare the invocation subject, action, resource, purpose, jurisdiction and data class against the exact context that produced the result.
+
+This is a structural binding requirement. It does not by itself provide cryptographic attestation or make the result impossible to construct manually; stronger integrity mechanisms may be added later without changing the semantic contract.
 
 `allow` is not unconditional permission. The consuming boundary must enforce all returned constraints.
 
