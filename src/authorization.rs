@@ -49,10 +49,6 @@ pub enum AuthorizationDecision {
 }
 
 /// Canonical request presented to the authorization boundary.
-///
-/// The evaluator treats identity, scope, purpose, policy context and freshness
-/// as security-relevant inputs. No transport, registry, model, or provider may
-/// widen these values.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizationRequest {
     pub request_id: Id,
@@ -87,10 +83,6 @@ pub trait AuthorizationEvaluator {
 }
 
 /// A deliberately small, provider-neutral rule representation.
-///
-/// This is not a general-purpose policy language. It provides deterministic
-/// exact-match evaluation for the core boundary while leaving policy storage,
-/// policy languages, identity providers, and distributed engines replaceable.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizationRule {
     pub policy_ref: ResourceRef,
@@ -149,7 +141,6 @@ impl StaticAuthorizationEvaluator {
 
 impl AuthorizationEvaluator for StaticAuthorizationEvaluator {
     fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
-        // Protected operations fail closed when required request context is invalid.
         if !self.valid_request(request) {
             return self.fail_closed(request);
         }
@@ -160,7 +151,6 @@ impl AuthorizationEvaluator for StaticAuthorizationEvaluator {
             .filter(|rule| Self::matches(rule, request))
             .collect();
 
-        // No applicable policy is never an implicit allow.
         if matches.is_empty() {
             return AuthorizationResult {
                 decision: AuthorizationDecision::NotApplicable,
@@ -171,8 +161,6 @@ impl AuthorizationEvaluator for StaticAuthorizationEvaluator {
             };
         }
 
-        // Conflicting applicable rules fail closed. This prevents policy-order
-        // dependence and avoids silently preferring an allow over a deny.
         let first_decision = matches[0].decision;
         if matches.iter().any(|rule| rule.decision != first_decision) {
             return self.fail_closed(request);
@@ -310,7 +298,10 @@ mod tests {
         };
         let mut request = canonical_request();
         request.purpose.clear();
-        assert_eq!(evaluator.evaluate(&request).decision, AuthorizationDecision::Deny);
+        assert_eq!(
+            evaluator.evaluate(&request).decision,
+            AuthorizationDecision::Deny
+        );
     }
 
     #[test]
@@ -319,23 +310,29 @@ mod tests {
             rules: vec![rule(AuthorizationDecision::Allow)],
             now_epoch_seconds: 200,
         };
-        assert_eq!(evaluator.evaluate(&canonical_request()).decision, AuthorizationDecision::Deny);
+        assert_eq!(
+            evaluator.evaluate(&canonical_request()).decision,
+            AuthorizationDecision::Deny
+        );
     }
 
     #[test]
     fn conflicting_rules_fail_closed() {
         let evaluator = StaticAuthorizationEvaluator {
-            rules: vec![rule(AuthorizationDecision::Allow), rule(AuthorizationDecision::Deny)],
+            rules: vec![
+                rule(AuthorizationDecision::Allow),
+                rule(AuthorizationDecision::Deny),
+            ],
             now_epoch_seconds: 110,
         };
-        assert_eq!(evaluator.evaluate(&canonical_request()).decision, AuthorizationDecision::Deny);
+        assert_eq!(
+            evaluator.evaluate(&canonical_request()).decision,
+            AuthorizationDecision::Deny
+        );
     }
 
     #[test]
     fn authorization_does_not_execute() {
-        // The evaluator has no execution callback or tool handle. Evaluation
-        // therefore remains a pure decision boundary; execution belongs to the
-        // downstream Action/Approval/Execution Gate and future Tool Gateway.
         let evaluator = StaticAuthorizationEvaluator {
             rules: vec![rule(AuthorizationDecision::Allow)],
             now_epoch_seconds: 110,
