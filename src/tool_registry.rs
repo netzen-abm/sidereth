@@ -464,13 +464,11 @@ impl InMemoryToolRegistry {
                     .entries
                     .keys()
                     .filter(|(dep_id, dep_version)| {
-                        dep_id == &dep.tool_id
-                            && version_matches(*dep_version, &dep.requirement)
+                        dep_id == &dep.tool_id && version_matches(*dep_version, &dep.requirement)
                     })
                     .map(|(_, v)| *v)
                     .chain(std::iter::once(candidate.version).filter(|v| {
-                        candidate.tool_id == dep.tool_id
-                            && version_matches(*v, &dep.requirement)
+                        candidate.tool_id == dep.tool_id && version_matches(*v, &dep.requirement)
                     }))
                     .collect();
                 for v in versions {
@@ -643,10 +641,9 @@ mod tests {
         let mut r = InMemoryToolRegistry::new();
         r.register(entry("x", v), audit("x", v, "register"))
             .unwrap();
-        assert!(
-            r.promote("x", v, ToolLifecycle::Contracted, audit("x", v, "promote"))
-                .is_err()
-        );
+        assert!(r
+            .promote("x", v, ToolLifecycle::Contracted, audit("x", v, "promote"))
+            .is_err());
     }
 
     #[test]
