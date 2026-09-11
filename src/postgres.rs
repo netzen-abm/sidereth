@@ -270,14 +270,13 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
             .lock()
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Unavailable))?;
 
-        if class == Some(ResourceLinkClass::Strong) {
-            if !Self::resource_exists(&mut client, &link.source_ref)?
-                || !Self::resource_exists(&mut client, &link.target_ref)?
-            {
-                return Err(UnitOfWorkError::Persistence(
-                    PersistenceError::IntegrityFailure,
-                ));
-            }
+        if class == Some(ResourceLinkClass::Strong)
+            && (!Self::resource_exists(&mut client, &link.source_ref)?
+                || !Self::resource_exists(&mut client, &link.target_ref)?)
+        {
+            return Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure,
+            ));
         }
 
         let affected = client
