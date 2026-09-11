@@ -10,8 +10,8 @@ use postgres::{Client, NoTls};
 use serde_json::Value;
 
 use crate::persistence::{
-    PersistenceError, ResourceLink, ResourceRecord, ResourceWrite, ResourceWriteMode, Revision,
-    UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
+    PersistenceError, ResourceLink, ResourceLinkClass, ResourceRecord, ResourceWrite,
+    ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{ResourceRef, ResourceType};
 
@@ -122,6 +122,29 @@ impl PostgresUnitOfWorkContext {
         ResourceRef::new(kind, id)
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure))
     }
+
+    fn semantic_class_name(class: Option<ResourceLinkClass>) -> Option<&'static str> {
+        match class {
+            Some(ResourceLinkClass::Strong) => Some("strong"),
+            Some(ResourceLinkClass::Forward) => Some("forward"),
+            Some(ResourceLinkClass::External) => Some("external"),
+            Some(ResourceLinkClass::Legacy) | None => None,
+        }
+    }
+
+    fn resource_exists(
+        client: &mut postgres::Client,
+        resource_ref: &ResourceRef,
+    ) -> Result<bool, UnitOfWorkError> {
+        let resource_type = Self::resource_type_name(resource_ref.resource_type);
+        client
+            .query_opt(
+                "SELECT 1 FROM sidereth_resource_records WHERE resource_type = $1 AND resource_id = $2",
+                &[&resource_type, &resource_ref.id],
+            )
+            .map(|row| row.is_some())
+            .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error)))
+    }
 }
 
 impl UnitOfWorkContext for PostgresUnitOfWorkContext {
@@ -137,16 +160,14 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
         let row = client
             .query_opt(
                 "SELECT resource_type, resource_id, schema_version, revision, payload
-                 FROM sidereth_resource_records
-                 WHERE resource_type = $1 AND resource_id = $2",
+             FROM sidereth_resource_records
+             WHERE resource_type = $1 AND resource_id = $2",
                 &[&resource_type, &resource_ref.id],
             )
             .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error)))?;
-
         let Some(row) = row else {
             return Ok(None);
         };
-
         let stored_type: &str = row.get(0);
         let schema_version: i32 = row.get(2);
         let revision: i64 = row.get(3);
@@ -174,14 +195,13 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
             .client
             .lock()
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Unavailable))?;
-
         match (write.mode, write.expected_revision) {
             (ResourceWriteMode::Insert, Some(_)) => Err(UnitOfWorkError::InvalidOperation),
             (ResourceWriteMode::Insert, None) => client
                 .execute(
                     "INSERT INTO sidereth_resource_records
-                        (resource_type, resource_id, schema_version, revision, payload)
-                     VALUES ($1, $2, $3, 0, $4)",
+                    (resource_type, resource_id, schema_version, revision, payload)
+                 VALUES ($1, $2, $3, 0, $4)",
                     &[&resource_type, &id, &schema_version, &payload],
                 )
                 .map(|_| ())
@@ -197,13 +217,13 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
                 let affected = client
                     .execute(
                         "UPDATE sidereth_resource_records
-                         SET schema_version = $3,
-                             revision = $4,
-                             payload = $5,
-                             updated_at = CURRENT_TIMESTAMP
-                         WHERE resource_type = $1
-                           AND resource_id = $2
-                           AND revision = $6",
+                     SET schema_version = $3,
+                         revision = $4,
+                         payload = $5,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE resource_type = $1
+                       AND resource_id = $2
+                       AND revision = $6",
                         &[
                             &resource_type,
                             &id,
@@ -224,13 +244,13 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
             (ResourceWriteMode::Upsert, None) => client
                 .execute(
                     "INSERT INTO sidereth_resource_records
-                        (resource_type, resource_id, schema_version, revision, payload)
-                     VALUES ($1, $2, $3, 0, $4)
-                     ON CONFLICT (resource_type, resource_id)
-                     DO UPDATE SET schema_version = EXCLUDED.schema_version,
-                                   revision = sidereth_resource_records.revision + 1,
-                                   payload = EXCLUDED.payload,
-                                   updated_at = CURRENT_TIMESTAMP",
+                    (resource_type, resource_id, schema_version, revision, payload)
+                 VALUES ($1, $2, $3, 0, $4)
+                 ON CONFLICT (resource_type, resource_id)
+                 DO UPDATE SET schema_version = EXCLUDED.schema_version,
+                               revision = sidereth_resource_records.revision + 1,
+                               payload = EXCLUDED.payload,
+                               updated_at = CURRENT_TIMESTAMP",
                     &[&resource_type, &id, &schema_version, &payload],
                 )
                 .map(|_| ())
@@ -241,29 +261,48 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
     }
 
     fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError> {
+        let class = link.semantic_class();
         let source_type = Self::resource_type_name(link.source_ref.resource_type);
         let target_type = Self::resource_type_name(link.target_ref.resource_type);
+        let semantic_class = Self::semantic_class_name(class);
         let mut client = self
             .client
             .lock()
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::Unavailable))?;
-        client
+
+        if class == Some(ResourceLinkClass::Strong)
+            && (!Self::resource_exists(&mut client, &link.source_ref)?
+                || !Self::resource_exists(&mut client, &link.target_ref)?)
+        {
+            return Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure,
+            ));
+        }
+
+        let affected = client
             .execute(
                 "INSERT INTO sidereth_resource_links
-                    (source_type, source_id, relation, target_type, target_id)
-                 VALUES ($1, $2, $3, $4, $5)
-                 ON CONFLICT (source_type, source_id, relation, target_type, target_id)
-                 DO NOTHING",
+                (source_type, source_id, relation, target_type, target_id, semantic_class)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (source_type, source_id, relation, target_type, target_id)
+             DO UPDATE SET semantic_class = EXCLUDED.semantic_class
+             WHERE sidereth_resource_links.semantic_class IS NULL
+                OR sidereth_resource_links.semantic_class = EXCLUDED.semantic_class",
                 &[
                     &source_type,
                     &link.source_ref.id,
                     &link.relation,
                     &target_type,
                     &link.target_ref.id,
+                    &semantic_class,
                 ],
             )
-            .map(|_| ())
-            .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error)))
+            .map_err(|error| UnitOfWorkError::Persistence(PostgresUnitOfWork::map_error(error)))?;
+
+        if affected == 0 {
+            return Err(UnitOfWorkError::Persistence(PersistenceError::Conflict));
+        }
+        Ok(())
     }
 }
 

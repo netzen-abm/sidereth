@@ -80,28 +80,69 @@ pub struct ResourceRecord {
     pub payload: Value,
 }
 
+/// Semantic class of a newly authored ResourceLink.
+///
+/// `Legacy` exists only for backward-compatible decoding of the pre-class wire
+/// representation. It MUST NOT be inferred to mean Strong, Forward, or External.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceLinkClass {
+    Strong,
+    Forward,
+    External,
+    Legacy,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResourceLink {
     pub source_ref: ResourceRef,
     pub relation: String,
     pub target_ref: ResourceRef,
+    /// `None` is the backward-compatible representation of a pre-class link.
+    /// New links should use `new_with_class` and therefore carry `Some(...)`.
+    #[serde(default)]
+    pub class: Option<ResourceLinkClass>,
 }
 
 impl ResourceLink {
+    /// Backward-compatible constructor for callers still producing the legacy
+    /// class-less representation. It never assigns Strong semantics implicitly.
     pub fn new(
         source_ref: ResourceRef,
         relation: impl Into<String>,
         target_ref: ResourceRef,
     ) -> Result<Self, UnitOfWorkError> {
+        Self::new_with_class(source_ref, relation, target_ref, ResourceLinkClass::Legacy)
+    }
+
+    pub fn new_with_class(
+        source_ref: ResourceRef,
+        relation: impl Into<String>,
+        target_ref: ResourceRef,
+        class: ResourceLinkClass,
+    ) -> Result<Self, UnitOfWorkError> {
         let relation = relation.into();
         if relation.trim().is_empty() {
             return Err(UnitOfWorkError::InvalidOperation);
+        }
+        if class == ResourceLinkClass::Legacy {
+            return Ok(Self {
+                source_ref,
+                relation,
+                target_ref,
+                class: None,
+            });
         }
         Ok(Self {
             source_ref,
             relation,
             target_ref,
+            class: Some(class),
         })
+    }
+
+    pub fn semantic_class(&self) -> Option<ResourceLinkClass> {
+        self.class
     }
 }
 
@@ -283,5 +324,45 @@ mod tests {
             .unwrap()
             .with_expected_revision(Revision { value: 7 });
         assert_eq!(write.expected_revision, Some(Revision { value: 7 }));
+    }
+
+    #[test]
+    fn resource_link_classes_are_explicit_and_legacy_is_not_strong() {
+        let source = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
+        let target = ResourceRef::new(crate::ResourceType::Event, "event-1").unwrap();
+        let strong = ResourceLink::new_with_class(
+            source.clone(),
+            "has_event",
+            target.clone(),
+            ResourceLinkClass::Strong,
+        )
+        .unwrap();
+        assert_eq!(strong.semantic_class(), Some(ResourceLinkClass::Strong));
+        let legacy = ResourceLink::new(source, "has_event", target).unwrap();
+        assert_eq!(legacy.semantic_class(), None);
+    }
+
+    #[test]
+    fn resource_link_classes_round_trip() {
+        let source = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
+        let target = ResourceRef::new(crate::ResourceType::Event, "event-1").unwrap();
+        for class in [
+            ResourceLinkClass::Strong,
+            ResourceLinkClass::Forward,
+            ResourceLinkClass::External,
+        ] {
+            let link =
+                ResourceLink::new_with_class(source.clone(), "rel", target.clone(), class).unwrap();
+            let encoded = serde_json::to_string(&link).unwrap();
+            let decoded: ResourceLink = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(decoded, link);
+        }
+    }
+
+    #[test]
+    fn legacy_resource_link_decodes_without_class() {
+        let json = r#"{"source_ref":{"resource_type":"case","id":"case-1"},"relation":"has_event","target_ref":{"resource_type":"event","id":"event-1"}}"#;
+        let link: ResourceLink = serde_json::from_str(json).unwrap();
+        assert_eq!(link.semantic_class(), None);
     }
 }
