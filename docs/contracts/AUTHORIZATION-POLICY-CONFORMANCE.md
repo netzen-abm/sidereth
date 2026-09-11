@@ -17,6 +17,7 @@
 10. Provider replacement preserves authorization semantics and failure behavior.
 11. Policy references and freshness/version context remain attributable.
 12. Authorization evaluation does not execute tools or mutate canonical domain state.
+13. An authorization result remains bound to the exact request context that was evaluated.
 
 ## Test matrix
 
@@ -72,13 +73,16 @@
 | AUTH-048 | Replay | Expired authorization cannot be replayed for protected execution | replayed allow |
 | AUTH-049 | Provenance | Policy source/version is retained where required | missing policy provenance |
 | AUTH-050 | Boundary | Authorization remains a decision boundary, not an execution boundary | evaluator invokes implementation |
+| AUTH-051 | Result Binding | Result carries the evaluated request identity | result references a different request |
+| AUTH-052 | Result Binding | Result carries evaluated subject, action, resource, purpose, jurisdiction and data class | invocation context substituted after evaluation |
+| AUTH-053 | Boundary | A consuming boundary can compare invocation context with the evaluated result without re-evaluating policy | caller supplies alternate scope beside an allow result |
 
 ## Promotion gates
 
 An authorization implementation is not conforming until:
 
 - all mandatory invariants are demonstrated;
-- AUTH-001–AUTH-050 are satisfied or explicitly marked not applicable with rationale;
+- AUTH-001–AUTH-053 are satisfied or explicitly marked not applicable with rationale;
 - failure-path behavior is demonstrated;
 - scope and data-minimisation enforcement is tested at the consuming boundary;
 - provider and transport independence is demonstrated;
