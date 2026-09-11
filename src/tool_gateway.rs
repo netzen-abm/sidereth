@@ -224,8 +224,7 @@ impl InMemoryToolGateway {
             || authorization.resource_ref != invocation.capability_ref
             || authorization.purpose != invocation.purpose
             || authorization.jurisdiction_ref != invocation.jurisdiction_ref
-            || authorization.data_class
-                != invocation.data_class.map(|v| format!("{v:?}"))
+            || authorization.data_class != invocation.data_class.map(|v| format!("{v:?}"))
         {
             audit.record(Self::audit_record(
                 invocation,
@@ -421,7 +420,10 @@ mod tests {
             .unwrap();
         assert_eq!(result.output, serde_json::json!({"value": 1}));
         assert_eq!(audit.records().len(), 1);
-        assert_eq!(audit.records()[0].outcome, ToolGatewayAuditOutcome::Accepted);
+        assert_eq!(
+            audit.records()[0].outcome,
+            ToolGatewayAuditOutcome::Accepted
+        );
     }
 
     #[test]
@@ -434,7 +436,10 @@ mod tests {
             .invoke(&registry(), &request, &EchoAdapter, &mut audit)
             .unwrap_err();
         assert_eq!(error, ToolGatewayError::AuthorizationContextMismatch);
-        assert_eq!(audit.records()[0].outcome, ToolGatewayAuditOutcome::Rejected);
+        assert_eq!(
+            audit.records()[0].outcome,
+            ToolGatewayAuditOutcome::Rejected
+        );
     }
 
     #[test]
