@@ -1,8 +1,8 @@
 # SIDERETH — Observation Conformance
 
-**Status:** CANONICAL TEST DESIGN / PRE-IMPLEMENTATION  
-**Contract:** `docs/contracts/OBSERVATION-CONTRACT.md`  
-**Decision:** D-032  
+**Status:** CANONICAL TEST DESIGN / PRE-IMPLEMENTATION
+**Contract:** `docs/contracts/OBSERVATION-CONTRACT.md`
+**Decision:** D-032
 **Scope:** Provider-neutral Observation semantics
 
 This matrix defines the evidence required before Observation is implemented or promoted. It does not require a repository, database schema, model provider, sensor platform, hardware kit, or AI implementation.
@@ -11,13 +11,14 @@ This matrix defines the evidence required before Observation is implemented or p
 
 1. Observation is an epistemic assertion, not automatically a fact.
 2. Event, Evidence, Observation and Provenance retain separate ownership.
-3. Existing ResourceLink semantics are reused.
-4. Longitudinal views remain projections over canonical primitives.
-5. AI and providers cannot self-upgrade epistemic status.
-6. Historical observations are not destructively rewritten.
-7. Contradiction remains explicit until an authorized process resolves it.
-8. Privacy and authorization are enforced outside presentation convenience.
-9. Provider-neutral behavior is tested independently of implementation technology.
+3. Observation origin/modality is distinct from epistemic status.
+4. Existing ResourceLink semantics are reused.
+5. Longitudinal views remain projections over canonical primitives.
+6. AI and providers cannot self-upgrade epistemic status.
+7. Historical observations are not destructively rewritten.
+8. Contradiction remains explicit until an authorized process resolves it.
+9. Privacy and authorization are enforced outside presentation convenience.
+10. Provider-neutral behavior is tested independently of implementation technology.
 
 ## 2. Contract matrix
 
@@ -27,58 +28,59 @@ This matrix defines the evidence required before Observation is implemented or p
 | OBS-002 | Versioning | Positive schema version | Use zero/invalid version | Rejected | Contract |
 | OBS-003 | Subject | Subject uses ResourceRef | Supply valid subject reference | Reference is preserved | Contract |
 | OBS-004 | Type | Observation type is explicit | Omit/blank type | Rejected | Contract |
-| OBS-005 | Assertion | Assertion/value is explicit | Create valid assertion | Content is preserved | Contract |
-| OBS-006 | Epistemic | Status is mandatory | Omit status | Rejected | Trust |
-| OBS-007 | Epistemic | Vocabulary is typed | Use supported status | Round trip without semantic loss | Trust |
-| OBS-008 | Epistemic | INFERRED remains INFERRED | Attempt automatic upgrade | Upgrade rejected | Trust |
-| OBS-009 | Epistemic | UNVERIFIED remains UNVERIFIED | Attempt automatic upgrade | Upgrade rejected | Trust |
-| OBS-010 | Epistemic | CONTESTED remains CONTESTED | Supply contradiction | Contest remains visible | Trust |
-| OBS-011 | Epistemic | UNKNOWN remains UNKNOWN | Insufficient evidence | No stronger status inferred | Trust |
-| OBS-012 | Epistemic | USER_REPORTED is distinct | User report without independent support | Status remains USER_REPORTED | Trust |
-| OBS-013 | Epistemic | MEASURED is distinct | Instrument measurement | Status remains MEASURED | Trust |
-| OBS-014 | Epistemic | SOURCE_SUPPORTED is distinct | Source-backed assertion | Status remains SOURCE_SUPPORTED | Provenance |
-| OBS-015 | Epistemic | EVIDENCE_SUPPORTED is distinct | Evidence-backed observation | Status remains EVIDENCE_SUPPORTED | Evidence |
-| OBS-016 | Time | observed_at required | Missing observation time | Rejected | Contract |
-| OBS-017 | Time | recorded_at required | Missing recording time | Rejected | Contract |
-| OBS-018 | Time | Times are distinct | Different observed/recorded times | Both preserved | Integrity |
-| OBS-019 | Time | Clock uncertainty preserved | Uncertain device timestamp | Uncertainty is not erased | Trust |
-| OBS-020 | Source | Source references preserved | Attach source refs | References survive round trip | Provenance |
-| OBS-021 | Evidence | Evidence references are typed | Attach evidence refs | References remain traceable | Evidence |
-| OBS-022 | Evidence | Evidence ownership not duplicated | Attempt to embed canonical evidence identity | Observation references evidence; does not own it | Architecture |
-| OBS-023 | Provenance | Provenance preserved | Attach provenance | Provenance remains traceable | Provenance |
-| OBS-024 | Provenance | Provenance does not equal truth | Source has provenance but weak epistemic basis | Status does not auto-strengthen | Trust |
-| OBS-025 | ResourceLink | Canonical links reused | Link Observation to Evidence | ResourceLink semantics apply | Architecture |
-| OBS-026 | ResourceLink | No class inference | Legacy class-less link with local endpoint | Must not become Strong | Compatibility |
-| OBS-027 | ResourceLink | Strong semantics respected | Missing endpoint | Strong relationship rejected atomically | Integrity |
-| OBS-028 | ResourceLink | Forward semantics respected | Missing target | Forward relationship may remain unresolved | Architecture |
-| OBS-029 | ResourceLink | External semantics respected | External target | No local FK requirement | Architecture |
-| OBS-030 | Event | Event/Observation distinction | Create event about Observation lifecycle | Event and Observation remain distinct | Architecture |
-| OBS-031 | Event | Event is not assertion store | Place assertion in event payload | Must not redefine Observation ownership | Architecture |
-| OBS-032 | Correction | Original preserved | Correct material observation | Original remains auditable | Integrity |
-| OBS-033 | Correction | Supersession explicit | Supersede observation | Relationship/history is preserved | Integrity |
-| OBS-034 | Contradiction | Conflict preserved | Two incompatible observations | Neither silently deleted | Trust |
-| OBS-035 | Contradiction | Newest does not automatically win | Later conflicting observation | Conflict remains explicit | Trust |
-| OBS-036 | Responsibility | Observation does not imply responsibility | Associate party/authority | No legal responsibility inferred | Legal correctness |
-| OBS-037 | Responsibility | Candidate match distinct | AI suggests responsible party | Candidate remains non-authoritative | Legal correctness |
-| OBS-038 | Privacy | Data classification mandatory | Sensitive observation | Classification is retained/enforced | Privacy |
-| OBS-039 | Privacy | Purpose limitation | Unauthorized use context | Access/use rejected | Privacy |
-| OBS-040 | Privacy | Location meanings remain distinct | Incident/capture/device/source locations | Distinct propositions preserved | Privacy |
-| OBS-041 | Authorization | Observation access is policy controlled | Unauthorized read/write | Policy boundary rejects operation | Security |
-| OBS-042 | AI | AI cannot manufacture provenance | AI creates candidate observation | Provenance must identify actual source/process | Trust |
-| OBS-043 | AI | AI cannot upgrade status | AI outputs VERIFIED-style claim | Canonical status unchanged unless explicit verification process permits | Trust |
-| OBS-044 | AI | AI cannot create legal responsibility | AI assigns responsible party | Remains candidate/non-authoritative | Legal correctness |
-| OBS-045 | AI | AI cannot bypass execution gate | AI proposes consequential action | Existing authorization/approval gate applies | Safety |
-| OBS-046 | Failure | Malformed observation | Invalid schema | Deterministic rejection | Reliability |
-| OBS-047 | Failure | Missing source context | Required source absent | Explicit validation failure/uncertainty | Reliability |
-| OBS-048 | Failure | Persistence failure | Simulate failed write | No partial canonical state | Integrity |
-| OBS-049 | Idempotency | Duplicate creation | Repeat same command/request | Duplicate behavior follows canonical idempotency contract | Reliability |
-| OBS-050 | Provider | Provider neutrality | Run against two fake producers | Same canonical semantics | Compatibility |
-| OBS-051 | Longitudinal | Projection only | Compose chronological view | Underlying identities remain intact | Architecture |
-| OBS-052 | Longitudinal | No LongitudinalRecord ownership | Attempt separate aggregate | Rejected unless separately justified/decided | Architecture |
-| OBS-053 | Audit | Material changes auditable | Correct/supersede/status change | Required audit/provenance retained | Audit |
-| OBS-054 | Security | Injection cannot alter semantics | Malicious content requests status upgrade | Content treated as untrusted | Security |
-| OBS-055 | Security | Source conflict is not silently resolved | Conflicting source inputs | Conflict remains represented | Security |
-| OBS-056 | Persistence | Repository not assumed | Evaluate implementation need | No repository created without explicit ownership decision | Architecture |
+| OBS-005 | Origin | Observation origin is explicit | Create measurement/user-report/direct-observation inputs | Origin is preserved and is not treated as proof | Contract |
+| OBS-006 | Assertion | Assertion/value is explicit | Create valid assertion | Content is preserved | Contract |
+| OBS-007 | Epistemic | Status is mandatory | Omit status | Rejected | Trust |
+| OBS-008 | Epistemic | Canonical vocabulary is reused | Use supported status | Round trip without semantic loss | Trust |
+| OBS-009 | Epistemic | INFERRED remains INFERRED | Attempt automatic upgrade | Upgrade rejected | Trust |
+| OBS-010 | Epistemic | UNVERIFIED remains UNVERIFIED | Attempt automatic upgrade | Upgrade rejected | Trust |
+| OBS-011 | Epistemic | CONTESTED remains CONTESTED | Supply contradiction | Contest remains visible | Trust |
+| OBS-012 | Epistemic | UNKNOWN remains UNKNOWN | Insufficient evidence | No stronger status inferred | Trust |
+| OBS-013 | Epistemic | USER_REPORTED is distinct | User report without independent support | Status remains USER_REPORTED | Trust |
+| OBS-014 | Origin/status | MEASUREMENT is origin, not a parallel epistemic status | Instrument measurement | Origin is MEASUREMENT; epistemic status uses canonical vocabulary | Contract |
+| OBS-015 | Epistemic | SOURCE_SUPPORTED is distinct | Source-backed assertion | Status remains SOURCE_SUPPORTED | Provenance |
+| OBS-016 | Epistemic | EVIDENCE_SUPPORTED is distinct | Evidence-backed observation | Status remains EVIDENCE_SUPPORTED | Evidence |
+| OBS-017 | Time | observed_at required | Missing observation time | Rejected | Contract |
+| OBS-018 | Time | recorded_at required | Missing recording time | Rejected | Contract |
+| OBS-019 | Time | Times are distinct | Different observed/recorded times | Both preserved | Integrity |
+| OBS-020 | Time | Clock uncertainty preserved | Uncertain device timestamp | Uncertainty is not erased | Trust |
+| OBS-021 | Source | Source references preserved | Attach source refs | References survive round trip | Provenance |
+| OBS-022 | Evidence | Evidence references are typed | Attach evidence refs | References remain traceable | Evidence |
+| OBS-023 | Evidence | Evidence ownership not duplicated | Attempt to embed canonical evidence identity | Observation references evidence; does not own it | Architecture |
+| OBS-024 | Provenance | Provenance preserved | Attach provenance | Provenance remains traceable | Provenance |
+| OBS-025 | Provenance | Provenance does not equal truth | Source has provenance but weak epistemic basis | Status does not auto-strengthen | Trust |
+| OBS-026 | ResourceLink | Canonical links reused | Link Observation to Evidence | ResourceLink semantics apply | Architecture |
+| OBS-027 | ResourceLink | No class inference | Legacy class-less link with local endpoint | Must not become Strong | Compatibility |
+| OBS-028 | ResourceLink | Strong semantics respected | Missing endpoint | Strong relationship rejected atomically | Integrity |
+| OBS-029 | ResourceLink | Forward semantics respected | Missing target | Forward relationship may remain unresolved | Architecture |
+| OBS-030 | ResourceLink | External semantics respected | External target | No local FK requirement | Architecture |
+| OBS-031 | Event | Event/Observation distinction | Create event about Observation lifecycle | Event and Observation remain distinct | Architecture |
+| OBS-032 | Event | Event is not assertion store | Place assertion in event payload | Must not redefine Observation ownership | Architecture |
+| OBS-033 | Correction | Original preserved | Correct material observation | Original remains auditable | Integrity |
+| OBS-034 | Correction | Supersession explicit | Supersede observation | Relationship/history is preserved | Integrity |
+| OBS-035 | Contradiction | Conflict preserved | Two incompatible observations | Neither silently deleted | Trust |
+| OBS-036 | Contradiction | Newest does not automatically win | Later conflicting observation | Conflict remains explicit | Trust |
+| OBS-037 | Responsibility | Observation does not imply responsibility | Associate party/authority | No legal responsibility inferred | Legal correctness |
+| OBS-038 | Responsibility | Candidate match distinct | AI suggests responsible party | Candidate remains non-authoritative | Legal correctness |
+| OBS-039 | Privacy | Data classification mandatory | Sensitive observation | Classification is retained/enforced | Privacy |
+| OBS-040 | Privacy | Purpose limitation | Unauthorized use context | Access/use rejected | Privacy |
+| OBS-041 | Privacy | Location meanings remain distinct | Incident/capture/device/source locations | Distinct propositions preserved | Privacy |
+| OBS-042 | Authorization | Observation access is policy controlled | Unauthorized read/write | Policy boundary rejects operation | Security |
+| OBS-043 | AI | AI cannot manufacture provenance | AI creates candidate observation | Provenance must identify actual source/process | Trust |
+| OBS-044 | AI | AI cannot upgrade status | AI outputs VERIFIED-style claim | Canonical status unchanged unless explicit verification process permits | Trust |
+| OBS-045 | AI | AI cannot create legal responsibility | AI assigns responsible party | Remains candidate/non-authoritative | Legal correctness |
+| OBS-046 | AI | AI cannot bypass execution gate | AI proposes consequential action | Existing authorization/approval gate applies | Safety |
+| OBS-047 | Failure | Malformed observation | Invalid schema | Deterministic rejection | Reliability |
+| OBS-048 | Failure | Missing source context | Required source absent | Explicit validation failure/uncertainty | Reliability |
+| OBS-049 | Failure | Persistence failure | Simulate failed write | No partial canonical state | Integrity |
+| OBS-050 | Idempotency | Duplicate creation | Repeat same command/request | Duplicate behavior follows canonical idempotency contract | Reliability |
+| OBS-051 | Provider | Provider neutrality | Run against two fake producers | Same canonical semantics | Compatibility |
+| OBS-052 | Longitudinal | Projection only | Compose chronological view | Underlying identities remain intact | Architecture |
+| OBS-053 | Longitudinal | No LongitudinalRecord ownership | Attempt separate aggregate | Rejected unless separately justified/decided | Architecture |
+| OBS-054 | Audit | Material changes auditable | Correct/supersede/status change | Required audit/provenance retained | Audit |
+| OBS-055 | Security | Injection cannot alter semantics | Malicious content requests status upgrade | Content treated as untrusted | Security |
+| OBS-056 | Security | Source conflict is not silently resolved | Conflicting source inputs | Conflict remains represented | Security |
+| OBS-057 | Persistence | Repository not assumed | Evaluate implementation need | No repository created without explicit ownership decision | Architecture |
 
 ## 3. Required adversarial scenarios
 
@@ -129,7 +131,7 @@ Expected: projection remains derived and underlying primitive identities remain 
 Observation implementation may proceed only after:
 
 1. OBS-001 through applicable contract tests are defined;
-2. epistemic vocabulary is accepted;
+2. epistemic vocabulary and origin/modality separation are accepted;
 3. temporal uncertainty semantics are accepted;
 4. correction/supersession semantics are accepted;
 5. contradiction semantics are accepted;
