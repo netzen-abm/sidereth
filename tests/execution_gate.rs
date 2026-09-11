@@ -16,6 +16,7 @@ fn action() -> Action {
     .unwrap();
     value.requires_explicit_approval = true;
     value.authorization_ref = Some("auth-1".into());
+    value.approval_ref = Some("approval-1".into());
     value
 }
 
