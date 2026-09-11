@@ -70,14 +70,53 @@ pub struct AuthorizationConstraint {
     pub value: String,
 }
 
+/// Canonical result bound to the exact request context that was evaluated.
+/// The context fields are carried forward so a consuming boundary can
+/// compare invocation scope with the evaluated authorization without
+/// substituting a different subject, action, resource, purpose, jurisdiction,
+/// or data class. This is structural binding, not cryptographic attestation.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AuthorizationResult {
+    pub request_id: Id,
     pub authorization_ref: ResourceRef,
+    pub subject_ref: ResourceRef,
+    pub action: ResourceRef,
+    pub resource_ref: ResourceRef,
+    pub purpose: String,
+    pub jurisdiction_ref: Option<ResourceRef>,
+    pub data_class: Option<String>,
     pub decision: AuthorizationDecision,
     pub constraints: Vec<AuthorizationConstraint>,
     pub policy_refs: Vec<ResourceRef>,
     pub evaluated_at_epoch_seconds: u64,
     pub expires_at_epoch_seconds: Option<u64>,
+}
+
+impl AuthorizationResult {
+    fn from_request(
+        request: &AuthorizationRequest,
+        decision: AuthorizationDecision,
+        constraints: Vec<AuthorizationConstraint>,
+        policy_refs: Vec<ResourceRef>,
+        evaluated_at_epoch_seconds: u64,
+        expires_at_epoch_seconds: Option<u64>,
+    ) -> Self {
+        Self {
+            request_id: request.request_id.clone(),
+            authorization_ref: request.authorization_ref.clone(),
+            subject_ref: request.subject_ref.clone(),
+            action: request.action.clone(),
+            resource_ref: request.resource_ref.clone(),
+            purpose: request.purpose.clone(),
+            jurisdiction_ref: request.jurisdiction_ref.clone(),
+            data_class: request.data_class.clone(),
+            decision,
+            constraints,
+            policy_refs,
+            evaluated_at_epoch_seconds,
+            expires_at_epoch_seconds,
+        }
+    }
 }
 
 pub trait AuthorizationEvaluator {
@@ -106,14 +145,14 @@ pub struct StaticAuthorizationEvaluator {
 
 impl StaticAuthorizationEvaluator {
     fn fail_closed(&self, request: &AuthorizationRequest) -> AuthorizationResult {
-        AuthorizationResult {
-            authorization_ref: request.authorization_ref.clone(),
-            decision: AuthorizationDecision::Deny,
-            constraints: Vec::new(),
-            policy_refs: request.policy_refs.clone(),
-            evaluated_at_epoch_seconds: self.now_epoch_seconds,
-            expires_at_epoch_seconds: None,
-        }
+        AuthorizationResult::from_request(
+            request,
+            AuthorizationDecision::Deny,
+            Vec::new(),
+            request.policy_refs.clone(),
+            self.now_epoch_seconds,
+            None,
+        )
     }
 
     fn valid_request(&self, request: &AuthorizationRequest) -> bool {
@@ -156,14 +195,14 @@ impl AuthorizationEvaluator for StaticAuthorizationEvaluator {
             .collect();
 
         if matches.is_empty() {
-            return AuthorizationResult {
-                authorization_ref: request.authorization_ref.clone(),
-                decision: AuthorizationDecision::NotApplicable,
-                constraints: Vec::new(),
-                policy_refs: request.policy_refs.clone(),
-                evaluated_at_epoch_seconds: self.now_epoch_seconds,
-                expires_at_epoch_seconds: None,
-            };
+            return AuthorizationResult::from_request(
+                request,
+                AuthorizationDecision::NotApplicable,
+                Vec::new(),
+                request.policy_refs.clone(),
+                self.now_epoch_seconds,
+                None,
+            );
         }
 
         let first_decision = matches[0].decision;
@@ -180,16 +219,16 @@ impl AuthorizationEvaluator for StaticAuthorizationEvaluator {
             constraints.extend(rule.constraints.clone());
         }
 
-        AuthorizationResult {
-            authorization_ref: request.authorization_ref.clone(),
-            decision: first_decision,
+        AuthorizationResult::from_request(
+            request,
+            first_decision,
             constraints,
             policy_refs,
-            evaluated_at_epoch_seconds: self.now_epoch_seconds,
-            expires_at_epoch_seconds: request
+            self.now_epoch_seconds,
+            request
                 .freshness_seconds
                 .map(|freshness| self.now_epoch_seconds.saturating_add(freshness)),
-        }
+        )
     }
 }
 
@@ -290,6 +329,47 @@ mod tests {
     }
 
     #[test]
+    fn authorization_result_preserves_evaluated_request_context() {
+        let request = canonical_request();
+        let evaluator = StaticAuthorizationEvaluator {
+            rules: vec![rule(AuthorizationDecision::Allow)],
+            now_epoch_seconds: 110,
+        };
+
+        let result = evaluator.evaluate(&request);
+
+        assert_eq!(result.request_id, request.request_id);
+        assert_eq!(result.authorization_ref, request.authorization_ref);
+        assert_eq!(result.subject_ref, request.subject_ref);
+        assert_eq!(result.action, request.action);
+        assert_eq!(result.resource_ref, request.resource_ref);
+        assert_eq!(result.purpose, request.purpose);
+        assert_eq!(result.jurisdiction_ref, request.jurisdiction_ref);
+        assert_eq!(result.data_class, request.data_class);
+    }
+
+    #[test]
+    fn fail_closed_result_still_preserves_request_context() {
+        let mut request = canonical_request();
+        request.purpose.clear();
+        let evaluator = StaticAuthorizationEvaluator {
+            rules: vec![rule(AuthorizationDecision::Allow)],
+            now_epoch_seconds: 110,
+        };
+
+        let result = evaluator.evaluate(&request);
+
+        assert_eq!(result.decision, AuthorizationDecision::Deny);
+        assert_eq!(result.request_id, request.request_id);
+        assert_eq!(result.subject_ref, request.subject_ref);
+        assert_eq!(result.action, request.action);
+        assert_eq!(result.resource_ref, request.resource_ref);
+        assert_eq!(result.purpose, request.purpose);
+        assert_eq!(result.jurisdiction_ref, request.jurisdiction_ref);
+        assert_eq!(result.data_class, request.data_class);
+    }
+
+    #[test]
     fn no_applicable_policy_is_not_allow() {
         let evaluator = StaticAuthorizationEvaluator {
             rules: vec![],
@@ -352,17 +432,18 @@ mod tests {
 
     #[test]
     fn authorization_decision_is_not_approval_or_legal_authority() {
-        let result = AuthorizationResult {
-            authorization_ref: reference(ResourceType::Other, "auth-1"),
-            decision: AuthorizationDecision::Allow,
-            constraints: vec![AuthorizationConstraint {
+        let request = canonical_request();
+        let result = AuthorizationResult::from_request(
+            &request,
+            AuthorizationDecision::Allow,
+            vec![AuthorizationConstraint {
                 key: "access_mode".into(),
                 value: "read_only".into(),
             }],
-            policy_refs: vec![reference(ResourceType::Other, "policy-1")],
-            evaluated_at_epoch_seconds: 100,
-            expires_at_epoch_seconds: Some(160),
-        };
+            vec![reference(ResourceType::Other, "policy-1")],
+            100,
+            Some(160),
+        );
         assert_eq!(result.decision, AuthorizationDecision::Allow);
         assert_eq!(result.constraints[0].value, "read_only");
     }
