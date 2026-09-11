@@ -151,7 +151,8 @@ pub use party_repository::PartyUnitOfWorkRepository;
 pub use persistence::{
     CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode, Revision,
-    Transaction, TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
+    Transaction, TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError,
+    UnitOfWorkFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use provenance::{Provenance, ProvenanceRef};
@@ -214,7 +215,10 @@ impl Case {
         if case_id.is_empty() {
             return Err("case id is required");
         }
-        Ok(Self { case_id, state: CaseState::Draft })
+        Ok(Self {
+            case_id,
+            state: CaseState::Draft,
+        })
     }
 
     pub fn transition(&mut self, next: CaseState) -> Result<(), &'static str> {
@@ -259,7 +263,10 @@ impl Incident {
         if incident_id.is_empty() {
             return Err("incident id is required");
         }
-        Ok(Self { incident_id, state: IncidentState::Open })
+        Ok(Self {
+            incident_id,
+            state: IncidentState::Open,
+        })
     }
 
     pub fn transition(&mut self, next: IncidentState) -> Result<(), &'static str> {
@@ -286,11 +293,17 @@ mod tests {
 
     #[test]
     fn empty_resource_ref_is_rejected() {
-        assert_eq!(ResourceRef::new(ResourceType::Case, ""), Err("resource reference id is required"));
+        assert_eq!(
+            ResourceRef::new(ResourceType::Case, ""),
+            Err("resource reference id is required")
+        );
     }
 
     #[test]
     fn party_relationship_resource_type_has_canonical_wire_value() {
-        assert_eq!(serde_json::to_string(&ResourceType::PartyRelationship).unwrap(), "\"party_relationship\"");
+        assert_eq!(
+            serde_json::to_string(&ResourceType::PartyRelationship).unwrap(),
+            "\"party_relationship\""
+        );
     }
 }
