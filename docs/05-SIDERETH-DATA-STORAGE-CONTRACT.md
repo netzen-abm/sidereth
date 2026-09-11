@@ -1,11 +1,13 @@
-# SIDERETH — Data Storage Contract Foundation
+# SIDERETH — Data Storage Framework
 
-Status: CANONICAL FRAMEWORK / IMPLEMENTATION PENDING
+Status: CANONICAL FRAMEWORK / IMPLEMENTATION PENDING  
 Version: 1.0
 
 ## Purpose
 
-Define the storage boundary for SIDERETH's shared legal/regulatory infrastructure without coupling the platform to a single database technology.
+Define the concise storage boundary for SIDERETH's shared legal/regulatory infrastructure without coupling the platform to a single database technology.
+
+**Authority note:** this document is the framework-level storage overview. Detailed durable persistence semantics are defined by the implementation-facing design in `docs/contracts/CORE-V1.2-DESIGN.md` and any later promoted persistence contract.
 
 ## Storage domains
 
@@ -48,4 +50,6 @@ All AI/agent access must pass through the shared Tool Gateway and applicable ide
 
 ## Implementation status
 
-This is a storage contract, not a database implementation. Database technology, migrations, key management, backup architecture and production retention controls require separate implementation and verification evidence.
+This is a framework-level storage overview, not a database implementation. Database technology, migrations, key management, backup architecture and production retention controls require separate implementation and verification evidence.
+
+For detailed repository, transaction, concurrency, serialization, evidence-preservation and recovery semantics, use `docs/contracts/CORE-V1.2-DESIGN.md`.
