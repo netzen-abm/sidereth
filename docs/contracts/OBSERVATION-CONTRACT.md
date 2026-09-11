@@ -1,13 +1,13 @@
 # SIDERETH — Observation Contract
 
-**Status:** CANONICAL CONTRACT PROPOSAL / PRE-IMPLEMENTATION  
-**Decision:** D-032  
-**Scope:** Universal Core Observation semantics  
-**Depends on:** ResourceRef, ResourceLink, Event, Evidence, Provenance, Timeline, Party
+**Status:** CANONICAL CONTRACT
+**Decision:** D-032
+**Scope:** Universal Core Observation semantics
+**Depends on:** ResourceRef, ResourceLink, Event, Evidence, Provenance, Timeline, Party, Intelligence epistemic vocabulary
 
 ## 1. Purpose
 
-This contract defines the semantic boundary for an Observation before implementation.
+This contract defines the semantic boundary for an Observation.
 
 An **Observation** is an epistemically bounded assertion about a subject or resource at a stated time, originating from an identified source/context and optionally supported by evidence.
 
@@ -38,6 +38,7 @@ A conforming Observation SHOULD contain:
 | `schema_version` | REQUIRED | Contract schema version |
 | `subject_ref` | REQUIRED | `ResourceRef` identifying what is being observed |
 | `observation_type` | REQUIRED | Typed semantic category of observation |
+| `observation_origin` | REQUIRED | Source/process modality that produced the observation, e.g. direct observation, user report, measurement, source assertion or system derivation |
 | `observed_at` | REQUIRED | Time at which the underlying observation was made, with uncertainty represented explicitly where needed |
 | `recorded_at` | REQUIRED | Time the observation entered the authoritative SIDERETH record |
 | `assertion` / `value` | REQUIRED | Structured or bounded representation of what is being asserted/observed |
@@ -58,7 +59,7 @@ The Observation MUST NOT copy the subject's canonical identity fields into a sec
 
 An Observation may itself become the subject of another observation or relationship if the future contract permits this, but recursive semantics must be explicitly bounded.
 
-## 5. Observation type
+## 5. Observation type and origin
 
 `observation_type` identifies the semantic kind of observation without determining its truth.
 
@@ -73,19 +74,29 @@ Examples may include:
 - document assertion;
 - system detection.
 
-Domain packs may define specialized observation types, but must consume the universal Observation contract rather than redefine it.
+`observation_origin` identifies how the assertion entered the system and MUST NOT be treated as an epistemic upgrade. Examples include:
+
+- `DIRECT_OBSERVATION`;
+- `USER_REPORT`;
+- `MEASUREMENT`;
+- `SOURCE_ASSERTION`;
+- `SYSTEM_DERIVATION`;
+- `AI_DERIVATION`.
+
+A measurement is therefore represented by its origin (`MEASUREMENT`) while its epistemic position remains governed by the canonical epistemic status vocabulary. This avoids creating a parallel epistemic vocabulary in Observation.
+
+Domain packs may define specialized observation types or origin values, but must consume the universal Observation contract rather than redefine its semantics.
 
 ## 6. Epistemic status
 
-The canonical vocabulary MUST distinguish materially different epistemic states.
+Observation MUST reuse the SIDERETH canonical epistemic vocabulary defined by the Intelligence contract rather than introducing a parallel status system.
 
-The initial vocabulary is:
+The current canonical vocabulary is:
 
 - `OBSERVED` — directly observed or recorded as an observation by the declared source;
 - `USER_REPORTED` — reported by an identified party without the system independently establishing the proposition;
-- `MEASURED` — produced by a declared measurement process or instrument;
-- `SOURCE_SUPPORTED` — supported by an identified source/document under applicable verification rules;
 - `EVIDENCE_SUPPORTED` — supported by identified evidence under applicable verification rules;
+- `SOURCE_SUPPORTED` — supported by an identified source/document under applicable verification rules;
 - `SYSTEM_DERIVED` — deterministically derived by a declared system process;
 - `INFERRED` — inferred from other information rather than directly established;
 - `UNVERIFIED` — recorded but not sufficiently established under the applicable verification policy;
@@ -164,7 +175,7 @@ An Event may record the lifecycle transition of an Observation, while an Observa
 
 Observations MUST NOT be destructively rewritten when their epistemic position changes materially.
 
-A future conforming implementation MUST preserve:
+A conforming implementation MUST preserve:
 
 - the original observation identity and provenance;
 - the fact that a correction/supersession occurred;
@@ -263,7 +274,7 @@ This contract does not define:
 An implementation is conforming only when the applicable Observation conformance matrix passes and evidence demonstrates:
 
 1. identity/version preservation;
-2. explicit epistemic status;
+2. explicit observation origin and epistemic status;
 3. source/provenance preservation;
 4. distinct observed/recorded time semantics;
 5. evidence references without evidence ownership duplication;
