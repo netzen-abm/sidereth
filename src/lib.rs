@@ -93,6 +93,7 @@ pub mod service;
 pub mod timeline;
 #[allow(clippy::manual_flatten)]
 pub mod tool_registry;
+pub mod tool_gateway;
 
 pub use action::{
     Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
@@ -144,7 +145,7 @@ pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
 pub use legal_source_registry::LegalSourceRegistry;
-pub use lifecycle::{LifecycleMeta, LifecycleTransition};
+pub use lifecycle::{LifecycleMeta, LifecycleTransition>;
 pub use local_store::LocalFileStore;
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use party_repository::PartyUnitOfWorkRepository;
@@ -168,6 +169,11 @@ pub use tool_registry::{
     InMemoryToolRegistry, ToolDataClass, ToolDependency, ToolExecutionMode, ToolImplementation,
     ToolLifecycle, ToolRegistryAuditRecord, ToolRegistryCriteria, ToolRegistryEntry,
     ToolRegistryError, ToolRiskClass, ToolVersion, ToolVersionRequirement,
+};
+pub use tool_gateway::{
+    InMemoryToolGateway, InMemoryToolGatewayAudit, ToolAdapter, ToolExecutionResult,
+    ToolGatewayAuditOutcome, ToolGatewayAuditRecord, ToolGatewayAuditSink, ToolGatewayError,
+    ToolInvocation,
 };
 
 #[cfg(feature = "postgres")]
@@ -285,7 +291,7 @@ mod tests {
     fn resource_ref_is_explicit_and_stable_on_wire() {
         let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
         let json = serde_json::to_string(&reference).unwrap();
-        assert_eq!(json, r#"{"resource_type":"document","id":"doc-1"}"#);
+        assert_eq!(json, r#"{\"resource_type\":\"document\",\"id\":\"doc-1\"}"#);
         let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded, reference);
     }
