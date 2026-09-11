@@ -37,6 +37,7 @@ pub enum ApprovalOrigin {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
     Granted,
     Rejected,
@@ -432,9 +433,7 @@ mod tests {
             action: ResourceRef::new(ResourceType::Action, "action-1").unwrap(),
             resource_ref: ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
             purpose: "execute action".into(),
-            jurisdiction_ref: Some(
-                ResourceRef::new(ResourceType::Jurisdiction, "jur-1").unwrap(),
-            ),
+            jurisdiction_ref: Some(ResourceRef::new(ResourceType::Jurisdiction, "jur-1").unwrap()),
             data_class: Some("public".into()),
             decision: AuthorizationDecision::Allow,
             constraints: Vec::new(),
