@@ -1,191 +1,133 @@
 # SIDERETH — Observation Semantics
 
-**Status:** DRAFT / architectural decision proposal  
-**Decision ID:** D-032  
-**Scope:** Universal Core observation semantics  
-**Depends on:** ResourceRef, ResourceLink, Event, Evidence, Provenance, Timeline, Party
+**Status:** LOCKED DECISION RECORD
+**Decision ID:** D-032
+**Scope:** Universal Core observation semantics
+**Canonical contract:** `docs/contracts/OBSERVATION-CONTRACT.md`
+**Conformance:** `docs/contracts/OBSERVATION-CONFORMANCE.md`
 
-## 1. Purpose
+## 1. Decision
 
-Define what an **Observation** means in SIDERETH before introducing implementation types, repositories, longitudinal-record models, or domain-specific observation systems.
+`Observation` is a distinct universal semantic primitive in SIDERETH.
 
-The immediate objective is semantic clarity. SIDERETH must distinguish:
+It represents an **epistemically bounded assertion about a subject or resource at a stated time, originating from an identified source/context and optionally supported by evidence**.
 
-- something that happened,
-- something that was observed or reported,
-- the evidence supporting that observation,
-- relationships between resources,
-- actions taken because of an observation,
+Observation is not automatically an aggregate, repository, Event subtype, Evidence record, legal conclusion, or authoritative fact.
+
+The decision is intentionally semantic-first. It does **not** authorize a dedicated Observation repository, LongitudinalRecord aggregate, sensor/hardware implementation, AI provider, responsibility-resolution subsystem, or autonomous legal action.
+
+## 2. Why Observation is distinct
+
+SIDERETH must distinguish:
+
+- something that happened;
+- something that was observed, measured, reported, detected or inferred;
+- the evidence supporting that observation;
+- relationships between resources;
+- actions taken because of an observation;
 - and outcomes that follow.
 
-## 2. Decision proposal
-
-`Observation` SHOULD be a distinct universal semantic primitive, but it SHOULD NOT become a new aggregate, repository, timeline store, or evidence store at this stage.
-
-An Observation represents an **epistemically bounded assertion about a subject or resource at a stated time, originating from an identified source/context and optionally supported by evidence**.
-
-This distinction is necessary because an observation is not equivalent to an Event and is not equivalent to Evidence.
-
-### 2.1 Event is not Observation
-
-An Event represents a recorded occurrence/change in the SIDERETH event history.
-
-An Observation represents a proposition or report about what was observed, measured, stated, detected, or otherwise perceived.
+An Event represents a recorded occurrence/change or lifecycle transition. An Observation represents an assertion/proposition about something observed, measured, stated, detected or inferred. Evidence preserves source material or a canonical evidence record.
 
 Example:
 
 ```text
 Event:
-  "inspection_record_created"
+  inspection_record_created
 
 Observation:
-  "surface condition appears damaged"
+  surface condition appears damaged
 
 Evidence:
   photograph / video / document / sensor capture
 ```
 
-An Observation may therefore be recorded because of an Event, while an Event may record the lifecycle transition of an Observation. They must not be silently collapsed.
+Neither Event nor Evidence becomes a substitute for Observation.
 
-### 2.2 Observation is not Evidence
+## 3. Epistemic semantics
 
-Evidence is the preserved source artifact or canonical evidence record. An Observation is a semantic assertion derived from a person, sensor, document, system, or other source.
+Observation MUST reuse the SIDERETH canonical epistemic vocabulary defined by the Intelligence contract. Observation does not create a parallel status vocabulary.
 
-Evidence can support an Observation, but the existence of an Observation does not make it proven.
+The current vocabulary is:
 
-Derived interpretations, OCR output, summaries, classifications, and AI-generated propositions remain derived artifacts/assertions and do not replace original evidence.
+- `OBSERVED`
+- `USER_REPORTED`
+- `EVIDENCE_SUPPORTED`
+- `SOURCE_SUPPORTED`
+- `SYSTEM_DERIVED`
+- `INFERRED`
+- `UNVERIFIED`
+- `CONTESTED`
+- `UNKNOWN`
 
-## 3. Epistemic status is mandatory
+Source/process modality is a separate concern represented by `observation_origin`, for example `DIRECT_OBSERVATION`, `USER_REPORT`, `MEASUREMENT`, `SOURCE_ASSERTION`, `SYSTEM_DERIVATION`, or `AI_DERIVATION`.
 
-Every Observation MUST carry an explicit epistemic status or equivalent typed semantic contract.
+This distinction is deliberate: **MEASUREMENT is an origin/modality, not a new epistemic status.** This avoids semantic drift between Observation and Intelligence.
 
-The status must distinguish, at minimum, concepts such as:
-
-- observed directly;
-- reported by a party;
-- measured/detected by an instrument or system;
-- asserted by a source/document;
-- derived/inferred;
-- disputed/contested;
-- unresolved/unknown.
-
-The final vocabulary requires a separate contract/conformance decision. The implementation MUST NOT invent a single generic `verified` flag that collapses materially different epistemic states.
-
-An AI model MUST NOT promote an Observation to a stronger epistemic state merely by generating confident language.
-
-## 4. Proposed semantic shape
-
-The future canonical Observation contract SHOULD contain, at minimum:
+No provider, model, workflow or UI may silently upgrade epistemic status. In particular:
 
 ```text
-Observation
-├── observation_id
-├── schema_version
-├── subject_ref / observed_resource_ref
-├── observation_type
-├── observed_at
-├── recorded_at
-├── assertion/value
-├── epistemic_status
-├── source_refs
-├── evidence_refs
-├── provenance_ref
-├── context_ref(s)
-└── privacy/data classification
+INFERRED      ≠ OBSERVED
+UNVERIFIED    ≠ VERIFIED FACT
+USER_REPORTED ≠ EVIDENCE_SUPPORTED
+CONTESTED     ≠ RESOLVED
+UNKNOWN       ≠ FALSE
 ```
 
-This is a semantic target, not an implementation mandate yet.
+A stronger state may only be established by an explicit, provenance-bearing verification operation governed by applicable policy.
 
-The distinction between `observed_at` and `recorded_at` is intentional. A system must not assume that the time an observation was recorded is the time the underlying phenomenon occurred.
+## 4. Temporal semantics
 
-## 5. Relationship to existing SIDERETH primitives
+Observation MUST preserve `observed_at` separately from `recorded_at`.
 
-### ResourceRef
+Device wall-clock time is not automatically authoritative. Where time is uncertain, uncertainty must be represented rather than replaced with manufactured precision.
 
-Observation identifies its subject through `ResourceRef` rather than embedding another resource's identity model.
+Future trusted-time, monotonic sequencing or hardware-backed time capabilities remain separate implementations.
 
-### ResourceLink
+## 5. Evidence, provenance and relationships
 
-Observation-to-resource and Observation-to-evidence relationships use the canonical ResourceLink semantics. Strong, Forward, External, and legacy compatibility meanings remain governed by the ResourceLink contract.
+Observation references Evidence; it does not own, overwrite or replace canonical evidence.
 
-No Observation-specific relationship mechanism should be introduced.
+Derived OCR, summaries, classifications and AI outputs remain derived material and cannot silently become original evidence.
 
-### Event
+Observation uses canonical `ResourceRef` and `ResourceLink` semantics. No Observation-specific relationship primitive is introduced merely to connect observations to evidence, subjects, parties, authorities, actions or outcomes.
 
-Events record lifecycle and material state transitions. Observation content may be represented in event payloads where appropriate, but event history must not become a second Observation store.
+Provenance establishes origin/context, not legal authority or truth.
 
-### Evidence
+## 6. Correction, supersession and contradiction
 
-Evidence preserves source material and integrity. Observation references evidence; it does not own or overwrite the evidence.
+Material epistemic changes MUST preserve the original observation identity and provenance, the fact and basis of correction/supersession, the responsible actor/process, and the relationship between prior and subsequent state/history.
 
-### Provenance
+Contradictions remain explicit. The newest, highest-confidence or AI-preferred observation does not automatically win.
 
-Provenance records source/actor/input/operation context. Provenance does not itself establish legal authority or truth.
+## 7. Responsibility boundary
 
-### Timeline
+Observation does not imply legal responsibility.
 
-Timeline remains a projection/composition of Event history. A future longitudinal view may compose Events, Observations, Evidence, Relationships, Actions, and Outcomes, but must not create a competing ownership model.
+Where responsibility is later resolved, SIDERETH must distinguish roles such as responsible party, nearest authority, geographic authority, asset owner, contractor/service provider and contracting/procuring authority. Candidate matches remain non-authoritative until the applicable evidence, relationship, jurisdiction and legal/contractual context support a determination.
 
-### PartyRelationship
+## 8. Privacy and security
 
-PartyRelationship remains the canonical primitive for party-to-party relationships. Observation must not recreate party relationship semantics.
+Observation is subject to authorization, policy and data-classification boundaries.
 
-## 6. Canonical chain
+Location semantics must distinguish, where applicable:
 
-The preferred semantic chain is:
+- reported incident location;
+- evidence capture location;
+- device location at capture;
+- location asserted by a source.
 
-```text
-Observation
-     │
-     ├── supported by ──> Evidence
-     │
-     ├── connected by ──> ResourceLink / Relationship
-     │
-     ├── may motivate ──> Action
-     │
-     └── contributes to ──> Outcome / Resolution
-```
+These propositions must not be silently collapsed.
 
-The chain is not necessarily linear. It may be revisited when new evidence, contradiction, correction, or outcome information appears.
+## 9. AI boundary
 
-A more accurate system-level model is therefore:
+AI may extract, normalize, classify, compare, identify contradictions, associate candidate evidence and propose bounded actions for review.
 
-```text
-       Evidence
-          ▲
-          │ supports
-          │
-Observation ─── Relationship ─── Resource/Party/Authority
-    │
-    │ may motivate
-    ▼
-  Action
-    │
-    ▼
- Outcome / Resolution
-```
+AI may not manufacture provenance, self-authorize status upgrades, turn inference into fact by wording, create legal responsibility, overwrite original evidence, or bypass authorization/approval/execution gates.
 
-## 7. Responsibility must remain typed
+## 10. Longitudinal semantics
 
-Observation must not imply that the observed subject is legally responsible.
-
-Where future workflows determine responsibility, SIDERETH must distinguish at least:
-
-- responsible party;
-- nearest authority;
-- geographic authority;
-- asset owner;
-- contractor/service provider;
-- contracting/procuring authority;
-- other legally relevant roles.
-
-A probable match is not canonical truth. Responsibility resolution requires explicit relationship semantics, provenance, jurisdiction and applicable legal/contractual context.
-
-## 8. Longitudinal semantics
-
-A longitudinal view SHOULD be a **projection/composition layer**, not a new canonical record type by default.
-
-It may compose:
+A longitudinal view is a projection/composition over canonical primitives:
 
 ```text
 Events
@@ -198,103 +140,58 @@ Resolutions
 Outcomes
 ```
 
-The projection should preserve the identity and provenance of each underlying primitive.
+The projection preserves the identity, provenance and epistemic status of underlying resources. `LongitudinalRecord` is not introduced as a canonical aggregate by this decision.
 
-Do NOT introduce `LongitudinalRecord` merely to make chronological presentation easier.
+## 11. Persistence and implementation boundary
 
-## 9. Privacy and security
+D-032 does not require a dedicated Observation repository.
 
-Observation data may be highly sensitive even when the underlying evidence is not publicly disclosed.
+Any implementation must first demonstrate an actual ownership/use-case requirement and reuse canonical persistence, transaction, authorization, audit and idempotency infrastructure.
 
-Therefore future implementation must apply:
-
-- data classification;
-- purpose limitation;
-- least-privilege access;
-- provenance;
-- authorization policy;
-- disclosure controls;
-- explicit separation between protected evidence and presentation artifacts.
-
-Location observations require particular care. A reported incident location, evidence capture location, device location, and location asserted by a source are distinct propositions and must not be collapsed into one coordinate field.
-
-## 10. AI boundary
-
-AI may:
-
-- extract candidate observations;
-- classify or normalize observations;
-- identify possible contradictions;
-- link observations to candidate evidence;
-- propose actions for human review.
-
-AI must not:
-
-- manufacture observation provenance;
-- upgrade epistemic status without evidence/policy authority;
-- convert inference into fact;
-- create legal responsibility by assertion;
-- bypass authorization or approval gates;
-- replace original evidence.
-
-## 11. Implementation boundary
-
-No Observation implementation should be merged until the following are separately defined and reviewed:
-
-1. canonical Observation contract;
-2. epistemic-status vocabulary;
-3. subject/context semantics;
-4. temporal semantics (`observed_at` versus `recorded_at`);
-5. evidence/provenance binding;
-6. correction and supersession semantics;
-7. contradiction/challenge semantics;
-8. privacy/data-class semantics;
-9. ResourceLink integration;
-10. provider-neutral conformance tests;
-11. persistence requirements, if any;
-12. projection requirements for longitudinal views.
-
-The first implementation should remain minimal and should reuse existing Event, Evidence, Provenance, ResourceLink, Action, Response and Resolution infrastructure.
+The implementation promotion gate is the Observation conformance matrix. Implementation is permitted only after the applicable semantic and adversarial tests are satisfied.
 
 ## 12. Rejected alternatives
 
-### A. Make Observation an Event subtype
+### A. Observation as an Event subtype
 
-Rejected because occurrence/lifecycle semantics and epistemic assertion semantics are different concerns. Forcing Observation into Event would encourage event history to become a universal assertion store.
+Rejected because occurrence/lifecycle semantics and epistemic assertion semantics are different concerns.
 
-### B. Make every Observation Evidence
+### B. Every Observation as Evidence
 
-Rejected because a user report, measurement, statement, or inference may be represented semantically without being the preserved source artifact itself.
+Rejected because reports, measurements, statements and inferences can be semantic assertions without being preserved source artifacts.
 
-### C. Create ObservationRepository immediately
+### C. Immediate ObservationRepository
 
-Rejected because the current core has not established a persistence ownership requirement. A repository-first design risks creating unnecessary storage ownership before semantics are stable.
+Rejected because semantics do not by themselves establish new persistence ownership.
 
-### D. Create LongitudinalRecord as a new aggregate
+### D. LongitudinalRecord aggregate
 
-Rejected because chronological views can be projections over existing primitives. A new aggregate would duplicate identity, lifecycle and provenance responsibilities.
+Rejected because chronological views can remain projections over existing primitives without duplicating identity, lifecycle and provenance ownership.
 
-### E. Put all observation semantics inside domain packs
+### E. Domain-specific observation silos
 
-Rejected because observation is potentially reusable across legal, regulatory, compliance, evidence, incident and future domains. Domain packs should specialize observation types rather than redefine the primitive.
+Rejected because Observation is a reusable universal primitive; domains may specialize observation types without redefining the primitive.
 
-## 13. Verification gate
+## 13. Consequences
 
-Before D-032 can become LOCKED:
+Positive consequences:
 
-- semantic distinction from Event and Evidence is reviewed;
-- epistemic vocabulary is explicit;
-- ResourceLink semantics are proven and merged;
-- privacy/security implications are reviewed;
-- correction/supersession and contradiction behavior are specified;
-- implementation ownership is established;
-- no duplicate primitive/repository is introduced;
-- conformance tests are defined before implementation.
+- SIDERETH can represent observations without corrupting Event semantics.
+- Evidence remains preserved and independently traceable.
+- AI-generated observations remain epistemically bounded.
+- Measurement and other source modalities are represented without forking the epistemic vocabulary.
+- Longitudinal experiences can be composed without a duplicate canonical record model.
+- Future sensor, hardware, offline, AI and domain capabilities can attach through stable contracts.
 
-## 14. Current recommendation
+Constraints:
 
-**Proceed with Observation as a distinct semantic primitive at the contract level, but do not implement persistence yet.**
+- Implementations must preserve temporal, epistemic and provenance distinctions.
+- Verification cannot be inferred from presentation or provider confidence.
+- Persistence ownership must be justified separately.
+- Conformance evidence is required before implementation promotion.
 
-The immediate next engineering artifact should be the canonical Observation contract and its conformance matrix. Only after those are stable should a minimal implementation be considered.
+## 14. Verification state
 
-This preserves SIDERETH's universal-core principle while preventing premature proliferation of repositories, aggregates, or domain-specific models.
+D-032 is now LOCKED because the canonical Observation contract and conformance design have been created and the semantic conflict between **measurement modality** and **epistemic status** has been resolved without creating a parallel vocabulary.
+
+Implementation status remains **PRE-IMPLEMENTATION**. This decision is architectural authority, not evidence that Observation is implemented.

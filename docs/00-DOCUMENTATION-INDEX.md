@@ -79,6 +79,7 @@ Key contract families include:
 
 - canonical domain model;
 - Case/Incident/Event;
+- **Observation and Observation Conformance** — `contracts/OBSERVATION-CONTRACT.md`, `contracts/OBSERVATION-CONFORMANCE.md`;
 - Party, Document, Evidence and Evidence Trust;
 - capability and Capability Registry;
 - Tool Registry;
@@ -89,6 +90,8 @@ Key contract families include:
 - API/error/idempotency/versioning;
 - audit/security/encryption;
 - Tool Gateway.
+
+The Observation contract is governed by D-032. Its semantic vocabulary reuses the Intelligence contract's epistemic statuses; observation origin/modality is separate from epistemic status. Observation remains pre-implementation until conformance evidence exists.
 
 A contract defines a boundary. Code must conform to it. A convenient implementation must not redefine the boundary.
 
