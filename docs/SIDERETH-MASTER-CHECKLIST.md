@@ -1,5 +1,10 @@
 # SIDERETH — Master Implementation Checklist
 
+**Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
+**Last audited baseline:** `main` at `ab36d34a90a9363044e4700576523a4a87259534`
+
+> Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
+
 ## Gate 0 — Repository safety
 - [x] Create isolated foundation branch
 - [x] Record current main baseline
@@ -11,6 +16,7 @@
 - [x] Audit active programming and Markdown for SIDERETH alignment
 - [ ] Verify workflow/deployment dependencies on final integration branch
 - [ ] Decide branch deletion only after final evidence
+- [x] Establish documentation authority and duplication governance
 
 ## Gate 1 — Product foundation
 - [x] Define legal/regulatory OS boundary
@@ -22,7 +28,8 @@
 - [x] Establish MCP interoperability decision
 - [ ] Formal product constitution
 - [x] Decision Register
-- [ ] terminology/glossary
+- [x] Canonical terminology/glossary
+- [x] Documentation Governance and Authority Map
 
 ## Gate 2 — Contracts before production code
 - [x] domain model contract (draft)
@@ -48,13 +55,13 @@
 - [x] Case Engine foundation
 - [x] Incident Engine foundation
 - [x] Event/Timeline Engine foundation
-- [ ] Party model
+- [x] Party model foundation
 - [x] Authority Engine foundation
 - [x] Jurisdiction Engine foundation
 - [ ] Document Engine
 - [x] Evidence Vault foundation
 - [x] Deadline Engine foundation
-- [ ] Action/Decision model
+- [x] Action/Decision model foundation
 - [x] Response Engine foundation
 - [x] Escalation/Remedy Engine foundation
 - [ ] Human Assistance Router
@@ -83,18 +90,35 @@
 - [ ] security audit
 
 ## Gate 6 — Agent platform
-- [ ] Tool Registry
-- [ ] Tool Identity
-- [ ] Tool Gateway
-- [ ] Policy engine
-- [ ] Tool Runtime
+- [x] Tool Registry contract/conformance design
+- [x] Tool Gateway contract/conformance design
+- [x] canonical Authorization Contract
+- [x] Authorization Evaluator
+- [x] Execution Gate
+- [x] AuthorizationResult contextual binding
+- [ ] Tool Gateway implementation — PR #73 in progress; not production-ready
+- [ ] Tool Identity production implementation
+- [ ] Tool Runtime production boundary
+- [ ] Policy engine production layer
 - [ ] workflow orchestration
 - [ ] Memory Bank
-- [ ] human approval gates
+- [ ] human approval production checkpoints
 - [ ] asynchronous jobs
 - [ ] retries/resume
-- [ ] audit/observability
+- [ ] durable audit/observability
 - [x] MCP adapter boundary
+
+### Tool Gateway implementation gates — current
+- [x] Exact-head Foundation CI at `7a028da2dd200b6cdf45950d69dff43b61ffadaf`
+- [x] Exact-head security/supply-chain checks passed
+- [ ] Trusted gateway clock / authorization expiry enforcement
+- [ ] Returned authorization-constraint enforcement
+- [ ] Registry-driven implementation/provider selection
+- [ ] Rich implementation/provider/provenance audit
+- [ ] Durable concurrent idempotency integration
+- [ ] Direct adapter bypass evidence/tests
+- [ ] TG-001–TG-060 evidence matrix completed
+- [ ] Production-ready decision
 
 ## Gate 7 — UX
 - [ ] Home
@@ -161,7 +185,7 @@
 
 ## Gate 10 — Production
 - [x] CI/CD foundation validation
-- [ ] dependency audit
+- [x] RustSec dependency audit foundation
 - [x] secret scanning foundation gate
 - [ ] SBOM
 - [ ] release signing
@@ -172,5 +196,17 @@
 - [ ] deployment runbook
 - [ ] production approval
 
+## Documentation governance gate
+- [x] Documentation index authority map
+- [x] Documentation governance rules
+- [x] Archive-first disposition rule
+- [x] AI-agent reading protocol
+- [x] Developer reading protocol
+- [x] Current Tool Gateway status documented honestly
+- [ ] Full Markdown semantic-duplicate inventory
+- [ ] Full internal-link audit after any physical moves
+- [ ] Documentation consistency CI
+
 ## Definition of Done
-A capability is not considered complete until its contract, implementation, tests, security controls, documentation and observability are present and verified.
+
+A capability is not considered complete until its contract, implementation, tests, security controls, privacy controls, documentation and observability are present and verified.
