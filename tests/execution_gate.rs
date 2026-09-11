@@ -27,7 +27,9 @@ fn authorization(decision: AuthorizationDecision) -> AuthorizationResult {
         action: ResourceRef::new(ResourceType::Action, "submit-filing").unwrap(),
         resource_ref: ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
         purpose: "case submission".into(),
-        jurisdiction_ref: Some(ResourceRef::new(ResourceType::Jurisdiction, "jurisdiction-1").unwrap()),
+        jurisdiction_ref: Some(
+            ResourceRef::new(ResourceType::Jurisdiction, "jurisdiction-1").unwrap(),
+        ),
         data_class: Some("case-restricted".into()),
         decision,
         constraints: Vec::new(),
