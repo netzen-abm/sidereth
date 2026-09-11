@@ -11,8 +11,7 @@ use serde_json::Value;
 
 use crate::persistence::{
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceRecord, ResourceWrite,
-    ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext, UnitOfWorkError,
-    UnitOfWorkFactory,
+    ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{ResourceRef, ResourceType};
 
@@ -173,7 +172,9 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
         let schema_version: i32 = row.get(2);
         let revision: i64 = row.get(3);
         if !(1..=i32::from(u16::MAX)).contains(&schema_version) || revision < 0 {
-            return Err(UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure));
+            return Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure,
+            ));
         }
         let revision = u64::try_from(revision)
             .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure))?;
@@ -273,7 +274,9 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
             if !Self::resource_exists(&mut client, &link.source_ref)?
                 || !Self::resource_exists(&mut client, &link.target_ref)?
             {
-                return Err(UnitOfWorkError::Persistence(PersistenceError::IntegrityFailure));
+                return Err(UnitOfWorkError::Persistence(
+                    PersistenceError::IntegrityFailure,
+                ));
             }
         }
 
