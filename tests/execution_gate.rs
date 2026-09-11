@@ -66,7 +66,10 @@ fn not_applicable_authorization_is_rejected() {
     let value = action();
     let result = ExecutionGate::permit(
         &value,
-        gate_input(Some(&authorization(AuthorizationDecision::NotApplicable)), None),
+        gate_input(
+            Some(&authorization(AuthorizationDecision::NotApplicable)),
+            None,
+        ),
     );
     assert_eq!(result, Err(ExecutionGateError::AuthorizationDenied));
 }
@@ -104,10 +107,7 @@ fn mismatched_action_approval_is_rejected() {
     let authorization = authorization(AuthorizationDecision::Allow);
     let mut record = approval(ApprovalDecision::Granted, ApprovalOrigin::Human);
     record.action_ref = ResourceRef::new(ResourceType::Action, "other-action").unwrap();
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Err(ExecutionGateError::ApprovalMismatch));
 }
 
@@ -117,10 +117,7 @@ fn mismatched_approval_authorization_is_rejected() {
     let authorization = authorization(AuthorizationDecision::Allow);
     let mut record = approval(ApprovalDecision::Granted, ApprovalOrigin::Human);
     record.authorization_ref = ResourceRef::new(ResourceType::Other, "auth-other").unwrap();
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Err(ExecutionGateError::ApprovalMismatch));
 }
 
@@ -129,10 +126,7 @@ fn rejected_approval_is_rejected() {
     let value = action();
     let authorization = authorization(AuthorizationDecision::Allow);
     let record = approval(ApprovalDecision::Rejected, ApprovalOrigin::Human);
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Err(ExecutionGateError::ApprovalNotGranted));
 }
 
@@ -141,10 +135,7 @@ fn revoked_approval_is_rejected() {
     let value = action();
     let authorization = authorization(AuthorizationDecision::Allow);
     let record = approval(ApprovalDecision::Revoked, ApprovalOrigin::Human);
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Err(ExecutionGateError::ApprovalNotGranted));
 }
 
@@ -153,10 +144,7 @@ fn intelligence_produced_approval_is_rejected_even_when_marked_granted() {
     let value = action();
     let authorization = authorization(AuthorizationDecision::Allow);
     let record = approval(ApprovalDecision::Granted, ApprovalOrigin::Intelligence);
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Err(ExecutionGateError::ApprovalNotHuman));
 }
 
@@ -165,10 +153,7 @@ fn system_produced_approval_is_rejected_even_when_marked_granted() {
     let value = action();
     let authorization = authorization(AuthorizationDecision::Allow);
     let record = approval(ApprovalDecision::Granted, ApprovalOrigin::System);
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Err(ExecutionGateError::ApprovalNotHuman));
 }
 
@@ -177,10 +162,7 @@ fn human_approval_cannot_execute_an_unapproved_action() {
     let value = action();
     let authorization = authorization(AuthorizationDecision::Allow);
     let record = approval(ApprovalDecision::Granted, ApprovalOrigin::Human);
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Err(ExecutionGateError::ActionNotApproved));
 }
 
@@ -196,10 +178,7 @@ fn valid_authorization_and_matching_human_grant_permit_execution_after_approval(
         .transition(ActionStatus::Approved, "2026-09-08T10:03:00Z".into())
         .unwrap();
 
-    let result = ExecutionGate::permit(
-        &value,
-        gate_input(Some(&authorization), Some(&record)),
-    );
+    let result = ExecutionGate::permit(&value, gate_input(Some(&authorization), Some(&record)));
     assert_eq!(result, Ok(()));
 }
 
