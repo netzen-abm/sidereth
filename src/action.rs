@@ -37,7 +37,6 @@ pub enum ApprovalOrigin {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
     Granted,
     Rejected,
@@ -426,27 +425,23 @@ mod tests {
         value.authorization_ref = Some("auth-1".into());
         value.approval_ref = Some("approval-1".into());
         value.status = ActionStatus::Approved;
-        let mut authorization = crate::AuthorizationResult::from_request(
-            &crate::AuthorizationRequest {
-                request_id: "request-1".into(),
-                authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
-                subject_ref: ResourceRef::new(ResourceType::Party, "actor-1").unwrap(),
-                action: ResourceRef::new(ResourceType::Action, "action-1").unwrap(),
-                resource_ref: ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
-                purpose: "execute action".into(),
-                policy_refs: vec!["policy-1".into()],
-                jurisdiction_ref: Some(
-                    ResourceRef::new(ResourceType::Jurisdiction, "jur-1").unwrap(),
-                ),
-                data_class: crate::DataClass::Public,
-                requested_at_epoch_seconds: 1,
-                freshness_seconds: 60,
-            },
-            AuthorizationDecision::Allow,
-            1,
-            Some(61),
-        );
-        authorization.authorization_ref = ResourceRef::new(ResourceType::Other, "auth-1").unwrap();
+        let authorization = crate::AuthorizationResult {
+            request_id: "request-1".into(),
+            authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
+            subject_ref: ResourceRef::new(ResourceType::Party, "actor-1").unwrap(),
+            action: ResourceRef::new(ResourceType::Action, "action-1").unwrap(),
+            resource_ref: ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
+            purpose: "execute action".into(),
+            jurisdiction_ref: Some(
+                ResourceRef::new(ResourceType::Jurisdiction, "jur-1").unwrap(),
+            ),
+            data_class: Some("public".into()),
+            decision: AuthorizationDecision::Allow,
+            constraints: Vec::new(),
+            policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
+            evaluated_at_epoch_seconds: 1,
+            expires_at_epoch_seconds: Some(61),
+        };
         let mut record = approval(ApprovalDecision::Granted);
         record.approval_id = "different-approval".into();
         assert_eq!(
