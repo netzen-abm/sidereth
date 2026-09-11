@@ -91,9 +91,9 @@ pub mod response;
 pub mod security;
 pub mod service;
 pub mod timeline;
+pub mod tool_gateway;
 #[allow(clippy::manual_flatten)]
 pub mod tool_registry;
-pub mod tool_gateway;
 
 pub use action::{
     Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
@@ -165,15 +165,15 @@ pub use security::{
 };
 pub use service::{CaseCommand, CaseService, CommandContext, CommandResult, ServiceError};
 pub use timeline::Timeline;
-pub use tool_registry::{
-    InMemoryToolRegistry, ToolDataClass, ToolDependency, ToolExecutionMode, ToolImplementation,
-    ToolLifecycle, ToolRegistryAuditRecord, ToolRegistryCriteria, ToolRegistryEntry,
-    ToolRegistryError, ToolRiskClass, ToolVersion, ToolVersionRequirement,
-};
 pub use tool_gateway::{
     InMemoryToolGateway, InMemoryToolGatewayAudit, ToolAdapter, ToolExecutionResult,
     ToolGatewayAuditOutcome, ToolGatewayAuditRecord, ToolGatewayAuditSink, ToolGatewayError,
     ToolInvocation,
+};
+pub use tool_registry::{
+    InMemoryToolRegistry, ToolDataClass, ToolDependency, ToolExecutionMode, ToolImplementation,
+    ToolLifecycle, ToolRegistryAuditRecord, ToolRegistryCriteria, ToolRegistryEntry,
+    ToolRegistryError, ToolRiskClass, ToolVersion, ToolVersionRequirement,
 };
 
 #[cfg(feature = "postgres")]
