@@ -1,4 +1,4 @@
-use crate::{EpistemicStatus, Id, ResourceRef};
+use crate::{EpistemicStatus, Id, IntelligenceDataClass, ResourceRef};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -51,16 +51,7 @@ pub struct Observation {
     pub evidence_refs: Vec<ResourceRef>,
     pub provenance_ref: Option<ResourceRef>,
     pub context_refs: Vec<ResourceRef>,
-    pub data_class: ObservationDataClass,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum ObservationDataClass {
-    Public,
-    Internal,
-    Confidential,
-    Restricted,
+    pub data_class: IntelligenceDataClass,
 }
 
 impl Observation {
@@ -118,7 +109,7 @@ mod tests {
             evidence_refs: Vec::new(),
             provenance_ref: None,
             context_refs: Vec::new(),
-            data_class: ObservationDataClass::Confidential,
+            data_class: IntelligenceDataClass::Confidential,
         }
     }
 
@@ -128,13 +119,22 @@ mod tests {
     }
 
     #[test]
-    fn observation_has_distinct_origin_and_epistemic_status() {
+    fn observation_origin_and_epistemic_status_are_independent() {
         let mut value = observation();
         value.observation_origin = ObservationOrigin::Measurement;
         value.epistemic_status = EpistemicStatus::Unverified;
         assert!(value.validate().is_ok());
         assert_eq!(value.observation_origin, ObservationOrigin::Measurement);
         assert_eq!(value.epistemic_status(), EpistemicStatus::Unverified);
+    }
+
+    #[test]
+    fn ai_derivation_does_not_imply_epistemic_upgrade() {
+        let mut value = observation();
+        value.observation_origin = ObservationOrigin::AiDerivation;
+        value.epistemic_status = EpistemicStatus::Inferred;
+        assert!(value.validate().is_ok());
+        assert_eq!(value.epistemic_status(), EpistemicStatus::Inferred);
     }
 
     #[test]
@@ -176,5 +176,6 @@ mod tests {
         assert_eq!(json["subject_ref"]["resource_type"], "incident");
         assert_eq!(json["observation_origin"], "DIRECT_OBSERVATION");
         assert_eq!(json["epistemic_status"], "OBSERVED");
+        assert_eq!(json["data_class"], "CONFIDENTIAL");
     }
 }
