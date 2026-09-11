@@ -1,11 +1,13 @@
 # SIDERETH — Canonical Data Model Foundation
 
-Status: CANONICAL FRAMEWORK / IMPLEMENTATION PENDING
+Status: CANONICAL FRAMEWORK / IMPLEMENTATION PENDING  
 Version: 1.0
 
 ## Purpose
 
 Define the domain-independent data concepts shared across SIDERETH capabilities and adapters.
+
+**Authority note:** this document defines the concise framework vocabulary. Implementation conformance is governed by the more detailed domain contract in `docs/contracts/CANONICAL-DOMAIN-MODEL.md` until a future decision explicitly promotes a replacement contract.
 
 ## Core objects
 
@@ -45,4 +47,6 @@ Persisted objects and externally consumed schemas require explicit schema versio
 
 ## Implementation status
 
-This document defines the target canonical model. Production persistence, migrations, API serialization and complete validation are separate implementation work and are not claimed here.
+This document defines the target canonical framework vocabulary. Production persistence, migrations, API serialization and complete validation are separate implementation work and are not claimed here.
+
+For required fields and normative invariants, use `docs/contracts/CANONICAL-DOMAIN-MODEL.md`.
