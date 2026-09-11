@@ -57,7 +57,13 @@ impl ResourceWrite {
         if schema_version == 0 {
             return Err(UnitOfWorkError::InvalidOperation);
         }
-        Ok(Self { resource_ref, schema_version, payload, mode, expected_revision: None })
+        Ok(Self {
+            resource_ref,
+            schema_version,
+            payload,
+            mode,
+            expected_revision: None,
+        })
     }
 
     pub fn with_expected_revision(mut self, revision: Revision) -> Self {
@@ -120,9 +126,19 @@ impl ResourceLink {
             return Err(UnitOfWorkError::InvalidOperation);
         }
         if class == ResourceLinkClass::Legacy {
-            return Ok(Self { source_ref, relation, target_ref, class: None });
+            return Ok(Self {
+                source_ref,
+                relation,
+                target_ref,
+                class: None,
+            });
         }
-        Ok(Self { source_ref, relation, target_ref, class: Some(class) })
+        Ok(Self {
+            source_ref,
+            relation,
+            target_ref,
+            class: Some(class),
+        })
     }
 
     pub fn semantic_class(&self) -> Option<ResourceLinkClass> {
@@ -133,7 +149,10 @@ impl ResourceLink {
 /// Provider-neutral read/write context used inside a unit of work.
 /// Reads occur in the same transaction as subsequent CAS writes.
 pub trait UnitOfWorkContext {
-    fn read_resource(&mut self, resource_ref: &ResourceRef) -> Result<Option<ResourceRecord>, UnitOfWorkError>;
+    fn read_resource(
+        &mut self,
+        resource_ref: &ResourceRef,
+    ) -> Result<Option<ResourceRecord>, UnitOfWorkError>;
     fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError>;
     fn link_resources(&mut self, link: ResourceLink) -> Result<(), UnitOfWorkError>;
 }
@@ -141,50 +160,85 @@ pub trait UnitOfWorkContext {
 /// Provider-neutral atomic boundary for a multi-resource workflow.
 pub trait UnitOfWork {
     type Context: UnitOfWorkContext;
+
     fn execute<R, F>(&mut self, operation: F) -> Result<R, UnitOfWorkError>
-    where F: FnOnce(&mut Self::Context) -> Result<R, UnitOfWorkError>;
+    where
+        F: FnOnce(&mut Self::Context) -> Result<R, UnitOfWorkError>;
+
     fn commit(self) -> Result<(), PersistenceError>;
     fn rollback(self) -> Result<(), PersistenceError>;
 }
 
 pub trait UnitOfWorkFactory {
     type Uow: UnitOfWork;
+
     fn begin(&mut self) -> Result<Self::Uow, PersistenceError>;
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Revision { pub value: u64 }
+pub struct Revision {
+    pub value: u64,
+}
 
 impl Revision {
-    pub fn initial() -> Self { Self { value: 0 } }
+    pub fn initial() -> Self {
+        Self { value: 0 }
+    }
+
     pub fn next(self) -> Result<Self, PersistenceError> {
-        self.value.checked_add(1).map(|value| Self { value }).ok_or(PersistenceError::Conflict)
+        self.value
+            .checked_add(1)
+            .map(|value| Self { value })
+            .ok_or(PersistenceError::Conflict)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Persisted<T> { pub schema_version: u16, pub revision: Revision, pub value: T }
+pub struct Persisted<T> {
+    pub schema_version: u16,
+    pub revision: Revision,
+    pub value: T,
+}
 
 impl<T> Persisted<T> {
     pub fn new(schema_version: u16, value: T) -> Result<Self, PersistenceError> {
-        if schema_version == 0 { return Err(PersistenceError::ValidationFailure); }
-        Ok(Self { schema_version, revision: Revision::initial(), value })
+        if schema_version == 0 {
+            return Err(PersistenceError::ValidationFailure);
+        }
+        Ok(Self {
+            schema_version,
+            revision: Revision::initial(),
+            value,
+        })
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IdempotencyClaim { Claimed, AlreadyClaimed }
+pub enum IdempotencyClaim {
+    Claimed,
+    AlreadyClaimed,
+}
 
 pub trait CaseStore {
     fn get_case(&self, id: &Id) -> Result<Option<Persisted<Case>>, PersistenceError>;
     fn create_case(&mut self, value: Persisted<Case>) -> Result<(), PersistenceError>;
-    fn update_case(&mut self, id: &Id, expected_revision: Revision, value: Case) -> Result<Revision, PersistenceError>;
+    fn update_case(
+        &mut self,
+        id: &Id,
+        expected_revision: Revision,
+        value: Case,
+    ) -> Result<Revision, PersistenceError>;
 }
 
 pub trait IncidentStore {
     fn get_incident(&self, id: &Id) -> Result<Option<Persisted<Incident>>, PersistenceError>;
     fn create_incident(&mut self, value: Persisted<Incident>) -> Result<(), PersistenceError>;
-    fn update_incident(&mut self, id: &Id, expected_revision: Revision, value: Incident) -> Result<Revision, PersistenceError>;
+    fn update_incident(
+        &mut self,
+        id: &Id,
+        expected_revision: Revision,
+        value: Incident,
+    ) -> Result<Revision, PersistenceError>;
 }
 
 pub trait EventStore {
@@ -199,6 +253,7 @@ pub trait Transaction {
 
 pub trait TransactionFactory {
     type Tx: Transaction;
+
     fn begin(&mut self) -> Result<Self::Tx, PersistenceError>;
 }
 
@@ -212,12 +267,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn revision_is_deterministic() { assert_eq!(Revision::initial().next().unwrap().value, 1); }
+    fn revision_is_deterministic() {
+        assert_eq!(Revision::initial().next().unwrap().value, 1);
+    }
 
     #[test]
     fn zero_schema_version_is_rejected() {
         let case = Case::new("case-1".into()).unwrap();
-        assert_eq!(Persisted::new(0, case), Err(PersistenceError::ValidationFailure));
+        assert_eq!(
+            Persisted::new(0, case),
+            Err(PersistenceError::ValidationFailure)
+        );
     }
 
     #[test]
@@ -229,26 +289,40 @@ mod tests {
     #[test]
     fn resource_write_requires_schema_version() {
         let resource = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
-        assert_eq!(ResourceWrite::new(resource, 0, Value::Null, ResourceWriteMode::Insert), Err(UnitOfWorkError::InvalidOperation));
+        assert_eq!(
+            ResourceWrite::new(resource, 0, Value::Null, ResourceWriteMode::Insert),
+            Err(UnitOfWorkError::InvalidOperation)
+        );
     }
 
     #[test]
     fn resource_write_mode_uses_canonical_snake_case_wire_values() {
-        assert_eq!(serde_json::to_string(&ResourceWriteMode::Insert).unwrap(), "\"insert\"");
-        assert_eq!(serde_json::to_string(&ResourceWriteMode::Upsert).unwrap(), "\"upsert\"");
+        assert_eq!(
+            serde_json::to_string(&ResourceWriteMode::Insert).unwrap(),
+            "\"insert\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ResourceWriteMode::Upsert).unwrap(),
+            "\"upsert\""
+        );
     }
 
     #[test]
     fn resource_link_requires_relation() {
         let source = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
         let target = ResourceRef::new(crate::ResourceType::Document, "doc-1").unwrap();
-        assert_eq!(ResourceLink::new(source, "   ", target), Err(UnitOfWorkError::InvalidOperation));
+        assert_eq!(
+            ResourceLink::new(source, "   ", target),
+            Err(UnitOfWorkError::InvalidOperation)
+        );
     }
 
     #[test]
     fn resource_write_can_carry_expected_revision() {
         let resource = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
-        let write = ResourceWrite::new(resource, 1, Value::Null, ResourceWriteMode::Upsert).unwrap().with_expected_revision(Revision { value: 7 });
+        let write = ResourceWrite::new(resource, 1, Value::Null, ResourceWriteMode::Upsert)
+            .unwrap()
+            .with_expected_revision(Revision { value: 7 });
         assert_eq!(write.expected_revision, Some(Revision { value: 7 }));
     }
 
@@ -256,7 +330,13 @@ mod tests {
     fn resource_link_classes_are_explicit_and_legacy_is_not_strong() {
         let source = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
         let target = ResourceRef::new(crate::ResourceType::Event, "event-1").unwrap();
-        let strong = ResourceLink::new_with_class(source.clone(), "has_event", target.clone(), ResourceLinkClass::Strong).unwrap();
+        let strong = ResourceLink::new_with_class(
+            source.clone(),
+            "has_event",
+            target.clone(),
+            ResourceLinkClass::Strong,
+        )
+        .unwrap();
         assert_eq!(strong.semantic_class(), Some(ResourceLinkClass::Strong));
         let legacy = ResourceLink::new(source, "has_event", target).unwrap();
         assert_eq!(legacy.semantic_class(), None);
@@ -266,8 +346,13 @@ mod tests {
     fn resource_link_classes_round_trip() {
         let source = ResourceRef::new(crate::ResourceType::Case, "case-1").unwrap();
         let target = ResourceRef::new(crate::ResourceType::Event, "event-1").unwrap();
-        for class in [ResourceLinkClass::Strong, ResourceLinkClass::Forward, ResourceLinkClass::External] {
-            let link = ResourceLink::new_with_class(source.clone(), "rel", target.clone(), class).unwrap();
+        for class in [
+            ResourceLinkClass::Strong,
+            ResourceLinkClass::Forward,
+            ResourceLinkClass::External,
+        ] {
+            let link = ResourceLink::new_with_class(source.clone(), "rel", target.clone(), class)
+                .unwrap();
             let encoded = serde_json::to_string(&link).unwrap();
             let decoded: ResourceLink = serde_json::from_str(&encoded).unwrap();
             assert_eq!(decoded, link);
