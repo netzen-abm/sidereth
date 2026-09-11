@@ -101,8 +101,9 @@ pub use action::{
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{
-    AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
-    AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
+    evaluate_request, AccessAction, AccessRequest, AuthorizationContext, AuthorizationDecision,
+    AuthorizationEvaluator, AuthorizationPolicy, AuthorizationRequest, AuthorizationResult,
+    CaseAccessPolicy, InMemoryAuthorizationEvaluator,
 };
 pub use capability_registry::{
     CapabilityDataClass, CapabilityDependency, CapabilityImplementation, CapabilityLifecycle,
