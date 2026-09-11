@@ -37,7 +37,6 @@ pub enum ApprovalOrigin {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum ApprovalDecision {
     Granted,
     Rejected,
@@ -327,17 +326,6 @@ mod tests {
             "2026-09-04T10:00:00Z".into(),
         )
         .unwrap()
-    }
-
-    fn authorization(decision: AuthorizationDecision) -> AuthorizationResult {
-        AuthorizationResult {
-            authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
-            decision,
-            constraints: Vec::new(),
-            policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
-            evaluated_at_epoch_seconds: 100,
-            expires_at_epoch_seconds: Some(160),
-        }
     }
 
     fn approval(decision: ApprovalDecision) -> ApprovalRecord {
