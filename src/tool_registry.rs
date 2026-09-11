@@ -18,7 +18,11 @@ pub struct ToolVersion {
 
 impl ToolVersion {
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 }
 
@@ -328,7 +332,10 @@ impl InMemoryToolRegistry {
             .entries
             .values()
             .filter(|entry| {
-                criteria.tool_id.as_deref().is_none_or(|id| entry.tool_id == id)
+                criteria
+                    .tool_id
+                    .as_deref()
+                    .is_none_or(|id| entry.tool_id == id)
                     && criteria.version.is_none_or(|v| entry.version == v)
                     && criteria
                         .capability_ref
@@ -384,7 +391,10 @@ impl InMemoryToolRegistry {
                 | (ToolLifecycle::Contracted, ToolLifecycle::Implemented)
                 | (ToolLifecycle::Implemented, ToolLifecycle::Tested)
                 | (ToolLifecycle::Tested, ToolLifecycle::SecurityReviewed)
-                | (ToolLifecycle::SecurityReviewed, ToolLifecycle::OperationallyVerified)
+                | (
+                    ToolLifecycle::SecurityReviewed,
+                    ToolLifecycle::OperationallyVerified
+                )
                 | (ToolLifecycle::OperationallyVerified, ToolLifecycle::Active)
                 | (ToolLifecycle::Active, ToolLifecycle::Deprecated)
                 | (ToolLifecycle::Deprecated, ToolLifecycle::Retired)
@@ -464,14 +474,7 @@ impl InMemoryToolRegistry {
                     }))
                     .collect();
                 for v in versions {
-                    if visit(
-                        &dep.tool_id,
-                        v,
-                        registry,
-                        candidate,
-                        visiting,
-                        visited,
-                    ) {
+                    if visit(&dep.tool_id, v, registry, candidate, visiting, visited) {
                         return true;
                     }
                 }
@@ -640,14 +643,10 @@ mod tests {
         let mut r = InMemoryToolRegistry::new();
         r.register(entry("x", v), audit("x", v, "register"))
             .unwrap();
-        assert!(r
-            .promote(
-                "x",
-                v,
-                ToolLifecycle::Contracted,
-                audit("x", v, "promote")
-            )
-            .is_err());
+        assert!(
+            r.promote("x", v, ToolLifecycle::Contracted, audit("x", v, "promote"))
+                .is_err()
+        );
     }
 
     #[test]
