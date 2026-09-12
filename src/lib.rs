@@ -80,6 +80,7 @@ pub mod lifecycle;
 pub mod local_store;
 pub mod observation;
 pub mod observation_command;
+pub mod observation_lifecycle;
 pub mod party;
 pub mod party_repository;
 pub mod persistence;
@@ -133,9 +134,8 @@ pub use evidence_repository::{
 };
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use evidence_trust::{
-    CaptureLocation, EvidencePassport, EvidenceTransformation, EvidenceTrustMetadata,
-    HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus, LocationDisclosure,
-    MediaOrigin,
+    CaptureLocation, EvidencePassport, EvidenceTransformation, HardwareAttestationStatus,
+    IntegrityStatus as EvidenceIntegrityStatus, LocationDisclosure, MediaOrigin,
 };
 pub use intelligence::{
     EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
@@ -153,6 +153,10 @@ pub use observation::{Observation, ObservationOrigin, ObservationType};
 pub use observation_command::{
     ObservationCommand, ObservationCommandContext, ObservationCommandError,
     ObservationCommandResult,
+};
+pub use observation_lifecycle::{
+    ObservationLifecycleCommand, ObservationLifecycleContext, ObservationLifecycleError,
+    ObservationLifecycleOperation, ObservationLifecycleResult,
 };
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use party_repository::PartyUnitOfWorkRepository;
