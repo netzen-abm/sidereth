@@ -113,7 +113,10 @@ fn observation(id: &str, assertion: &str) -> Observation {
     }
 }
 
-fn context(operation: ObservationLifecycleOperation, prior_id: &str) -> ObservationLifecycleContext {
+fn context(
+    operation: ObservationLifecycleOperation,
+    prior_id: &str,
+) -> ObservationLifecycleContext {
     let actor_ref = ResourceRef::new(ResourceType::Party, "party-1").unwrap();
     ObservationLifecycleContext {
         actor_ref: actor_ref.clone(),
