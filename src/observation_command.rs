@@ -39,7 +39,7 @@ impl From<AuthoritativeCommandError> for ObservationCommandError {
                     operation: Box::new(Self::from(*operation)),
                     rollback,
                 }
-            }
+            },
         }
     }
 }
