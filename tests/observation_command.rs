@@ -1,9 +1,9 @@
 use serde_json::json;
-use sidereth::persistence::{
+use sidereth_core::persistence::{
     PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, UnitOfWork,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
-use sidereth::{
+use sidereth_core::{
     AuthorizationDecision, AuthorizationResult, EpistemicStatus, IntelligenceDataClass,
     Observation, ObservationCommand, ObservationCommandContext, ObservationCommandError,
     ObservationOrigin, ObservationType, ResourceRef, ResourceType, Revision,
@@ -46,7 +46,7 @@ impl UnitOfWorkContext for MockContext {
 
     fn link_resources(
         &mut self,
-        _link: sidereth::persistence::ResourceLink,
+        _link: sidereth_core::persistence::ResourceLink,
     ) -> Result<(), UnitOfWorkError> {
         Ok(())
     }
