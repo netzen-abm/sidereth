@@ -3,7 +3,9 @@ use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
 };
-use crate::{AuthorizationDecision, AuthorizationResult, Id, Observation, ResourceRef, ResourceType};
+use crate::{
+    AuthorizationDecision, AuthorizationResult, Id, Observation, ResourceRef, ResourceType,
+};
 use serde_json::json;
 
 const OBSERVATION_CREATE_ACTION: &str = "observation.create";
@@ -119,9 +121,11 @@ fn validate_authorization(
         return Err(ObservationCommandError::InvalidInput);
     }
 
-    let observation_ref =
-        ResourceRef::new(ResourceType::Observation, observation.observation_id.clone())
-            .map_err(|_| ObservationCommandError::InvalidInput)?;
+    let observation_ref = ResourceRef::new(
+        ResourceType::Observation,
+        observation.observation_id.clone(),
+    )
+    .map_err(|_| ObservationCommandError::InvalidInput)?;
     let expected_action = ResourceRef::new(ResourceType::Action, OBSERVATION_CREATE_ACTION)
         .map_err(|_| ObservationCommandError::InvalidInput)?;
     let expected_data_class = serde_json::to_value(observation.data_class)
