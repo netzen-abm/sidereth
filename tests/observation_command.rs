@@ -4,9 +4,9 @@ use sidereth::persistence::{
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use sidereth::{
-    AuthorizationDecision, AuthorizationResult, EpistemicStatus, IntelligenceDataClass, Observation,
-    ObservationCommand, ObservationCommandContext, ObservationCommandError, ObservationOrigin,
-    ObservationType, ResourceRef, ResourceType, Revision,
+    AuthorizationDecision, AuthorizationResult, EpistemicStatus, IntelligenceDataClass,
+    Observation, ObservationCommand, ObservationCommandContext, ObservationCommandError,
+    ObservationOrigin, ObservationType, ResourceRef, ResourceType, Revision,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
