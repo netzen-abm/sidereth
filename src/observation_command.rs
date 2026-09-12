@@ -184,7 +184,7 @@ fn persist_observation<C: UnitOfWorkContext>(
 
     uow.write_resource(ResourceWrite::new(
         observation_ref.clone(),
-        observation.schema_version,
+        observation.schema_version as u16,
         payload,
         ResourceWriteMode::Insert,
     )?)?;
