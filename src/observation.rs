@@ -12,7 +12,7 @@ pub enum ObservationOrigin {
     UserReport,
     Measurement,
     SourceAssertion,
-    SystemDetection,
+    SystemDerivation,
     AiDerivation,
 }
 
@@ -135,6 +135,14 @@ mod tests {
         value.epistemic_status = EpistemicStatus::Inferred;
         assert!(value.validate().is_ok());
         assert_eq!(value.epistemic_status(), EpistemicStatus::Inferred);
+    }
+
+    #[test]
+    fn system_derivation_uses_canonical_wire_value() {
+        let mut value = observation();
+        value.observation_origin = ObservationOrigin::SystemDerivation;
+        let json = serde_json::to_value(&value).unwrap();
+        assert_eq!(json["observation_origin"], "SYSTEM_DERIVATION");
     }
 
     #[test]

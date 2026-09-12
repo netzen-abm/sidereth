@@ -28,7 +28,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master; zizmor ref-version-mismatch is intentionally ignored because this is a rolling branch pin
+        # zizmor: ignore[ref-version-mismatch] dtolnay/rust-toolchain uses the rolling master branch; the SHA is immutable
         with:
           toolchain: stable
       - name: Generate lockfile for audit when absent
