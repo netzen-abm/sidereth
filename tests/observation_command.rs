@@ -128,7 +128,7 @@ fn context() -> ObservationCommandContext {
             resource_ref: ResourceRef::new(ResourceType::Observation, "obs-1").unwrap(),
             purpose: "record observation".into(),
             jurisdiction_ref: None,
-            data_class: Some("restricted".into()),
+            data_class: Some("RESTRICTED".into()),
             decision: AuthorizationDecision::Allow,
             constraints: Vec::new(),
             policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
