@@ -163,6 +163,11 @@ fn persist_observation<C: UnitOfWorkContext>(
     let observation_id = observation.observation_id.clone();
     let observation_ref = ResourceRef::new(ResourceType::Observation, observation_id.clone())
         .map_err(|_| UnitOfWorkError::InvalidOperation)?;
+    let recorded_at = observation.recorded_at.clone();
+    let source_refs = observation.source_refs.clone();
+    let authorization_ref = authorization.authorization_ref.clone();
+    let actor_id = actor_ref.id.clone();
+    let actor_type = actor_ref.resource_type;
     let payload = serde_json::to_value(&observation)
         .map_err(|_| UnitOfWorkError::Persistence(PersistenceError::SerializationFailure))?;
 
@@ -186,15 +191,15 @@ fn persist_observation<C: UnitOfWorkContext>(
             "event_type": "observation.created",
             "aggregate_type": "observation",
             "aggregate_id": observation_id,
-            "occurred_at": observation.recorded_at,
-            "actor_type": actor_ref.resource_type,
-            "actor_id": actor_ref.id,
+            "occurred_at": recorded_at,
+            "actor_type": actor_type,
+            "actor_id": actor_id,
             "schema_version": 1,
             "payload": {
-                "observation_ref": observation_ref,
-                "authorization_ref": authorization.authorization_ref
+                "observation_ref": observation_ref.clone(),
+                "authorization_ref": authorization_ref.clone()
             },
-            "source_refs": observation.source_refs,
+            "source_refs": source_refs.clone(),
             "correlation_id": correlation_id,
             "causation_id": null
         }),
@@ -207,13 +212,13 @@ fn persist_observation<C: UnitOfWorkContext>(
         1,
         json!({
             "audit_id": audit_id,
-            "actor_id": actor_ref.id,
+            "actor_id": actor_id,
             "action": "observation.created",
             "aggregate_type": "observation",
             "aggregate_id": observation_id,
-            "occurred_at": observation.recorded_at,
+            "occurred_at": recorded_at,
             "operation_id": operation_id,
-            "authorization_ref": authorization.authorization_ref
+            "authorization_ref": authorization_ref.clone()
         }),
         ResourceWriteMode::Insert,
     )?)?;
@@ -225,10 +230,10 @@ fn persist_observation<C: UnitOfWorkContext>(
         json!({
             "provenance_id": provenance_id,
             "actor_ref": actor_ref,
-            "source_refs": observation.source_refs,
-            "input_refs": [observation_ref, authorization.authorization_ref],
+            "source_refs": source_refs,
+            "input_refs": [observation_ref, authorization_ref],
             "operation": "observation.created",
-            "occurred_at": observation.recorded_at
+            "occurred_at": recorded_at
         }),
         ResourceWriteMode::Insert,
     )?)?;
