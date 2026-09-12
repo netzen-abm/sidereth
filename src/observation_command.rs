@@ -123,6 +123,11 @@ fn validate_authorization(
             .map_err(|_| ObservationCommandError::InvalidInput)?;
     let expected_action = ResourceRef::new(ResourceType::Action, OBSERVATION_CREATE_ACTION)
         .map_err(|_| ObservationCommandError::InvalidInput)?;
+    let expected_data_class = serde_json::to_value(observation.data_class)
+        .map_err(|_| ObservationCommandError::InvalidInput)?;
+    let expected_data_class = expected_data_class
+        .as_str()
+        .ok_or(ObservationCommandError::InvalidInput)?;
     let authorization = &context.authorization;
 
     if authorization.decision != AuthorizationDecision::Allow {
@@ -137,6 +142,7 @@ fn validate_authorization(
     if authorization.subject_ref != context.actor_ref
         || authorization.action != expected_action
         || authorization.resource_ref != observation_ref
+        || authorization.data_class.as_deref() != Some(expected_data_class)
     {
         return Err(ObservationCommandError::AuthorizationMismatch);
     }
