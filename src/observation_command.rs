@@ -28,14 +28,18 @@ impl From<AuthoritativeCommandError> for ObservationCommandError {
         match error {
             AuthoritativeCommandError::Persistence(error) => match error {
                 PersistenceError::Conflict => Self::Conflict,
-                PersistenceError::Duplicate | PersistenceError::IdempotencyAlreadyClaimed => Self::Duplicate,
+                PersistenceError::Duplicate | PersistenceError::IdempotencyAlreadyClaimed => {
+                    Self::Duplicate
+                }
                 other => Self::Persistence(other),
             },
             AuthoritativeCommandError::InvalidOperation => Self::InvalidInput,
-            AuthoritativeCommandError::RollbackFailure { operation, rollback } => Self::RollbackFailure {
-                operation: Box::new(Self::from(*operation)),
-                rollback,
-            },
+            AuthoritativeCommandError::RollbackFailure { operation, rollback } => {
+                Self::RollbackFailure {
+                    operation: Box::new(Self::from(*operation)),
+                    rollback,
+                }
+            }
         }
     }
 }
@@ -68,21 +72,20 @@ where
         Self { factory }
     }
 
-    /// Authoritatively records one Observation after an already-evaluated
-    /// authorization result has been structurally bound to the exact actor,
-    /// action, resource, and validity window. This command does not perform
-    /// AI inference, legal judgment, approval, or evidence verification.
     pub fn create(
         &mut self,
         context: ObservationCommandContext,
         observation: Observation,
     ) -> Result<ObservationCommandResult, ObservationCommandError> {
         validate_authorization(&context, &observation)?;
-        observation.validate().map_err(|_| ObservationCommandError::InvalidInput)?;
+        observation
+            .validate()
+            .map_err(|_| ObservationCommandError::InvalidInput)?;
 
         let mut plan = AtomicCommandPlan::new(context.operation_id.clone())
             .map_err(|_| ObservationCommandError::InvalidInput)?;
-        plan.claim_operation().map_err(|_| ObservationCommandError::InvalidInput)?;
+        plan.claim_operation()
+            .map_err(|_| ObservationCommandError::InvalidInput)?;
 
         let actor_ref = context.actor_ref;
         let correlation_id = context.correlation_id;
@@ -108,12 +111,16 @@ fn validate_authorization(
     context: &ObservationCommandContext,
     observation: &Observation,
 ) -> Result<(), ObservationCommandError> {
-    if context.operation_id.is_empty() || context.correlation_id.is_empty() || context.actor_ref.id.is_empty() {
+    if context.operation_id.is_empty()
+        || context.correlation_id.is_empty()
+        || context.actor_ref.id.is_empty()
+    {
         return Err(ObservationCommandError::InvalidInput);
     }
 
-    let observation_ref = ResourceRef::new(ResourceType::Observation, observation.observation_id.clone())
-        .map_err(|_| ObservationCommandError::InvalidInput)?;
+    let observation_ref =
+        ResourceRef::new(ResourceType::Observation, observation.observation_id.clone())
+            .map_err(|_| ObservationCommandError::InvalidInput)?;
     let expected_action = ResourceRef::new(ResourceType::Action, OBSERVATION_CREATE_ACTION)
         .map_err(|_| ObservationCommandError::InvalidInput)?;
     let authorization = &context.authorization;
@@ -134,7 +141,9 @@ fn validate_authorization(
         return Err(ObservationCommandError::AuthorizationMismatch);
     }
     if authorization.evaluated_at_epoch_seconds > context.now_epoch_seconds
-        || authorization.expires_at_epoch_seconds.is_some_and(|expires| context.now_epoch_seconds > expires)
+        || authorization
+            .expires_at_epoch_seconds
+            .is_some_and(|expires| context.now_epoch_seconds > expires)
     {
         return Err(ObservationCommandError::AuthorizationExpired);
     }
