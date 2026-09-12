@@ -105,9 +105,7 @@ fn observation() -> Observation {
         epistemic_status: EpistemicStatus::Observed,
         source_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
         evidence_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
-        provenance_ref: Some(
-            ResourceRef::new(ResourceType::Provenance, "input-prov-1").unwrap(),
-        ),
+        provenance_ref: Some(ResourceRef::new(ResourceType::Provenance, "input-prov-1").unwrap()),
         context_refs: Vec::new(),
         data_class: IntelligenceDataClass::Restricted,
     }
@@ -148,21 +146,12 @@ fn create_is_authorized_and_atomic() {
 
     let records = state.0.borrow();
     assert_eq!(result.revision, Revision::initial());
-    assert!(records.contains_key(
-        &ResourceRef::new(ResourceType::Observation, "obs-1").unwrap()
-    ));
-    assert!(records.contains_key(
-        &ResourceRef::new(ResourceType::Event, &result.event_id).unwrap()
-    ));
-    assert!(records.contains_key(
-        &ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()
-    ));
-    assert!(records.contains_key(
-        &ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()
-    ));
-    assert!(records.contains_key(
-        &ResourceRef::new(ResourceType::Idempotency, "op-1").unwrap()
-    ));
+    assert!(records.contains_key(&ResourceRef::new(ResourceType::Observation, "obs-1").unwrap()));
+    assert!(records.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap()));
+    assert!(records.contains_key(&ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()));
+    assert!(records
+        .contains_key(&ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()));
+    assert!(records.contains_key(&ResourceRef::new(ResourceType::Idempotency, "op-1").unwrap()));
 }
 
 #[test]
