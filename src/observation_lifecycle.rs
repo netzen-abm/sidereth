@@ -1,4 +1,6 @@
-use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
+use crate::command::{
+    execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
+};
 use crate::persistence::{
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
@@ -71,12 +73,13 @@ impl From<AuthoritativeCommandError> for ObservationLifecycleError {
                 other => Self::Persistence(other),
             },
             AuthoritativeCommandError::InvalidOperation => Self::InvalidInput,
-            AuthoritativeCommandError::RollbackFailure { operation, rollback } => {
-                Self::RollbackFailure {
-                    operation: Box::new(Self::from(*operation)),
-                    rollback,
-                }
-            }
+            AuthoritativeCommandError::RollbackFailure {
+                operation,
+                rollback,
+            } => Self::RollbackFailure {
+                operation: Box::new(Self::from(*operation)),
+                rollback,
+            },
         }
     }
 }
@@ -342,9 +345,18 @@ mod tests {
 
     #[test]
     fn lifecycle_operations_have_distinct_canonical_actions_and_relations() {
-        assert_eq!(ObservationLifecycleOperation::Correction.action(), "observation.correct");
-        assert_eq!(ObservationLifecycleOperation::Supersession.action(), "observation.supersede");
-        assert_eq!(ObservationLifecycleOperation::Contradiction.action(), "observation.contradict");
+        assert_eq!(
+            ObservationLifecycleOperation::Correction.action(),
+            "observation.correct"
+        );
+        assert_eq!(
+            ObservationLifecycleOperation::Supersession.action(),
+            "observation.supersede"
+        );
+        assert_eq!(
+            ObservationLifecycleOperation::Contradiction.action(),
+            "observation.contradict"
+        );
         assert_ne!(
             ObservationLifecycleOperation::Correction.relation(),
             ObservationLifecycleOperation::Supersession.relation()
