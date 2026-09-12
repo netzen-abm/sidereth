@@ -1,6 +1,4 @@
-use crate::command::{
-    execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
-};
+use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
