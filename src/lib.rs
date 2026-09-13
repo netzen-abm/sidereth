@@ -78,10 +78,10 @@ pub mod legal_source;
 pub mod legal_source_registry;
 pub mod lifecycle;
 pub mod local_store;
+pub mod longitudinal;
 pub mod observation;
 pub mod observation_command;
 pub mod observation_lifecycle;
-pub mod longitudinal;
 pub mod party;
 pub mod party_repository;
 pub mod persistence;
@@ -118,7 +118,7 @@ pub use capability_registry::{
 pub use command::{
     apply_plan, execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
 };
-pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState};
+pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState>;
 pub use deadline::{
     ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
     Obligation,
@@ -151,6 +151,7 @@ pub use legal_source::{
 pub use legal_source_registry::LegalSourceRegistry;
 pub use lifecycle::{LifecycleMeta, LifecycleTransition};
 pub use local_store::LocalFileStore;
+pub use longitudinal::{LongitudinalEntry, LongitudinalView};
 pub use observation::{Observation, ObservationOrigin, ObservationType};
 pub use observation_command::{
     ObservationCommand, ObservationCommandContext, ObservationCommandError,
@@ -160,7 +161,6 @@ pub use observation_lifecycle::{
     ObservationLifecycleCommand, ObservationLifecycleCommandContext,
     ObservationLifecycleCommandResult, ObservationLifecycleError, ObservationLifecycleOperation,
 };
-pub use longitudinal::{LongitudinalEntry, LongitudinalView};
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use party_repository::PartyUnitOfWorkRepository;
 pub use persistence::{
