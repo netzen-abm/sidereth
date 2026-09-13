@@ -158,17 +158,11 @@ mod tests {
                 .filter(|record| &record.resource_ref == resource_ref))
         }
 
-        fn write_resource(
-            &mut self,
-            _write: crate::ResourceWrite,
-        ) -> Result<(), UnitOfWorkError> {
+        fn write_resource(&mut self, _write: crate::ResourceWrite) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
 
-        fn link_resources(
-            &mut self,
-            _link: crate::ResourceLink,
-        ) -> Result<(), UnitOfWorkError> {
+        fn link_resources(&mut self, _link: crate::ResourceLink) -> Result<(), UnitOfWorkError> {
             Ok(())
         }
     }
