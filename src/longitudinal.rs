@@ -7,15 +7,13 @@ pub enum LongitudinalEntry {
 }
 
 impl LongitudinalEntry {
-    pub fn source_ref(&self) -> ResourceRef {
+    pub fn source_ref(&self) -> Result<ResourceRef, &'static str> {
         match self {
-            Self::Event(event) => ResourceRef::new(crate::ResourceType::Event, event.event_id.clone())
-                .expect("event id has already been validated"),
+            Self::Event(event) => ResourceRef::new(crate::ResourceType::Event, event.event_id.clone()),
             Self::Observation(observation) => ResourceRef::new(
                 crate::ResourceType::Observation,
                 observation.observation_id.clone(),
-            )
-            .expect("observation id has already been validated"),
+            ),
         }
     }
 
@@ -38,10 +36,6 @@ impl LongitudinalView {
         subject_ref: ResourceRef,
         entries: Vec<LongitudinalEntry>,
     ) -> Result<Self, &'static str> {
-        if entries.is_empty() {
-            return Err("longitudinal view requires at least one entry");
-        }
-
         for entry in &entries {
             match entry {
                 LongitudinalEntry::Event(event) => event.validate()?,
@@ -169,10 +163,21 @@ mod tests {
     }
 
     #[test]
-    fn empty_projection_is_rejected() {
+    fn empty_projection_is_valid_and_rebuildable() {
+        let view = LongitudinalView::from_entries(case_ref(), vec![]).unwrap();
+        assert!(view.entries().is_empty());
+        assert!(view.source_ids().is_empty());
+    }
+
+    #[test]
+    fn source_ref_is_safe_before_validation() {
+        let invalid = EventEnvelope {
+            event_id: String::new(),
+            ..event("event-1", "2026-09-02T10:00:00Z")
+        };
         assert_eq!(
-            LongitudinalView::from_entries(case_ref(), vec![]),
-            Err("longitudinal view requires at least one entry")
+            LongitudinalEntry::Event(invalid).source_ref(),
+            Err("resource reference id is required")
         );
     }
 }
