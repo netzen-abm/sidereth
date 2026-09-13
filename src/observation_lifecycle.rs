@@ -1,7 +1,7 @@
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
-    PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode,
-    Revision, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
+    PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode, Revision,
+    UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{
     AuthorizationDecision, AuthorizationResult, Id, Observation, ResourceRef, ResourceType,
@@ -70,6 +70,7 @@ impl From<AuthoritativeCommandError> for ObservationLifecycleError {
                 PersistenceError::Duplicate | PersistenceError::IdempotencyAlreadyClaimed => {
                     Self::Duplicate
                 }
+                PersistenceError::NotFound => Self::PriorObservationNotFound,
                 other => Self::Persistence(other),
             },
             AuthoritativeCommandError::InvalidOperation => Self::InvalidInput,
@@ -128,8 +129,11 @@ where
         {
             return Err(ObservationLifecycleError::InvalidInput);
         }
-        let new_ref = ResourceRef::new(ResourceType::Observation, observation.observation_id.clone())
-            .map_err(|_| ObservationLifecycleError::InvalidInput)?;
+        let new_ref = ResourceRef::new(
+            ResourceType::Observation,
+            observation.observation_id.clone(),
+        )
+        .map_err(|_| ObservationLifecycleError::InvalidInput)?;
         if prior_observation == new_ref {
             return Err(ObservationLifecycleError::SameObservation);
         }
