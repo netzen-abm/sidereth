@@ -169,12 +169,14 @@ fn correction_preserves_prior_and_links_new_observation() {
         .unwrap();
 
     assert_eq!(result.prior_observation_id, "obs-old");
-    assert!(state.records.borrow().contains_key(
-        &ResourceRef::new(ResourceType::Observation, "obs-old").unwrap()
-    ));
-    assert!(state.records.borrow().contains_key(
-        &ResourceRef::new(ResourceType::Observation, "obs-new").unwrap()
-    ));
+    assert!(state
+        .records
+        .borrow()
+        .contains_key(&ResourceRef::new(ResourceType::Observation, "obs-old").unwrap()));
+    assert!(state
+        .records
+        .borrow()
+        .contains_key(&ResourceRef::new(ResourceType::Observation, "obs-new").unwrap()));
     let links = state.links.borrow();
     assert_eq!(links.len(), 1);
     assert_eq!(links[0].relation, "corrects");
@@ -199,9 +201,10 @@ fn supersession_is_explicit_and_does_not_delete_prior() {
         )
         .unwrap();
 
-    assert!(state.records.borrow().contains_key(
-        &ResourceRef::new(ResourceType::Observation, "obs-old").unwrap()
-    ));
+    assert!(state
+        .records
+        .borrow()
+        .contains_key(&ResourceRef::new(ResourceType::Observation, "obs-old").unwrap()));
     assert_eq!(state.links.borrow()[0].relation, "supersedes");
 }
 
