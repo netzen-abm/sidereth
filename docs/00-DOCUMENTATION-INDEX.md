@@ -57,12 +57,17 @@ Do not create another general-purpose decision list.
 
 ### Architecture scope distinction
 
-`SIDERETH-ARCHITECTURE.md` and `SIDERETH-ECOSYSTEM-ARCHITECTURE.md` are intentionally complementary:
+`SIDERETH-ARCHITECTURE.md`, `SIDERETH-ECOSYSTEM-ARCHITECTURE.md`, and focused architecture specifications under `docs/architecture/` are intentionally complementary:
 
 - system architecture defines the target system boundary, lifecycle and universal infrastructure;
-- ecosystem architecture defines composition, reusable capability semantics, domain packs, adapters, provider neutrality and Trust Kernel rules.
+- ecosystem architecture defines composition, reusable capability semantics, domain packs, adapters, provider neutrality and Trust Kernel rules;
+- focused architecture specifications define a bounded cross-cutting architectural concern without creating a competing master architecture.
 
 Do not merge them merely to reduce file count unless a future audit proves their scopes can be consolidated without loss of authority clarity.
+
+Current focused architecture specification:
+
+- `architecture/LONGITUDINAL-PROJECTION.md` — canonical architecture for the derived longitudinal read/projection layer; explicitly not a `LongitudinalRecord` domain aggregate.
 
 ## 5. Implementation control
 
@@ -91,7 +96,7 @@ Key contract families include:
 - audit/security/encryption;
 - Tool Gateway.
 
-The Observation contract is governed by D-032. Its semantic vocabulary reuses the Intelligence contract's epistemic statuses; observation origin/modality is separate from epistemic status. Observation remains pre-implementation until conformance evidence exists.
+The Observation contract is governed by D-032. Its semantic vocabulary reuses the Intelligence contract's epistemic statuses; observation origin/modality is separate from epistemic status. Observation conformance is now at an **IMPLEMENTED BASELINE / LIFECYCLE CONFORMANCE IN PROGRESS** stage; see the conformance matrix for exact requirement-level evidence and deferred gates.
 
 A contract defines a boundary. Code must conform to it. A convenient implementation must not redefine the boundary.
 
@@ -170,11 +175,14 @@ docs/
 ├── DECISION-REGISTER.md
 ├── DECISIONS/
 ├── contracts/
+├── architecture/
 ├── migration/
 └── archive/
 ```
 
-Additional physical folders such as `architecture/`, `planning/` and `evidence/` should be introduced only through a separate link-audited migration. Cosmetic mass moves are not justified.
+Focused `architecture/` documents should be used for genuinely distinct cross-cutting architecture concerns and must not become duplicate master architectures.
+
+Additional physical folders such as `planning/` and `evidence/` should be introduced only through a separate link-audited migration. Cosmetic mass moves are not justified.
 
 ## 12. Non-negotiable documentation rule
 
