@@ -155,8 +155,8 @@ pub use observation_command::{
     ObservationCommandResult,
 };
 pub use observation_lifecycle::{
-    ObservationLifecycleCommand, ObservationLifecycleCommandContext, ObservationLifecycleCommandResult,
-    ObservationLifecycleError, ObservationLifecycleOperation,
+    ObservationLifecycleCommand, ObservationLifecycleCommandContext,
+    ObservationLifecycleCommandResult, ObservationLifecycleError, ObservationLifecycleOperation,
 };
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use party_repository::PartyUnitOfWorkRepository;
