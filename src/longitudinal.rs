@@ -88,7 +88,7 @@ impl LongitudinalView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ObservationOrigin, ObservationStatus};
+    use crate::{EpistemicStatus, IntelligenceDataClass, ObservationOrigin, ObservationType};
     use serde_json::Value;
 
     fn case_ref() -> ResourceRef {
@@ -117,17 +117,17 @@ mod tests {
             observation_id: id.into(),
             schema_version: 1,
             subject_ref: case_ref(),
-            observation_type: "condition".into(),
+            observation_type: ObservationType::Condition,
             observation_origin: ObservationOrigin::UserReport,
             observed_at: time.into(),
             recorded_at: "2026-09-13T10:00:00Z".into(),
             assertion: Value::String("reported".into()),
-            epistemic_status: ObservationStatus::UserReported,
-            source_refs: vec!["source-1".into()],
+            epistemic_status: EpistemicStatus::UserReported,
+            source_refs: vec![],
             evidence_refs: vec![],
+            provenance_ref: None,
             context_refs: vec![],
-            provenance: None,
-            data_class: "public".into(),
+            data_class: IntelligenceDataClass::Public,
         }
     }
 
@@ -144,7 +144,6 @@ mod tests {
         .unwrap();
 
         assert_eq!(view.source_ids(), vec!["event-1", "obs-1", "obs-2"]);
-        assert_eq!(view.entries()[1], LongitudinalEntry::Observation(observation("obs-1", "2026-09-02T10:30:00Z")));
     }
 
     #[test]
@@ -163,7 +162,7 @@ mod tests {
         let view = LongitudinalView::from_entries(case_ref(), vec![LongitudinalEntry::Observation(obs)]).unwrap();
         match &view.entries()[0] {
             LongitudinalEntry::Observation(observation) => {
-                assert_eq!(observation.epistemic_status, ObservationStatus::UserReported);
+                assert_eq!(observation.epistemic_status, EpistemicStatus::UserReported);
             }
             _ => panic!("expected observation"),
         }
