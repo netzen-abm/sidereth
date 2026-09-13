@@ -81,6 +81,7 @@ pub mod local_store;
 pub mod observation;
 pub mod observation_command;
 pub mod observation_lifecycle;
+pub mod longitudinal;
 pub mod party;
 pub mod party_repository;
 pub mod persistence;
@@ -159,6 +160,7 @@ pub use observation_lifecycle::{
     ObservationLifecycleCommand, ObservationLifecycleCommandContext,
     ObservationLifecycleCommandResult, ObservationLifecycleError, ObservationLifecycleOperation,
 };
+pub use longitudinal::{LongitudinalEntry, LongitudinalView};
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use party_repository::PartyUnitOfWorkRepository;
 pub use persistence::{
