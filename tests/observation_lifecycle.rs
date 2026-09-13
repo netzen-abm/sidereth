@@ -117,11 +117,8 @@ fn seed_prior(factory: &MockFactory, prior: &Observation) {
     factory.state.records.borrow_mut().insert(
         ResourceRef::new(ResourceType::Observation, prior.observation_id.clone()).unwrap(),
         ResourceRecord {
-            resource_ref: ResourceRef::new(
-                ResourceType::Observation,
-                prior.observation_id.clone(),
-            )
-            .unwrap(),
+            resource_ref: ResourceRef::new(ResourceType::Observation, prior.observation_id.clone())
+                .unwrap(),
             schema_version: 1,
             revision: Revision::initial(),
             payload: serde_json::to_value(prior).unwrap(),
