@@ -149,25 +149,19 @@ where
         plan.claim_operation()
             .map_err(|_| ObservationLifecycleError::InvalidInput)?;
 
-        let actor_ref = context.actor_ref;
-        let correlation_id = context.correlation_id;
-        let operation_id = context.operation_id;
-        let authorization = context.authorization;
-        let operation_name = operation;
+        let persist_context = ObservationLifecyclePersistContext {
+            actor_ref: context.actor_ref,
+            correlation_id: context.correlation_id,
+            operation_id: context.operation_id,
+            authorization: context.authorization,
+            operation,
+            prior_observation,
+            observation,
+            reason,
+        };
 
-        execute_authoritative_command(self.factory, plan, move |uow, plan| {
-            persist_lifecycle(
-                uow,
-                plan,
-                actor_ref,
-                correlation_id,
-                operation_id,
-                authorization,
-                operation_name,
-                prior_observation,
-                observation,
-                reason,
-            )
+        execute_authoritative_command(self.factory, plan, move |uow, _plan| {
+            persist_lifecycle(uow, persist_context)
         })
         .map_err(ObservationLifecycleError::from)
     }
@@ -271,9 +265,7 @@ fn validate_authorization(
     Ok(())
 }
 
-fn persist_lifecycle<C: UnitOfWorkContext>(
-    uow: &mut C,
-    plan: &AtomicCommandPlan,
+struct ObservationLifecyclePersistContext {
     actor_ref: ResourceRef,
     correlation_id: Id,
     operation_id: Id,
@@ -282,7 +274,23 @@ fn persist_lifecycle<C: UnitOfWorkContext>(
     prior_observation: ResourceRef,
     observation: Observation,
     reason: String,
+}
+
+fn persist_lifecycle<C: UnitOfWorkContext>(
+    uow: &mut C,
+    context: ObservationLifecyclePersistContext,
 ) -> Result<ObservationLifecycleCommandResult, UnitOfWorkError> {
+    let ObservationLifecyclePersistContext {
+        actor_ref,
+        correlation_id,
+        operation_id,
+        authorization,
+        operation,
+        prior_observation,
+        observation,
+        reason,
+    } = context;
+
     let prior = uow
         .read_resource(&prior_observation)?
         .ok_or(UnitOfWorkError::Persistence(PersistenceError::NotFound))?;
@@ -379,7 +387,6 @@ fn persist_lifecycle<C: UnitOfWorkContext>(
         ResourceWriteMode::Insert,
     )?)?;
 
-    let _ = plan;
     Ok(ObservationLifecycleCommandResult {
         observation_id,
         prior_observation_id: prior_observation.id,
