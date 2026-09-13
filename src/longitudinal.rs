@@ -9,7 +9,9 @@ pub enum LongitudinalEntry {
 impl LongitudinalEntry {
     pub fn source_ref(&self) -> Result<ResourceRef, &'static str> {
         match self {
-            Self::Event(event) => ResourceRef::new(crate::ResourceType::Event, event.event_id.clone()),
+            Self::Event(event) => {
+                ResourceRef::new(crate::ResourceType::Event, event.event_id.clone())
+            }
             Self::Observation(observation) => ResourceRef::new(
                 crate::ResourceType::Observation,
                 observation.observation_id.clone(),
@@ -20,7 +22,9 @@ impl LongitudinalEntry {
     fn sort_key(&self) -> (&str, &str) {
         match self {
             Self::Event(event) => (&event.occurred_at, &event.event_id),
-            Self::Observation(observation) => (&observation.observed_at, &observation.observation_id),
+            Self::Observation(observation) => {
+                (&observation.observed_at, &observation.observation_id)
+            }
         }
     }
 }
@@ -57,7 +61,10 @@ impl LongitudinalView {
 
         let mut entries = entries;
         entries.sort_by(|left, right| left.sort_key().cmp(&right.sort_key()));
-        Ok(Self { subject_ref, entries })
+        Ok(Self {
+            subject_ref,
+            entries,
+        })
     }
 
     pub fn subject_ref(&self) -> &ResourceRef {
@@ -143,9 +150,13 @@ mod tests {
     #[test]
     fn projection_rejects_entry_for_different_subject() {
         let mut other = observation("obs-1", "2026-09-02T10:00:00Z");
-        other.subject_ref = ResourceRef::new(crate::ResourceType::Incident, "incident-1").unwrap();
+        other.subject_ref =
+            ResourceRef::new(crate::ResourceType::Incident, "incident-1").unwrap();
         assert_eq!(
-            LongitudinalView::from_entries(case_ref(), vec![LongitudinalEntry::Observation(other)]),
+            LongitudinalView::from_entries(
+                case_ref(),
+                vec![LongitudinalEntry::Observation(other)],
+            ),
             Err("longitudinal entry does not belong to subject")
         );
     }
@@ -153,10 +164,17 @@ mod tests {
     #[test]
     fn projection_does_not_upgrade_observation_status() {
         let obs = observation("obs-1", "2026-09-02T10:00:00Z");
-        let view = LongitudinalView::from_entries(case_ref(), vec![LongitudinalEntry::Observation(obs)]).unwrap();
+        let view = LongitudinalView::from_entries(
+            case_ref(),
+            vec![LongitudinalEntry::Observation(obs)],
+        )
+        .unwrap();
         match &view.entries()[0] {
             LongitudinalEntry::Observation(observation) => {
-                assert_eq!(observation.epistemic_status, EpistemicStatus::UserReported);
+                assert_eq!(
+                    observation.epistemic_status,
+                    EpistemicStatus::UserReported
+                );
             }
             _ => panic!("expected observation"),
         }
