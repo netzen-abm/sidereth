@@ -150,13 +150,9 @@ mod tests {
     #[test]
     fn projection_rejects_entry_for_different_subject() {
         let mut other = observation("obs-1", "2026-09-02T10:00:00Z");
-        other.subject_ref =
-            ResourceRef::new(crate::ResourceType::Incident, "incident-1").unwrap();
+        other.subject_ref = ResourceRef::new(crate::ResourceType::Incident, "incident-1").unwrap();
         assert_eq!(
-            LongitudinalView::from_entries(
-                case_ref(),
-                vec![LongitudinalEntry::Observation(other)],
-            ),
+            LongitudinalView::from_entries(case_ref(), vec![LongitudinalEntry::Observation(other)]),
             Err("longitudinal entry does not belong to subject")
         );
     }
@@ -164,17 +160,12 @@ mod tests {
     #[test]
     fn projection_does_not_upgrade_observation_status() {
         let obs = observation("obs-1", "2026-09-02T10:00:00Z");
-        let view = LongitudinalView::from_entries(
-            case_ref(),
-            vec![LongitudinalEntry::Observation(obs)],
-        )
-        .unwrap();
+        let view =
+            LongitudinalView::from_entries(case_ref(), vec![LongitudinalEntry::Observation(obs)])
+                .unwrap();
         match &view.entries()[0] {
             LongitudinalEntry::Observation(observation) => {
-                assert_eq!(
-                    observation.epistemic_status,
-                    EpistemicStatus::UserReported
-                );
+                assert_eq!(observation.epistemic_status, EpistemicStatus::UserReported);
             }
             _ => panic!("expected observation"),
         }
