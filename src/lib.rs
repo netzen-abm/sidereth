@@ -149,7 +149,7 @@ pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
 pub use legal_source_registry::LegalSourceRegistry;
-pub use lifecycle::{LifecycleMeta, LifecycleTransition>;
+pub use lifecycle::{LifecycleMeta, LifecycleTransition};
 pub use local_store::LocalFileStore;
 pub use longitudinal::{LongitudinalEntry, LongitudinalView};
 pub use observation::{Observation, ObservationOrigin, ObservationType};
@@ -301,9 +301,7 @@ mod tests {
     fn resource_ref_is_explicit_and_stable_on_wire() {
         let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
         let json = serde_json::to_string(&reference).unwrap();
-        let expected = format!(
-            "{{\"resource_type\":\"document\",\"id\":\"doc-1\"}}"
-        );
+        let expected = format!("{{\"resource_type\":\"document\",\"id\":\"doc-1\"}}");
         assert_eq!(json, expected);
         let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded, reference);
