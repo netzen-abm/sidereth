@@ -3,9 +3,9 @@
 **Status:** IMPLEMENTED BASELINE / LIFECYCLE CONFORMANCE IN PROGRESS  
 **Contract:** `docs/contracts/OBSERVATION-CONTRACT.md`  
 **Decision:** D-032  
-**Scope:** Provider-neutral Observation semantics and authoritative creation workflow
+**Scope:** Provider-neutral Observation semantics, authoritative creation, and lifecycle integrity
 
-This matrix defines the evidence required to establish Observation conformance. The repository now contains a minimal Observation semantic primitive and a bounded authoritative creation workflow. Remaining lifecycle, contradiction, temporal-uncertainty, privacy/purpose, and provider-neutral conformance work is explicitly tracked below.
+This matrix defines the evidence required to establish Observation conformance. The repository contains the canonical Observation semantic primitive, an authoritative creation workflow, and bounded lifecycle integrity for correction, supersession, and contradiction. Remaining temporal-uncertainty, evidence-binding, privacy/purpose, provider-neutral, responsibility, and longitudinal conformance work remains explicitly tracked below.
 
 ## 1. Conformance principles
 
@@ -46,7 +46,7 @@ A requirement is not treated as fully conforming merely because a related field 
 | OBS-008 | Epistemic | Canonical vocabulary is reused | Use supported status | Round trip without semantic loss | TESTED |
 | OBS-009 | Epistemic | INFERRED remains INFERRED | Attempt automatic upgrade | Upgrade rejected | TESTED |
 | OBS-010 | Epistemic | UNVERIFIED remains UNVERIFIED | Attempt automatic upgrade | Upgrade rejected | TESTED |
-| OBS-011 | Epistemic | CONTESTED remains CONTESTED | Supply contradiction | Contest remains visible | PENDING |
+| OBS-011 | Epistemic | CONTESTED is preserved | Contradict observation | Contested status remains unchanged | TESTED |
 | OBS-012 | Epistemic | UNKNOWN remains UNKNOWN | Insufficient evidence | No stronger status inferred | PENDING |
 | OBS-013 | Epistemic | USER_REPORTED is distinct | User report without independent support | Status remains USER_REPORTED | TESTED |
 | OBS-014 | Origin/status | MEASUREMENT is origin, not a parallel epistemic status | Instrument measurement | Origin is MEASUREMENT; epistemic status uses canonical vocabulary | TESTED |
@@ -61,17 +61,17 @@ A requirement is not treated as fully conforming merely because a related field 
 | OBS-023 | Evidence | Evidence ownership not duplicated | Attempt to embed canonical evidence identity | Observation references evidence; does not own it | PENDING |
 | OBS-024 | Provenance | Provenance preserved | Attach provenance | Provenance remains traceable | TESTED |
 | OBS-025 | Provenance | Provenance does not equal truth | Source has provenance but weak epistemic basis | Status does not auto-strengthen | TESTED |
-| OBS-026 | ResourceLink | Canonical links reused | Link Observation to Evidence | ResourceLink semantics apply | PENDING |
-| OBS-027 | ResourceLink | No class inference | Legacy class-less link with local endpoint | Must not become Strong | PENDING |
-| OBS-028 | ResourceLink | Strong semantics respected | Missing endpoint | Strong relationship rejected atomically | PENDING |
-| OBS-029 | ResourceLink | Forward semantics respected | Missing target | Forward relationship may remain unresolved | PENDING |
-| OBS-030 | ResourceLink | External semantics respected | External target | No local FK requirement | PENDING |
+| OBS-026 | ResourceLink | Canonical links reused | Link Observation to prior/related resource | ResourceLink semantics apply | TESTED |
+| OBS-027 | ResourceLink | No class inference | Legacy class-less link with local endpoint | Must not become Strong | TESTED at canonical ResourceLink boundary |
+| OBS-028 | ResourceLink | Strong semantics respected | Missing endpoint | Strong relationship rejected atomically | TESTED at canonical ResourceLink boundary |
+| OBS-029 | ResourceLink | Forward semantics respected | Missing target | Forward relationship may remain unresolved | TESTED at canonical ResourceLink boundary |
+| OBS-030 | ResourceLink | External semantics respected | External target | No local FK requirement | TESTED at canonical ResourceLink boundary |
 | OBS-031 | Event | Event/Observation distinction | Create event about Observation lifecycle | Event and Observation remain distinct | TESTED |
 | OBS-032 | Event | Event is not assertion store | Place assertion in event payload | Must not redefine Observation ownership | PENDING |
-| OBS-033 | Correction | Original preserved | Correct material observation | Original remains auditable | NOT IN SCOPE YET |
-| OBS-034 | Correction | Supersession explicit | Supersede observation | Relationship/history is preserved | NOT IN SCOPE YET |
-| OBS-035 | Contradiction | Conflict preserved | Two incompatible observations | Neither silently deleted | NOT IN SCOPE YET |
-| OBS-036 | Contradiction | Newest does not automatically win | Later conflicting observation | Conflict remains explicit | NOT IN SCOPE YET |
+| OBS-033 | Correction | Original preserved | Correct material observation | Original remains auditable | TESTED |
+| OBS-034 | Correction | Supersession explicit | Supersede observation | Relationship/history is preserved | TESTED |
+| OBS-035 | Contradiction | Conflict preserved | Two incompatible observations | Neither silently deleted | TESTED |
+| OBS-036 | Contradiction | Newest does not automatically win | Later conflicting observation | Conflict remains explicit | TESTED |
 | OBS-037 | Responsibility | Observation does not imply responsibility | Associate party/authority | No legal responsibility inferred | PENDING |
 | OBS-038 | Responsibility | Candidate match distinct | AI suggests responsible party | Candidate remains non-authoritative | NOT IN SCOPE YET |
 | OBS-039 | Privacy | Data classification mandatory | Sensitive observation | Classification is retained/enforced | TESTED |
@@ -89,9 +89,9 @@ A requirement is not treated as fully conforming merely because a related field 
 | OBS-051 | Provider | Provider neutrality | Run against two fake producers | Same canonical semantics | PENDING |
 | OBS-052 | Longitudinal | Projection only | Compose chronological view | Underlying identities remain intact | NOT IN SCOPE YET |
 | OBS-053 | Longitudinal | No LongitudinalRecord ownership | Attempt separate aggregate | Rejected unless separately justified/decided | NOT IN SCOPE YET |
-| OBS-054 | Audit | Material changes auditable | Correct/supersede/status change | Required audit/provenance retained | PENDING |
+| OBS-054 | Audit | Material changes auditable | Correct/supersede/contradict | Required audit/provenance retained | TESTED |
 | OBS-055 | Security | Injection cannot alter semantics | Malicious content requests status upgrade | Content treated as untrusted | TESTED at epistemic boundary |
-| OBS-056 | Security | Source conflict is not silently resolved | Conflicting source inputs | Conflict remains represented | NOT IN SCOPE YET |
+| OBS-056 | Security | Source conflict is not silently resolved | Conflicting source inputs | Conflict remains represented | TESTED for explicit contradiction lifecycle |
 | OBS-057 | Persistence | Repository not assumed | Evaluate implementation need | No repository created without explicit ownership decision | TESTED / ARCHITECTURE LOCKED |
 
 ## 4. Current implementation evidence
@@ -104,9 +104,12 @@ The current implementation establishes the following baseline:
 - Observation creation uses the existing authoritative command and Unit-of-Work infrastructure.
 - Authorization is bound to the exact actor, action, resource and applicable data classification/validity constraints.
 - Observation creation persists the Observation together with its creation Event, Audit, Provenance and idempotency claim atomically.
+- Observation correction, supersession, and contradiction use the same authoritative command/UoW infrastructure.
+- Lifecycle operations preserve the prior Observation and express the lifecycle relationship explicitly through canonical Strong ResourceLinks.
+- Contradiction does not select or promote a winning Observation.
 - No Observation-specific repository or storage subsystem has been introduced.
 
-This baseline does **not** establish full lifecycle conformance.
+This baseline does **not** establish full cross-boundary conformance.
 
 ## 5. Required adversarial scenarios
 
@@ -148,7 +151,7 @@ Input: two observations materially conflict.
 
 Expected: both observations and their provenance remain available; the system does not silently choose one because it is newer, generated by AI, or stored later.
 
-**Current status:** DEFERRED until correction/contradiction history semantics are implemented.
+**Current status:** TESTED through the bounded contradiction lifecycle workflow.
 
 ### A-06 — Link-class laundering
 
@@ -156,7 +159,7 @@ Input: a legacy class-less ResourceLink points to an existing local resource.
 
 Expected: it remains a compatibility reference and is not inferred as Strong.
 
-**Current status:** ResourceLink semantics are already implemented and tested at their canonical boundary; Observation-specific integration evidence remains pending.
+**Current status:** ResourceLink semantics are implemented and tested at their canonical boundary; lifecycle integration additionally uses explicit Strong links.
 
 ### A-07 — Projection ownership leak
 
@@ -167,8 +170,6 @@ Expected: projection remains derived and underlying primitive identities remain 
 **Current status:** Deferred; no longitudinal aggregate exists.
 
 ## 6. Implementation promotion gates
-
-The original pre-implementation gates are now superseded by staged implementation gates:
 
 ### Gate 1 — Semantic primitive
 
@@ -194,17 +195,15 @@ The original pre-implementation gates are now superseded by staged implementatio
 
 ### Gate 3 — Lifecycle integrity
 
-Before correction/supersession is implemented, the repository must define and test:
+- original Observation preservation;
+- explicit correction relationship/history;
+- explicit supersession semantics;
+- contradiction preservation;
+- no automatic newest/highest-confidence winner;
+- audit/provenance preservation across lifecycle mutation;
+- deterministic authorization for lifecycle operations.
 
-1. original observation preservation;
-2. explicit correction relationship/history;
-3. explicit supersession semantics;
-4. contradiction preservation;
-5. no automatic newest/highest-confidence winner;
-6. audit/provenance preservation across material change;
-7. deterministic authorization for lifecycle operations.
-
-**Status: PENDING.**
+**Status: PASSED for the bounded correction, supersession, and contradiction workflow.**
 
 ### Gate 4 — Cross-boundary conformance
 
@@ -213,14 +212,14 @@ Before provider, hardware, sensor or longitudinal capabilities are promoted:
 1. temporal uncertainty semantics are accepted;
 2. evidence binding and derived-artifact separation are proven;
 3. privacy/purpose enforcement is proven;
-4. ResourceLink integration is proven;
+4. ResourceLink integration is proven at the Observation workflow boundary;
 5. provider-neutral tests exist;
-6. relevant adversarial scenarios A-01 through A-07 are covered;
+6. relevant adversarial scenarios A-01 through A-07 are covered to the applicable scope;
 7. longitudinal projection remains non-authoritative.
 
 **Status: PENDING.**
 
-## 7. Non-goals
+## 7. Explicitly deferred capabilities
 
 This conformance matrix does not authorize:
 
@@ -235,12 +234,10 @@ This conformance matrix does not authorize:
 
 ## 8. Next bounded conformance work
 
-The next implementation target is **Observation lifecycle integrity**, specifically correction, supersession and contradiction preservation, using existing canonical resources and relationships.
+The next architectural target is the **longitudinal read/projection layer**, not a longitudinal domain aggregate.
 
-It MUST NOT introduce:
+The intended composition is:
 
-- an Observation state machine;
-- an Observation-specific repository;
-- a LongitudinalRecord aggregate;
-- a second command framework;
-- provider-specific semantics.
+`Events + Observations + Evidence + Relationships + Actions + Responses + Resolutions + Outcomes -> Longitudinal View`
+
+Implementation must first audit existing event/timeline/query infrastructure and must not introduce `LongitudinalRecord`, a projection-specific domain repository, or a second command framework unless a separately justified architectural decision establishes genuine missing ownership.
