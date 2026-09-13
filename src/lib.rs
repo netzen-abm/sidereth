@@ -80,6 +80,7 @@ pub mod lifecycle;
 pub mod local_store;
 pub mod observation;
 pub mod observation_command;
+pub mod observation_lifecycle;
 pub mod party;
 pub mod party_repository;
 pub mod persistence;
@@ -153,6 +154,10 @@ pub use observation::{Observation, ObservationOrigin, ObservationType};
 pub use observation_command::{
     ObservationCommand, ObservationCommandContext, ObservationCommandError,
     ObservationCommandResult,
+};
+pub use observation_lifecycle::{
+    ObservationLifecycleCommand, ObservationLifecycleCommandContext,
+    ObservationLifecycleCommandResult, ObservationLifecycleError, ObservationLifecycleOperation,
 };
 pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus};
 pub use party_repository::PartyUnitOfWorkRepository;
