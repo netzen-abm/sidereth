@@ -301,7 +301,7 @@ mod tests {
     fn resource_ref_is_explicit_and_stable_on_wire() {
         let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
         let json = serde_json::to_string(&reference).unwrap();
-        let expected = format!("{{\"resource_type\":\"document\",\"id\":\"doc-1\"}}");
+        let expected = "{\"resource_type\":\"document\",\"id\":\"doc-1\"}".to_string();
         assert_eq!(json, expected);
         let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded, reference);
