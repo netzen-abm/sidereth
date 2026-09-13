@@ -302,8 +302,8 @@ mod tests {
         let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
         let json = serde_json::to_string(&reference).unwrap();
         let expected = serde_json::json!({
-            "resource_type": "document",
-            "id": "doc-1"
+            "id": "doc-1",
+            "resource_type": "document"
         })
         .to_string();
         assert_eq!(json, expected);
