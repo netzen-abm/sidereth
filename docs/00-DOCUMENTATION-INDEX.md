@@ -65,9 +65,10 @@ Do not create another general-purpose decision list.
 
 Do not merge them merely to reduce file count unless a future audit proves their scopes can be consolidated without loss of authority clarity.
 
-Current focused architecture specification:
+Current focused architecture specifications:
 
 - `architecture/LONGITUDINAL-PROJECTION.md` — canonical architecture for the derived longitudinal read/projection layer; explicitly not a `LongitudinalRecord` domain aggregate.
+- `architecture/READ-QUERY-BOUNDARY.md` — canonical architecture for provider-neutral direct resource discovery/query, distinct from mutation and derived projection.
 
 ## 5. Implementation control
 
@@ -93,7 +94,6 @@ Key contract families include:
 - intelligence;
 - persistence/storage;
 - API/error/idempotency/versioning;
-- audit/security/encryption;
 - Tool Gateway.
 
 The Observation contract is governed by D-032. Its semantic vocabulary reuses the Intelligence contract's epistemic statuses; observation origin/modality is separate from epistemic status. Observation conformance is now at an **IMPLEMENTED BASELINE / LIFECYCLE CONFORMANCE IN PROGRESS** stage; see the conformance matrix for exact requirement-level evidence and deferred gates.
