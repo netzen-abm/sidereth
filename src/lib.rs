@@ -118,7 +118,7 @@ pub use capability_registry::{
 pub use command::{
     apply_plan, execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
 };
-pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState>;
+pub use compliance::{ComplianceRegistry, ComplianceRequirement, ComplianceState};
 pub use deadline::{
     ApplicabilityStatus, CivilDate, Deadline, DeadlineRegistry, DeadlineStatus, DeadlineType,
     Obligation,
@@ -301,7 +301,7 @@ mod tests {
     fn resource_ref_is_explicit_and_stable_on_wire() {
         let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
         let json = serde_json::to_string(&reference).unwrap();
-        assert_eq!(json, r#"{"resource_type":"document","id":"doc-1"}"#);
+        assert_eq!(json, r#"{\"resource_type\":\"document\",\"id\":\"doc-1\"}"#);
         let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded, reference);
     }
