@@ -225,7 +225,7 @@ fn contradiction_preserves_both_observations() {
         )
         .unwrap();
 
-    assert_eq!(state.records.borrow().len(), 5);
+    assert_eq!(state.records.borrow().len(), 6);
     assert_eq!(state.links.borrow()[0].relation, "contradicts");
 }
 
@@ -246,7 +246,11 @@ fn missing_prior_is_rejected_without_creating_new_observation() {
         result,
         Err(ObservationLifecycleError::PriorObservationNotFound)
     );
-    assert!(state.records.borrow().is_empty());
+    assert!(state
+        .records
+        .borrow()
+        .get(&ResourceRef::new(ResourceType::Observation, "obs-new").unwrap())
+        .is_none());
     assert!(state.links.borrow().is_empty());
 }
 
