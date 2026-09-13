@@ -89,6 +89,7 @@ pub mod persistence;
 pub mod postgres;
 pub mod procedure;
 pub mod provenance;
+pub mod query;
 pub mod remedy;
 pub mod repository;
 pub mod resolution;
@@ -171,6 +172,7 @@ pub use persistence::{
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use provenance::{Provenance, ProvenanceRef};
+pub use query::{QueryError, ResourceQuery, ResourceQueryRequest, UnitOfWorkResourceQuery};
 pub use remedy::{Remedy, RemedyApplicabilityStatus, RemedyRegistry, RemedyState};
 pub use repository::{CaseRepository, EventRepository, InMemoryRepositories, IncidentRepository};
 pub use resolution::{Resolution, ResolutionRegistry, ResolutionState};
