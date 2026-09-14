@@ -4,10 +4,10 @@ use sidereth_core::persistence::{
     ResourceWriteMode, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use sidereth_core::{
-    AuthorizationDecision, AuthorizationResult, EpistemicStatus, IntelligenceDataClass,
-    Observation, ObservationLifecycleCommand, ObservationLifecycleCommandContext,
-    ObservationLifecycleError, ObservationOrigin, ObservationType, ResourceRef, ResourceType,
-    Revision,
+    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, EpistemicStatus,
+    IntelligenceDataClass, Observation, ObservationLifecycleCommand,
+    ObservationLifecycleCommandContext, ObservationLifecycleError, ObservationOrigin,
+    ObservationType, ResourceRef, ResourceType, Revision,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -128,23 +128,41 @@ fn seed_prior(factory: &MockFactory, prior: &Observation) {
 
 fn context(action: &str, observation_id: &str) -> ObservationLifecycleCommandContext {
     let actor_ref = ResourceRef::new(ResourceType::Party, "party-1").unwrap();
+    let authorization_ref = ResourceRef::new(ResourceType::Other, "auth-1").unwrap();
+    let action_ref = ResourceRef::new(ResourceType::Action, action).unwrap();
+    let resource_ref = ResourceRef::new(ResourceType::Observation, observation_id).unwrap();
+    let policy_ref = ResourceRef::new(ResourceType::Other, "policy-1").unwrap();
+    let authorization_request = AuthorizationRequest {
+        request_id: format!("request-{observation_id}"),
+        authorization_ref: authorization_ref.clone(),
+        subject_ref: actor_ref.clone(),
+        action: action_ref.clone(),
+        resource_ref: resource_ref.clone(),
+        purpose: "observation lifecycle".into(),
+        policy_refs: vec![policy_ref.clone()],
+        jurisdiction_ref: None,
+        data_class: Some("RESTRICTED".into()),
+        requested_at_epoch_seconds: 90,
+        freshness_seconds: Some(30),
+    };
     ObservationLifecycleCommandContext {
-        actor_ref: actor_ref.clone(),
+        actor_ref,
         operation_id: format!("op-{action}-{observation_id}"),
         correlation_id: format!("corr-{observation_id}"),
         now_epoch_seconds: 100,
+        authorization_request: authorization_request.clone(),
         authorization: AuthorizationResult {
-            request_id: format!("request-{observation_id}"),
-            authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
-            subject_ref: actor_ref,
-            action: ResourceRef::new(ResourceType::Action, action).unwrap(),
-            resource_ref: ResourceRef::new(ResourceType::Observation, observation_id).unwrap(),
-            purpose: "observation lifecycle".into(),
+            request_id: authorization_request.request_id.clone(),
+            authorization_ref,
+            subject_ref: authorization_request.subject_ref.clone(),
+            action: action_ref,
+            resource_ref,
+            purpose: authorization_request.purpose.clone(),
             jurisdiction_ref: None,
-            data_class: Some("RESTRICTED".into()),
+            data_class: authorization_request.data_class.clone(),
             decision: AuthorizationDecision::Allow,
             constraints: vec![],
-            policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
+            policy_refs: authorization_request.policy_refs.clone(),
             evaluated_at_epoch_seconds: 90,
             expires_at_epoch_seconds: Some(120),
         },
