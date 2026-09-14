@@ -1,3 +1,4 @@
+use serde_json::Value;
 use sidereth::authorization::{
     AuthorizationDecision, AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult,
 };
@@ -5,8 +6,9 @@ use sidereth::persistence::{
     PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, Revision, UnitOfWork,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
-use sidereth::{Case, CaseCommand, CaseService, CommandContext, ResourceRef, ResourceType, ServiceError};
-use serde_json::Value;
+use sidereth::{
+    Case, CaseCommand, CaseService, CommandContext, ResourceRef, ResourceType, ServiceError,
+};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -180,7 +182,10 @@ fn context() -> CommandContext {
     }
 }
 
-fn authorization_for(context: &CommandContext, decision: AuthorizationDecision) -> AuthorizationResult {
+fn authorization_for(
+    context: &CommandContext,
+    decision: AuthorizationDecision,
+) -> AuthorizationResult {
     AuthorizationResult {
         request_id: context.request_id.clone(),
         authorization_ref: context.authorization_ref.clone(),
@@ -216,11 +221,26 @@ fn allow_preserves_authoritative_case_execution_and_side_effects() {
     let result = service.execute(context(), create_command()).unwrap();
 
     assert_eq!(result.case_id, "case-1");
-    assert!(state.0.borrow().contains_key(&reference(ResourceType::Case, "case-1")));
-    assert!(state.0.borrow().contains_key(&reference(ResourceType::Event, &result.event_id)));
-    assert!(state.0.borrow().contains_key(&reference(ResourceType::Audit, "audit-op-1")));
-    assert!(state.0.borrow().contains_key(&reference(ResourceType::Provenance, "provenance-op-1")));
-    assert!(state.0.borrow().contains_key(&reference(ResourceType::Idempotency, "op-1")));
+    assert!(state
+        .0
+        .borrow()
+        .contains_key(&reference(ResourceType::Case, "case-1")));
+    assert!(state
+        .0
+        .borrow()
+        .contains_key(&reference(ResourceType::Event, &result.event_id)));
+    assert!(state
+        .0
+        .borrow()
+        .contains_key(&reference(ResourceType::Audit, "audit-op-1")));
+    assert!(state
+        .0
+        .borrow()
+        .contains_key(&reference(ResourceType::Provenance, "provenance-op-1")));
+    assert!(state
+        .0
+        .borrow()
+        .contains_key(&reference(ResourceType::Idempotency, "op-1")));
 }
 
 #[test]
@@ -343,9 +363,18 @@ fn evaluator_action_binding_for_create_is_canonical_case_create() {
     let _ = service.execute(context(), create_command());
 
     let request = captured.borrow().clone().unwrap();
-    assert_eq!(request.action, reference(ResourceType::Action, "case.create"));
-    assert_eq!(request.resource_ref, reference(ResourceType::Case, "case-1"));
-    assert_eq!(request.subject_ref, reference(ResourceType::Party, "user-1"));
+    assert_eq!(
+        request.action,
+        reference(ResourceType::Action, "case.create")
+    );
+    assert_eq!(
+        request.resource_ref,
+        reference(ResourceType::Case, "case-1")
+    );
+    assert_eq!(
+        request.subject_ref,
+        reference(ResourceType::Party, "user-1")
+    );
 }
 
 #[test]
