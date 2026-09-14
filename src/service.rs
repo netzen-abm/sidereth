@@ -166,6 +166,7 @@ fn authorize(
         || result.action != request.action
         || result.resource_ref != request.resource_ref
         || result.purpose != request.purpose
+        || result.policy_refs != request.policy_refs
         || result.jurisdiction_ref != request.jurisdiction_ref
         || result.data_class != request.data_class
     {
