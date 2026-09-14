@@ -1,4 +1,4 @@
-use crate::authorization::{AccessAction, AccessRequest, AuthorizationPolicy};
+use crate::authorization::{AuthorizationDecision, AuthorizationResult};
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
@@ -7,9 +7,15 @@ use crate::persistence::{
 use crate::{Case, CaseState, Id, ResourceRef, ResourceType};
 use serde_json::json;
 
+const CASE_CREATE_ACTION: &str = "case.create";
+const CASE_TRANSITION_ACTION: &str = "case.transition";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceError {
     AuthorizationDenied,
+    AuthorizationMismatch,
+    AuthorizationInvalid,
+    AuthorizationExpired,
     Conflict,
     Duplicate,
     InvalidInput,
@@ -67,6 +73,11 @@ pub struct CommandContext {
     pub actor_id: Id,
     pub operation_id: Id,
     pub correlation_id: Id,
+    pub purpose: String,
+    pub jurisdiction_ref: Option<ResourceRef>,
+    pub requested_data_class: Option<String>,
+    pub now_epoch_seconds: u64,
+    pub authorization: AuthorizationResult,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,18 +87,16 @@ pub struct CommandResult {
     pub event_id: Id,
 }
 
-pub struct CaseService<'a, F, P> {
+pub struct CaseService<'a, F> {
     factory: &'a mut F,
-    policy: &'a P,
 }
 
-impl<'a, F, P> CaseService<'a, F, P>
+impl<'a, F> CaseService<'a, F>
 where
     F: UnitOfWorkFactory,
-    P: AuthorizationPolicy,
 {
-    pub fn new(factory: &'a mut F, policy: &'a P) -> Self {
-        Self { factory, policy }
+    pub fn new(factory: &'a mut F) -> Self {
+        Self { factory }
     }
 
     pub fn execute(
@@ -95,8 +104,8 @@ where
         context: CommandContext,
         command: CaseCommand,
     ) -> Result<CommandResult, ServiceError> {
-        let (case_id, action) = command_target(&command)?;
-        authorize(self.policy, &context.actor_id, &case_id, action)?;
+        let (case_ref, action_ref) = command_target(&command)?;
+        validate_authorization(&context, &case_ref, &action_ref)?;
 
         let mut plan = AtomicCommandPlan::new(context.operation_id.clone())
             .map_err(|_| ServiceError::InvalidInput)?;
@@ -111,44 +120,6 @@ where
             execute_case_command(uow, plan, actor_id, correlation_id, operation_id, command)
         })
         .map_err(ServiceError::from)
-    }
-
-    pub fn create_case(
-        &mut self,
-        actor_id: Id,
-        operation_id: Id,
-        case: Case,
-    ) -> Result<CommandResult, ServiceError> {
-        self.execute(
-            CommandContext {
-                actor_id,
-                operation_id: operation_id.clone(),
-                correlation_id: operation_id,
-            },
-            CaseCommand::Create { case },
-        )
-    }
-
-    pub fn transition_case(
-        &mut self,
-        actor_id: Id,
-        operation_id: Id,
-        case_id: Id,
-        expected_revision: Revision,
-        next: CaseState,
-    ) -> Result<CommandResult, ServiceError> {
-        self.execute(
-            CommandContext {
-                actor_id,
-                operation_id: operation_id.clone(),
-                correlation_id: operation_id,
-            },
-            CaseCommand::Transition {
-                case_id,
-                expected_revision,
-                next,
-            },
-        )
     }
 }
 
@@ -283,37 +254,81 @@ fn resource_ref(resource_type: ResourceType, id: Id) -> Result<ResourceRef, Unit
     ResourceRef::new(resource_type, id).map_err(|_| UnitOfWorkError::InvalidOperation)
 }
 
-fn command_target(command: &CaseCommand) -> Result<(Id, AccessAction), ServiceError> {
+fn command_target(command: &CaseCommand) -> Result<(ResourceRef, ResourceRef), ServiceError> {
     match command {
         CaseCommand::Create { case } if case.case_id.is_empty() => Err(ServiceError::InvalidInput),
-        CaseCommand::Create { case } => Ok((case.case_id.clone(), AccessAction::Create)),
+        CaseCommand::Create { case } => Ok((
+            ResourceRef::new(ResourceType::Case, case.case_id.clone())
+                .map_err(|_| ServiceError::InvalidInput)?,
+            ResourceRef::new(ResourceType::Action, CASE_CREATE_ACTION)
+                .map_err(|_| ServiceError::InvalidInput)?,
+        )),
         CaseCommand::Transition { case_id, .. } if case_id.is_empty() => {
             Err(ServiceError::InvalidInput)
         }
-        CaseCommand::Transition { case_id, .. } => Ok((case_id.clone(), AccessAction::Update)),
+        CaseCommand::Transition { case_id, .. } => Ok((
+            ResourceRef::new(ResourceType::Case, case_id.clone())
+                .map_err(|_| ServiceError::InvalidInput)?,
+            ResourceRef::new(ResourceType::Action, CASE_TRANSITION_ACTION)
+                .map_err(|_| ServiceError::InvalidInput)?,
+        )),
     }
 }
 
-fn authorize<P: AuthorizationPolicy>(
-    policy: &P,
-    actor_id: &Id,
-    case_id: &Id,
-    action: AccessAction,
+fn validate_authorization(
+    context: &CommandContext,
+    resource_ref: &ResourceRef,
+    action_ref: &ResourceRef,
 ) -> Result<(), ServiceError> {
-    policy
-        .authorize(&AccessRequest {
-            actor_id: actor_id.clone(),
-            case_id: case_id.clone(),
-            action,
-        })
-        .map_err(|_| ServiceError::AuthorizationDenied)
+    let authorization = &context.authorization;
+
+    match authorization.decision {
+        AuthorizationDecision::Allow => {}
+        AuthorizationDecision::Deny | AuthorizationDecision::NotApplicable => {
+            return Err(ServiceError::AuthorizationDenied)
+        }
+    }
+
+    if authorization.authorization_ref.id.is_empty()
+        || authorization.request_id.is_empty()
+        || authorization.subject_ref.id.is_empty()
+        || authorization.action.id.is_empty()
+        || authorization.resource_ref.id.is_empty()
+        || authorization.purpose.is_empty()
+    {
+        return Err(ServiceError::AuthorizationInvalid);
+    }
+
+    let expected_subject = ResourceRef::new(ResourceType::Party, context.actor_id.clone())
+        .map_err(|_| ServiceError::AuthorizationInvalid)?;
+    if authorization.subject_ref != expected_subject
+        || authorization.action != *action_ref
+        || authorization.resource_ref != *resource_ref
+        || authorization.purpose != context.purpose
+        || authorization.jurisdiction_ref != context.jurisdiction_ref
+        || authorization.data_class != context.requested_data_class
+    {
+        return Err(ServiceError::AuthorizationMismatch);
+    }
+
+    if context.now_epoch_seconds < authorization.evaluated_at_epoch_seconds {
+        return Err(ServiceError::AuthorizationInvalid);
+    }
+    if authorization
+        .expires_at_epoch_seconds
+        .is_some_and(|expires_at| context.now_epoch_seconds > expires_at)
+    {
+        return Err(ServiceError::AuthorizationExpired);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::persistence::{ResourceRecord, UnitOfWork, UnitOfWorkContext};
-    use crate::CaseAccessPolicy;
     use serde_json::Value;
     use std::cell::RefCell;
     use std::collections::HashMap;
@@ -454,45 +469,100 @@ mod tests {
         }
     }
 
+    fn reference(resource_type: ResourceType, id: &str) -> ResourceRef {
+        ResourceRef::new(resource_type, id).unwrap()
+    }
+
+    fn authorization(
+        decision: AuthorizationDecision,
+        subject_id: &str,
+        action_id: &str,
+        case_id: &str,
+        purpose: &str,
+        data_class: Option<&str>,
+        evaluated_at: u64,
+        expires_at: Option<u64>,
+    ) -> AuthorizationResult {
+        AuthorizationResult {
+            request_id: "request-1".into(),
+            authorization_ref: reference(ResourceType::Other, "auth-1"),
+            subject_ref: reference(ResourceType::Party, subject_id),
+            action: reference(ResourceType::Action, action_id),
+            resource_ref: reference(ResourceType::Case, case_id),
+            purpose: purpose.into(),
+            jurisdiction_ref: Some(reference(ResourceType::Jurisdiction, "jurisdiction-1")),
+            data_class: data_class.map(str::to_owned),
+            decision,
+            constraints: vec![AuthorizationConstraint {
+                key: "access_mode".into(),
+                value: "write".into(),
+            }],
+            policy_refs: vec![reference(ResourceType::Other, "policy-1")],
+            evaluated_at_epoch_seconds: evaluated_at,
+            expires_at_epoch_seconds: expires_at,
+        }
+    }
+
+    fn context(authorization: AuthorizationResult) -> CommandContext {
+        CommandContext {
+            actor_id: "user-1".into(),
+            operation_id: "op-1".into(),
+            correlation_id: "corr-1".into(),
+            purpose: "case management".into(),
+            jurisdiction_ref: Some(reference(ResourceType::Jurisdiction, "jurisdiction-1")),
+            requested_data_class: Some("case-restricted".into()),
+            now_epoch_seconds: 110,
+            authorization,
+        }
+    }
+
+    fn allowed_context() -> CommandContext {
+        context(authorization(
+            AuthorizationDecision::Allow,
+            "user-1",
+            CASE_CREATE_ACTION,
+            "case-1",
+            "case management",
+            Some("case-restricted"),
+            100,
+            Some(160),
+        ))
+    }
+
     #[test]
     fn create_writes_case_event_audit_provenance_and_idempotency_atomically() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy {
-            owner_id: "user-1".into(),
-        };
         let state = factory.state.clone();
-        let mut service = CaseService::new(&mut factory, &policy);
+        let mut service = CaseService::new(&mut factory);
         let result = service
-            .create_case(
-                "user-1".into(),
-                "op-1".into(),
-                Case::new("case-1".into()).unwrap(),
+            .execute(
+                allowed_context(),
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
             )
             .unwrap();
         assert_eq!(result.revision.value, 0);
         let records = state.0.borrow();
-        assert!(records.contains_key(&ResourceRef::new(ResourceType::Case, "case-1").unwrap()));
-        assert!(
-            records.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap())
-        );
-        assert!(records.contains_key(&ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()));
-        assert!(records
-            .contains_key(&ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()));
-        assert!(records.contains_key(&ResourceRef::new(ResourceType::Idempotency, "op-1").unwrap()));
+        assert!(records.contains_key(&reference(ResourceType::Case, "case-1")));
+        assert!(records.contains_key(&reference(ResourceType::Event, &result.event_id)));
+        assert!(records.contains_key(&reference(ResourceType::Audit, "audit-op-1")));
+        assert!(records.contains_key(&reference(ResourceType::Provenance, "provenance-op-1")));
+        assert!(records.contains_key(&reference(ResourceType::Idempotency, "op-1")));
     }
 
     #[test]
-    fn unauthorized_command_does_not_claim_idempotency() {
+    fn denied_authorization_does_not_claim_idempotency() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy {
-            owner_id: "user-1".into(),
-        };
-        let mut service = CaseService::new(&mut factory, &policy);
+        let mut denied = allowed_context();
+        denied.authorization.decision = AuthorizationDecision::Deny;
+        let mut service = CaseService::new(&mut factory);
         assert_eq!(
-            service.create_case(
-                "user-2".into(),
-                "op-1".into(),
-                Case::new("case-1".into()).unwrap()
+            service.execute(
+                denied,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
             ),
             Err(ServiceError::AuthorizationDenied)
         );
@@ -500,33 +570,167 @@ mod tests {
     }
 
     #[test]
+    fn wrong_subject_is_rejected_before_mutation() {
+        let mut factory = MockFactory::default();
+        let mut authorization = allowed_context();
+        authorization.authorization.subject_ref = reference(ResourceType::Party, "user-2");
+        let mut service = CaseService::new(&mut factory);
+        assert_eq!(
+            service.execute(
+                authorization,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
+            ),
+            Err(ServiceError::AuthorizationMismatch)
+        );
+        assert!(factory.state.0.borrow().is_empty());
+    }
+
+    #[test]
+    fn wrong_action_is_rejected_before_mutation() {
+        let mut factory = MockFactory::default();
+        let mut authorization = allowed_context();
+        authorization.authorization.action = reference(ResourceType::Action, "case.delete");
+        let mut service = CaseService::new(&mut factory);
+        assert_eq!(
+            service.execute(
+                authorization,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
+            ),
+            Err(ServiceError::AuthorizationMismatch)
+        );
+    }
+
+    #[test]
+    fn wrong_resource_is_rejected_before_mutation() {
+        let mut factory = MockFactory::default();
+        let mut authorization = allowed_context();
+        authorization.authorization.resource_ref = reference(ResourceType::Case, "case-2");
+        let mut service = CaseService::new(&mut factory);
+        assert_eq!(
+            service.execute(
+                authorization,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
+            ),
+            Err(ServiceError::AuthorizationMismatch)
+        );
+    }
+
+    #[test]
+    fn wrong_purpose_is_rejected_before_mutation() {
+        let mut factory = MockFactory::default();
+        let mut authorization = allowed_context();
+        authorization.authorization.purpose = "different purpose".into();
+        let mut service = CaseService::new(&mut factory);
+        assert_eq!(
+            service.execute(
+                authorization,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
+            ),
+            Err(ServiceError::AuthorizationMismatch)
+        );
+    }
+
+    #[test]
+    fn wrong_data_class_is_rejected_before_mutation() {
+        let mut factory = MockFactory::default();
+        let mut authorization = allowed_context();
+        authorization.authorization.data_class = Some("public".into());
+        let mut service = CaseService::new(&mut factory);
+        assert_eq!(
+            service.execute(
+                authorization,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
+            ),
+            Err(ServiceError::AuthorizationMismatch)
+        );
+    }
+
+    #[test]
+    fn expired_authorization_is_rejected_before_mutation() {
+        let mut factory = MockFactory::default();
+        let mut authorization = allowed_context();
+        authorization.authorization.expires_at_epoch_seconds = Some(109);
+        let mut service = CaseService::new(&mut factory);
+        assert_eq!(
+            service.execute(
+                authorization,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
+            ),
+            Err(ServiceError::AuthorizationExpired)
+        );
+    }
+
+    #[test]
+    fn future_evaluated_authorization_is_rejected() {
+        let mut factory = MockFactory::default();
+        let mut authorization = allowed_context();
+        authorization.authorization.evaluated_at_epoch_seconds = 111;
+        let mut service = CaseService::new(&mut factory);
+        assert_eq!(
+            service.execute(
+                authorization,
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
+            ),
+            Err(ServiceError::AuthorizationInvalid)
+        );
+    }
+
+    #[test]
     fn transition_uses_transactional_read_and_cas() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy {
-            owner_id: "user-1".into(),
-        };
-        let mut service = CaseService::new(&mut factory, &policy);
+        let state = factory.state.clone();
+        let mut service = CaseService::new(&mut factory);
         service
-            .create_case(
-                "user-1".into(),
-                "op-1".into(),
-                Case::new("case-1".into()).unwrap(),
+            .execute(
+                allowed_context(),
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
             )
             .unwrap();
+        let mut transition_context = allowed_context();
+        transition_context.operation_id = "op-2".into();
+        transition_context.correlation_id = "corr-2".into();
+        transition_context.authorization = authorization(
+            AuthorizationDecision::Allow,
+            "user-1",
+            CASE_TRANSITION_ACTION,
+            "case-1",
+            "case management",
+            Some("case-restricted"),
+            100,
+            Some(160),
+        );
         let result = service
-            .transition_case(
-                "user-1".into(),
-                "op-2".into(),
-                "case-1".into(),
-                Revision::initial(),
-                CaseState::Active,
+            .execute(
+                transition_context,
+                CaseCommand::Transition {
+                    case_id: "case-1".into(),
+                    expected_revision: Revision::initial(),
+                    next: CaseState::Active,
+                },
             )
             .unwrap();
         assert_eq!(result.revision.value, 1);
-        let state = factory.state.0.borrow();
         assert_eq!(
             state
-                .get(&ResourceRef::new(ResourceType::Case, "case-1").unwrap())
+                .0
+                .borrow()
+                .get(&reference(ResourceType::Case, "case-1"))
                 .unwrap()
                 .revision
                 .value,
@@ -537,35 +741,52 @@ mod tests {
     #[test]
     fn stale_transition_is_rejected_without_side_effects() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy {
-            owner_id: "user-1".into(),
-        };
         let state = factory.state.clone();
-        let mut service = CaseService::new(&mut factory, &policy);
+        let mut service = CaseService::new(&mut factory);
         service
-            .create_case(
-                "user-1".into(),
-                "op-1".into(),
-                Case::new("case-1".into()).unwrap(),
+            .execute(
+                allowed_context(),
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
             )
             .unwrap();
+        let mut transition_context = allowed_context();
+        transition_context.operation_id = "op-2".into();
+        transition_context.correlation_id = "corr-2".into();
+        transition_context.authorization = authorization(
+            AuthorizationDecision::Allow,
+            "user-1",
+            CASE_TRANSITION_ACTION,
+            "case-1",
+            "case management",
+            Some("case-restricted"),
+            100,
+            Some(160),
+        );
         service
-            .transition_case(
-                "user-1".into(),
-                "op-2".into(),
-                "case-1".into(),
-                Revision::initial(),
-                CaseState::Active,
+            .execute(
+                transition_context.clone(),
+                CaseCommand::Transition {
+                    case_id: "case-1".into(),
+                    expected_revision: Revision::initial(),
+                    next: CaseState::Active,
+                },
             )
             .unwrap();
         let before = state.0.borrow().clone();
+        let mut stale = transition_context;
+        stale.operation_id = "op-3".into();
+        stale.correlation_id = "corr-3".into();
+        stale.authorization.request_id = "request-3".into();
         assert_eq!(
-            service.transition_case(
-                "user-1".into(),
-                "op-3".into(),
-                "case-1".into(),
-                Revision::initial(),
-                CaseState::Closed
+            service.execute(
+                stale,
+                CaseCommand::Transition {
+                    case_id: "case-1".into(),
+                    expected_revision: Revision::initial(),
+                    next: CaseState::Closed,
+                },
             ),
             Err(ServiceError::Conflict)
         );
@@ -575,22 +796,21 @@ mod tests {
     #[test]
     fn duplicate_operation_is_rejected_by_atomic_idempotency_record() {
         let mut factory = MockFactory::default();
-        let policy = CaseAccessPolicy {
-            owner_id: "user-1".into(),
-        };
-        let mut service = CaseService::new(&mut factory, &policy);
+        let mut service = CaseService::new(&mut factory);
         service
-            .create_case(
-                "user-1".into(),
-                "op-1".into(),
-                Case::new("case-1".into()).unwrap(),
+            .execute(
+                allowed_context(),
+                CaseCommand::Create {
+                    case: Case::new("case-1".into()).unwrap(),
+                },
             )
             .unwrap();
         assert_eq!(
-            service.create_case(
-                "user-1".into(),
-                "op-1".into(),
-                Case::new("case-2".into()).unwrap()
+            service.execute(
+                allowed_context(),
+                CaseCommand::Create {
+                    case: Case::new("case-2".into()).unwrap(),
+                },
             ),
             Err(ServiceError::Duplicate)
         );
