@@ -111,18 +111,12 @@ impl<F: UnitOfWorkFactory> ResourceQuery for UnitOfWorkResourceQuery<F> {
         request.validate()?;
         let resource_ref = request.resource_ref;
         let mut uow = self.factory.begin().map_err(QueryError::Persistence)?;
-        let result = uow
-            .execute(|context| {
-                context
-                    .read_resource(&resource_ref)
-                    .map_err(|error| match error {
-                        crate::UnitOfWorkError::Persistence(error) => {
-                            QueryError::Persistence(error)
-                        }
-                        crate::UnitOfWorkError::InvalidOperation => QueryError::InvalidRequest,
-                    })
-            })
-            .and_then(|record| record.ok_or(QueryError::NotFound));
+        let result = match uow.execute(|context| context.read_resource(&resource_ref)) {
+            Ok(Some(record)) => Ok(record),
+            Ok(None) => Err(QueryError::NotFound),
+            Err(crate::UnitOfWorkError::Persistence(error)) => Err(QueryError::Persistence(error)),
+            Err(crate::UnitOfWorkError::InvalidOperation) => Err(QueryError::InvalidRequest),
+        };
 
         match result {
             Ok(record) => {
