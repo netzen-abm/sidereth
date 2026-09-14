@@ -126,7 +126,7 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> AuthorizedEvidenc
         request: EvidenceQueryRequest,
     ) -> Result<EvidenceQueryResult, EvidenceQueryError> {
         request.validate()?;
-        let evidence_id: Id = request.evidence_ref.id;
+        let evidence_id: Id = request.evidence_ref.id.clone();
         let original = self
             .repository
             .get_original(&evidence_id)
@@ -300,11 +300,7 @@ mod tests {
     #[test]
     fn tampered_content_is_rejected() {
         let mut vault = vault();
-        vault
-            .objects
-            .get_mut("object-1")
-            .unwrap()
-            .copy_from_slice(b"tampered evidence");
+        vault.tamper_object("object-1", b"tampered evidence");
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
         assert_eq!(
             query.get(request()),
