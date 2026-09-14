@@ -1,12 +1,12 @@
 use serde_json::Value;
-use sidereth::authorization::{
+use sidereth_core::authorization::{
     AuthorizationDecision, AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult,
 };
-use sidereth::persistence::{
+use sidereth_core::persistence::{
     PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, Revision, UnitOfWork,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
-use sidereth::{
+use sidereth_core::{
     Case, CaseCommand, CaseService, CommandContext, ResourceRef, ResourceType, ServiceError,
 };
 use std::cell::RefCell;
@@ -96,7 +96,7 @@ impl UnitOfWorkContext for MockContext {
 
     fn link_resources(
         &mut self,
-        _link: sidereth::persistence::ResourceLink,
+        _link: sidereth_core::persistence::ResourceLink,
     ) -> Result<(), UnitOfWorkError> {
         Ok(())
     }
