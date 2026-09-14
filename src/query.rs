@@ -230,7 +230,9 @@ mod tests {
         }
     }
 
-    fn authorization_context(resource_ref: &ResourceRef) -> (AuthorizationRequest, AuthorizationResult) {
+    fn authorization_context(
+        resource_ref: &ResourceRef,
+    ) -> (AuthorizationRequest, AuthorizationResult) {
         let request = AuthorizationRequest {
             request_id: "request-1".into(),
             authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
@@ -354,10 +356,7 @@ mod tests {
         request.requested_data_class = Some("restricted".into());
         let factory = FakeFactory::default();
         let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(
-            query.get(request),
-            Err(QueryError::AuthorizationMismatch)
-        );
+        assert_eq!(query.get(request), Err(QueryError::AuthorizationMismatch));
     }
 
     #[test]
