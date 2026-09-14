@@ -131,7 +131,11 @@ where
             freshness_seconds: context.freshness_seconds,
         };
         let authorization = self.evaluator.evaluate(&authorization_request);
-        authorize(&authorization, &authorization_request, context.now_epoch_seconds)?;
+        authorize(
+            &authorization,
+            &authorization_request,
+            context.now_epoch_seconds,
+        )?;
 
         let mut plan = AtomicCommandPlan::new(context.operation_id.clone())
             .map_err(|_| ServiceError::InvalidInput)?;
