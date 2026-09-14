@@ -1,8 +1,8 @@
+use crate::persistence::ResourceRecord;
 use crate::{
     AuthorizationDecision, AuthorizationResult, PersistenceError, ResourceRef, UnitOfWork,
     UnitOfWorkContext, UnitOfWorkFactory,
 };
-use crate::persistence::ResourceRecord;
 
 /// Provider-neutral request for a direct canonical resource read.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,9 +140,7 @@ impl<F: UnitOfWorkFactory> ResourceQuery for UnitOfWorkResourceQuery<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        authorization::AuthorizationConstraint, ResourceType, Revision, UnitOfWorkError,
-    };
+    use crate::{authorization::AuthorizationConstraint, ResourceType, Revision, UnitOfWorkError};
     use serde_json::Value;
 
     #[derive(Default)]
