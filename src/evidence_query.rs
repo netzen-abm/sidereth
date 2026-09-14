@@ -1,5 +1,8 @@
 use crate::authorization::AuthorizationRequest;
-use crate::{AuthorizationDecision, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal, Id, ResourceRef, ResourceType};
+use crate::{
+    AuthorizationDecision, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal, Id,
+    ResourceRef, ResourceType,
+};
 
 /// Provider-neutral request for retrieval of evidence content.
 ///
@@ -118,7 +121,10 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> AuthorizedEvidenc
         }
     }
 
-    pub fn get(&self, request: EvidenceQueryRequest) -> Result<EvidenceQueryResult, EvidenceQueryError> {
+    pub fn get(
+        &self,
+        request: EvidenceQueryRequest,
+    ) -> Result<EvidenceQueryResult, EvidenceQueryError> {
         request.validate()?;
         let evidence_id: Id = request.evidence_ref.id;
         let original = self
@@ -126,7 +132,8 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> AuthorizedEvidenc
             .get_original(&evidence_id)
             .map_err(|_| EvidenceQueryError::StorageFailure)?
             .ok_or(EvidenceQueryError::EvidenceNotFound)?;
-        if ResourceRef::new(ResourceType::Evidence, original.evidence_id.clone()).map_err(|_| EvidenceQueryError::InvalidRequest)?
+        if ResourceRef::new(ResourceType::Evidence, original.evidence_id.clone())
+            .map_err(|_| EvidenceQueryError::InvalidRequest)?
             != request.evidence_ref
         {
             return Err(EvidenceQueryError::AuthorizationMismatch);
@@ -149,7 +156,9 @@ mod tests {
     use crate::authorization::AuthorizationConstraint;
     use crate::{EvidenceRepository, InMemoryEvidenceVault};
 
-    fn authorization_context(evidence_ref: &ResourceRef) -> (AuthorizationRequest, AuthorizationResult) {
+    fn authorization_context(
+        evidence_ref: &ResourceRef,
+    ) -> (AuthorizationRequest, AuthorizationResult) {
         let request = AuthorizationRequest {
             request_id: "request-1".into(),
             authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
@@ -202,7 +211,12 @@ mod tests {
     fn vault() -> InMemoryEvidenceVault {
         let mut vault = InMemoryEvidenceVault::default();
         let original = evidence();
-        crate::EvidenceObjectStore::put(&mut vault, original.storage_ref.clone(), b"original evidence".to_vec()).unwrap();
+        crate::EvidenceObjectStore::put(
+            &mut vault,
+            original.storage_ref.clone(),
+            b"original evidence".to_vec(),
+        )
+        .unwrap();
         EvidenceRepository::save_original(&mut vault, original).unwrap();
         vault
     }
@@ -228,16 +242,23 @@ mod tests {
         let mut request = request();
         request.authorization.decision = AuthorizationDecision::Deny;
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
-        assert_eq!(query.get(request), Err(EvidenceQueryError::AuthorizationDenied));
+        assert_eq!(
+            query.get(request),
+            Err(EvidenceQueryError::AuthorizationDenied)
+        );
     }
 
     #[test]
     fn authorization_must_bind_to_exact_evidence() {
         let vault = vault();
         let mut request = request();
-        request.authorization_request.resource_ref = ResourceRef::new(ResourceType::Evidence, "evidence-2").unwrap();
+        request.authorization_request.resource_ref =
+            ResourceRef::new(ResourceType::Evidence, "evidence-2").unwrap();
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
-        assert_eq!(query.get(request), Err(EvidenceQueryError::AuthorizationMismatch));
+        assert_eq!(
+            query.get(request),
+            Err(EvidenceQueryError::AuthorizationMismatch)
+        );
     }
 
     #[test]
@@ -246,7 +267,10 @@ mod tests {
         let mut request = request();
         request.authorization.purpose = "different purpose".into();
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
-        assert_eq!(query.get(request), Err(EvidenceQueryError::AuthorizationMismatch));
+        assert_eq!(
+            query.get(request),
+            Err(EvidenceQueryError::AuthorizationMismatch)
+        );
     }
 
     #[test]
@@ -255,7 +279,10 @@ mod tests {
         let mut request = request();
         request.authorization.expires_at_epoch_seconds = Some(1_500);
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
-        assert_eq!(query.get(request), Err(EvidenceQueryError::AuthorizationExpired));
+        assert_eq!(
+            query.get(request),
+            Err(EvidenceQueryError::AuthorizationExpired)
+        );
     }
 
     #[test]
@@ -264,7 +291,10 @@ mod tests {
         let mut request = request();
         request.authorization_request.freshness_seconds = Some(100);
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
-        assert_eq!(query.get(request), Err(EvidenceQueryError::AuthorizationExpired));
+        assert_eq!(
+            query.get(request),
+            Err(EvidenceQueryError::AuthorizationExpired)
+        );
     }
 
     #[test]
@@ -276,6 +306,9 @@ mod tests {
             .unwrap()
             .copy_from_slice(b"tampered evidence");
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
-        assert_eq!(query.get(request()), Err(EvidenceQueryError::StorageFailure));
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::StorageFailure)
+        );
     }
 }
