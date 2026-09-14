@@ -4,7 +4,8 @@ use crate::persistence::{
     UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{
-    AuthorizationDecision, AuthorizationResult, Id, Observation, ResourceRef, ResourceType,
+    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef,
+    ResourceType,
 };
 use serde_json::json;
 
@@ -53,6 +54,7 @@ pub struct ObservationCommandContext {
     pub operation_id: Id,
     pub correlation_id: Id,
     pub now_epoch_seconds: u64,
+    pub authorization_request: AuthorizationRequest,
     pub authorization: AuthorizationResult,
 }
 
@@ -133,21 +135,34 @@ fn validate_authorization(
     let expected_data_class = expected_data_class
         .as_str()
         .ok_or(ObservationCommandError::InvalidInput)?;
+    let request = &context.authorization_request;
     let authorization = &context.authorization;
 
-    if authorization.decision != AuthorizationDecision::Allow {
-        return Err(ObservationCommandError::AuthorizationDenied);
-    }
-    if authorization.request_id.is_empty()
-        || authorization.authorization_ref.id.is_empty()
-        || authorization.purpose.trim().is_empty()
+    if request.request_id.is_empty()
+        || request.authorization_ref.id.is_empty()
+        || request.purpose.trim().is_empty()
     {
         return Err(ObservationCommandError::AuthorizationMismatch);
     }
-    if authorization.subject_ref != context.actor_ref
-        || authorization.action != expected_action
-        || authorization.resource_ref != observation_ref
-        || authorization.data_class.as_deref() != Some(expected_data_class)
+    if request.subject_ref != context.actor_ref
+        || request.action != expected_action
+        || request.resource_ref != observation_ref
+        || request.data_class.as_deref() != Some(expected_data_class)
+    {
+        return Err(ObservationCommandError::AuthorizationMismatch);
+    }
+    if authorization.decision != AuthorizationDecision::Allow {
+        return Err(ObservationCommandError::AuthorizationDenied);
+    }
+    if authorization.request_id != request.request_id
+        || authorization.authorization_ref != request.authorization_ref
+        || authorization.subject_ref != request.subject_ref
+        || authorization.action != request.action
+        || authorization.resource_ref != request.resource_ref
+        || authorization.purpose != request.purpose
+        || authorization.policy_refs != request.policy_refs
+        || authorization.jurisdiction_ref != request.jurisdiction_ref
+        || authorization.data_class != request.data_class
     {
         return Err(ObservationCommandError::AuthorizationMismatch);
     }
