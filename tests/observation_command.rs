@@ -168,12 +168,8 @@ fn create_is_authorized_and_atomic() {
     assert!(records.contains_key(
         &ResourceRef::new(ResourceType::Observation, "obs-1").unwrap()
     ));
-    assert!(records.contains_key(
-        &ResourceRef::new(ResourceType::Event, &result.event_id).unwrap()
-    ));
-    assert!(records.contains_key(
-        &ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()
-    ));
+    assert!(records.contains_key(&ResourceRef::new(ResourceType::Event, &result.event_id).unwrap()));
+    assert!(records.contains_key(&ResourceRef::new(ResourceType::Audit, "audit-op-1").unwrap()));
     assert!(records.contains_key(
         &ResourceRef::new(ResourceType::Provenance, "provenance-op-1").unwrap()
     ));
@@ -203,8 +199,7 @@ fn authorization_must_bind_exact_purpose_and_policy_context() {
     for mutate_request in [
         |request: &mut AuthorizationRequest| request.purpose = "different purpose".into(),
         |request: &mut AuthorizationRequest| {
-            request.policy_refs =
-                vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()]
+            request.policy_refs = vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()]
         },
     ] {
         let mut factory = MockFactory::default();
