@@ -76,9 +76,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        authorization::AuthorizationConstraint, InMemoryAudit, ResourceRef, ResourceType,
-    };
+    use crate::{authorization::AuthorizationConstraint, InMemoryAudit, ResourceRef, ResourceType};
 
     fn authorization(decision: AuthorizationDecision) -> AuthorizationResult {
         let subject_ref = ResourceRef::new(ResourceType::Party, "user-1").unwrap();
@@ -165,10 +163,8 @@ mod tests {
             audit: &mut audit_store,
         };
 
-        let result = boundary.authorize_and_audit(
-            &authorization(AuthorizationDecision::Deny),
-            audit(),
-        );
+        let result =
+            boundary.authorize_and_audit(&authorization(AuthorizationDecision::Deny), audit());
 
         assert_eq!(result, Err(EvidenceError::Unauthorized));
         assert!(audit_store.records().is_empty());
