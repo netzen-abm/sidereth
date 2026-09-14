@@ -6,7 +6,9 @@
 use crate::authorization::{
     AuthorizationDecision, AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult,
 };
-use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
+use crate::command::{
+    execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
+};
 use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
