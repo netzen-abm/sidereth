@@ -87,6 +87,16 @@ impl EvidenceRepository for InMemoryEvidenceVault {
 }
 
 #[cfg(test)]
+impl InMemoryEvidenceVault {
+    pub(crate) fn tamper_object(&mut self, storage_ref: &str, replacement: &[u8]) {
+        self.objects
+            .get_mut(storage_ref)
+            .unwrap()
+            .clone_from(&replacement.to_vec());
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -173,11 +183,7 @@ mod tests {
     fn corrupted_original_fails_verification() {
         let mut vault = stored_vault();
         EvidenceRepository::save_original(&mut vault, original()).unwrap();
-        vault
-            .objects
-            .get_mut("object-1")
-            .unwrap()
-            .copy_from_slice(b"tampered evidence");
+        vault.tamper_object("object-1", b"tampered evidence");
         assert!(!EvidenceRepository::verify_original(&vault, &"evidence-1".into()).unwrap());
     }
 
