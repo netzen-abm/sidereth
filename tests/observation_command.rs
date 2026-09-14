@@ -177,13 +177,13 @@ fn create_is_authorized_and_atomic() {
 fn authorization_must_bind_exact_observation_resource() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut context = context();
-    context.authorization_request.resource_ref =
+    let mut test_context = context();
+    test_context.authorization_request.resource_ref =
         ResourceRef::new(ResourceType::Observation, "other").unwrap();
     let mut command = ObservationCommand::new(&mut factory);
 
     assert_eq!(
-        command.create(context, observation()),
+        command.create(test_context, observation()),
         Err(ObservationCommandError::AuthorizationMismatch)
     );
     assert!(state.0.borrow().is_empty());
@@ -199,12 +199,12 @@ fn authorization_must_bind_exact_purpose_and_policy_context() {
     ] {
         let mut factory = MockFactory::default();
         let state = factory.state.clone();
-        let mut context = context();
-        mutate_request(&mut context.authorization_request);
+        let mut test_context = context();
+        mutate_request(&mut test_context.authorization_request);
         let mut command = ObservationCommand::new(&mut factory);
 
         assert_eq!(
-            command.create(context, observation()),
+            command.create(test_context, observation()),
             Err(ObservationCommandError::AuthorizationMismatch)
         );
         assert!(state.0.borrow().is_empty());
@@ -215,25 +215,25 @@ fn authorization_must_bind_exact_purpose_and_policy_context() {
 fn authorization_must_bind_exact_jurisdiction_and_data_class() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut context = context();
-    context.authorization_request.jurisdiction_ref =
+    let mut test_context = context();
+    test_context.authorization_request.jurisdiction_ref =
         Some(ResourceRef::new(ResourceType::Jurisdiction, "jurisdiction-1").unwrap());
     let mut command = ObservationCommand::new(&mut factory);
 
     assert_eq!(
-        command.create(context, observation()),
+        command.create(test_context, observation()),
         Err(ObservationCommandError::AuthorizationMismatch)
     );
     assert!(state.0.borrow().is_empty());
 
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut context = context();
-    context.authorization_request.data_class = Some("PUBLIC".into());
+    let mut test_context = context();
+    test_context.authorization_request.data_class = Some("PUBLIC".into());
     let mut command = ObservationCommand::new(&mut factory);
 
     assert_eq!(
-        command.create(context, observation()),
+        command.create(test_context, observation()),
         Err(ObservationCommandError::AuthorizationMismatch)
     );
     assert!(state.0.borrow().is_empty());
@@ -243,12 +243,12 @@ fn authorization_must_bind_exact_jurisdiction_and_data_class() {
 fn authorization_result_must_match_evaluated_request() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut context = context();
-    context.authorization.purpose = "different purpose".into();
+    let mut test_context = context();
+    test_context.authorization.purpose = "different purpose".into();
     let mut command = ObservationCommand::new(&mut factory);
 
     assert_eq!(
-        command.create(context, observation()),
+        command.create(test_context, observation()),
         Err(ObservationCommandError::AuthorizationMismatch)
     );
     assert!(state.0.borrow().is_empty());
