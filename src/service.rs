@@ -6,9 +6,7 @@
 use crate::authorization::{
     AuthorizationDecision, AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult,
 };
-use crate::command::{
-    execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError,
-};
+use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
@@ -63,7 +61,9 @@ impl From<AuthoritativeCommandError> for ServiceError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CaseCommand {
-    Create { case: Case },
+    Create {
+        case: Case,
+    },
     Transition {
         case_id: Id,
         expected_revision: Revision,
