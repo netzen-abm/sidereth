@@ -76,7 +76,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{authorization::AuthorizationConstraint, ResourceRef, ResourceType, InMemoryAudit};
+    use crate::{
+        authorization::AuthorizationConstraint, InMemoryAudit, ResourceRef, ResourceType,
+    };
 
     fn authorization(decision: AuthorizationDecision) -> AuthorizationResult {
         let subject_ref = ResourceRef::new(ResourceType::Party, "user-1").unwrap();
