@@ -4,9 +4,9 @@ use sidereth_core::persistence::{
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use sidereth_core::{
-    AuthorizationDecision, AuthorizationResult, EpistemicStatus, IntelligenceDataClass,
-    Observation, ObservationCommand, ObservationCommandContext, ObservationCommandError,
-    ObservationOrigin, ObservationType, ResourceRef, ResourceType, Revision,
+    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, EpistemicStatus,
+    IntelligenceDataClass, Observation, ObservationCommand, ObservationCommandContext,
+    ObservationCommandError, ObservationOrigin, ObservationType, ResourceRef, ResourceType, Revision,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -111,25 +111,43 @@ fn observation() -> Observation {
     }
 }
 
+fn authorization_request(actor_ref: ResourceRef) -> AuthorizationRequest {
+    AuthorizationRequest {
+        request_id: "request-1".into(),
+        authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
+        subject_ref: actor_ref,
+        action: ResourceRef::new(ResourceType::Action, "observation.create").unwrap(),
+        resource_ref: ResourceRef::new(ResourceType::Observation, "obs-1").unwrap(),
+        purpose: "record observation".into(),
+        jurisdiction_ref: None,
+        data_class: Some("RESTRICTED".into()),
+        policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
+        requested_at_epoch_seconds: 80,
+        freshness_seconds: Some(40),
+    }
+}
+
 fn context() -> ObservationCommandContext {
     let actor_ref = ResourceRef::new(ResourceType::Party, "party-1").unwrap();
+    let authorization_request = authorization_request(actor_ref.clone());
     ObservationCommandContext {
-        actor_ref: actor_ref.clone(),
+        actor_ref,
         operation_id: "op-1".into(),
         correlation_id: "corr-1".into(),
         now_epoch_seconds: 100,
+        authorization_request: authorization_request.clone(),
         authorization: AuthorizationResult {
-            request_id: "request-1".into(),
-            authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
-            subject_ref: actor_ref,
-            action: ResourceRef::new(ResourceType::Action, "observation.create").unwrap(),
-            resource_ref: ResourceRef::new(ResourceType::Observation, "obs-1").unwrap(),
-            purpose: "record observation".into(),
-            jurisdiction_ref: None,
-            data_class: Some("RESTRICTED".into()),
+            request_id: authorization_request.request_id.clone(),
+            authorization_ref: authorization_request.authorization_ref.clone(),
+            subject_ref: authorization_request.subject_ref.clone(),
+            action: authorization_request.action.clone(),
+            resource_ref: authorization_request.resource_ref.clone(),
+            purpose: authorization_request.purpose.clone(),
+            jurisdiction_ref: authorization_request.jurisdiction_ref.clone(),
+            data_class: authorization_request.data_class.clone(),
             decision: AuthorizationDecision::Allow,
             constraints: Vec::new(),
-            policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
+            policy_refs: authorization_request.policy_refs.clone(),
             evaluated_at_epoch_seconds: 90,
             expires_at_epoch_seconds: Some(120),
         },
@@ -159,8 +177,73 @@ fn authorization_must_bind_exact_observation_resource() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
     let mut context = context();
-    context.authorization.resource_ref =
+    context.authorization_request.resource_ref =
         ResourceRef::new(ResourceType::Observation, "other").unwrap();
+    let mut command = ObservationCommand::new(&mut factory);
+
+    assert_eq!(
+        command.create(context, observation()),
+        Err(ObservationCommandError::AuthorizationMismatch)
+    );
+    assert!(state.0.borrow().is_empty());
+}
+
+#[test]
+fn authorization_must_bind_exact_purpose_and_policy_context() {
+    for mutate_request in [
+        |request: &mut AuthorizationRequest| request.purpose = "different purpose".into(),
+        |request: &mut AuthorizationRequest| {
+            request.policy_refs = vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()]
+        },
+    ] {
+        let mut factory = MockFactory::default();
+        let state = factory.state.clone();
+        let mut context = context();
+        mutate_request(&mut context.authorization_request);
+        let mut command = ObservationCommand::new(&mut factory);
+
+        assert_eq!(
+            command.create(context, observation()),
+            Err(ObservationCommandError::AuthorizationMismatch)
+        );
+        assert!(state.0.borrow().is_empty());
+    }
+}
+
+#[test]
+fn authorization_must_bind_exact_jurisdiction_and_data_class() {
+    let mut factory = MockFactory::default();
+    let state = factory.state.clone();
+    let mut context = context();
+    context.authorization_request.jurisdiction_ref =
+        Some(ResourceRef::new(ResourceType::Jurisdiction, "jurisdiction-1").unwrap());
+    let mut command = ObservationCommand::new(&mut factory);
+
+    assert_eq!(
+        command.create(context, observation()),
+        Err(ObservationCommandError::AuthorizationMismatch)
+    );
+    assert!(state.0.borrow().is_empty());
+
+    let mut factory = MockFactory::default();
+    let state = factory.state.clone();
+    let mut context = context();
+    context.authorization_request.data_class = Some("PUBLIC".into());
+    let mut command = ObservationCommand::new(&mut factory);
+
+    assert_eq!(
+        command.create(context, observation()),
+        Err(ObservationCommandError::AuthorizationMismatch)
+    );
+    assert!(state.0.borrow().is_empty());
+}
+
+#[test]
+fn authorization_result_must_match_evaluated_request() {
+    let mut factory = MockFactory::default();
+    let state = factory.state.clone();
+    let mut context = context();
+    context.authorization.purpose = "different purpose".into();
     let mut command = ObservationCommand::new(&mut factory);
 
     assert_eq!(
