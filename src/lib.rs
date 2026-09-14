@@ -22,7 +22,9 @@ pub struct ResourceRef {
 impl ResourceRef {
     pub fn new(resource_type: ResourceType, id: impl Into<Id>) -> Result<Self, &'static str> {
         let id = id.into();
-        if id.is_empty() { return Err("resource reference id is required"); }
+        if id.is_empty() {
+            return Err("resource reference id is required");
+        }
         Ok(Self { resource_type, id })
     }
 }
@@ -30,10 +32,30 @@ impl ResourceRef {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
-    Case, Incident, Event, Observation, Evidence, Authority, Jurisdiction, Party,
-    PartyRelationship, Document, Action, Deadline, Response, Escalation, Remedy,
-    Resolution, Procedure, ComplianceRequirement, LegalSource, Timeline, Audit,
-    Provenance, Idempotency, Other,
+    Case,
+    Incident,
+    Event,
+    Observation,
+    Evidence,
+    Authority,
+    Jurisdiction,
+    Party,
+    PartyRelationship,
+    Document,
+    Action,
+    Deadline,
+    Response,
+    Escalation,
+    Remedy,
+    Resolution,
+    Procedure,
+    ComplianceRequirement,
+    LegalSource,
+    Timeline,
+    Audit,
+    Provenance,
+    Idempotency,
+    Other,
 }
 
 pub mod action;
@@ -74,7 +96,6 @@ pub mod resolution;
 pub mod response;
 pub mod security;
 pub mod service;
-pub mod service_canonical;
 pub mod timeline;
 #[allow(clippy::manual_flatten)]
 pub mod tool_registry;
@@ -172,63 +193,143 @@ pub use postgres::{to_json, PostgresUnitOfWork, PostgresUnitOfWorkFactory};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum CaseState { Draft, Active, WaitingUser, WaitingAuthority, ResponseDue, Resolved, Closed }
+pub enum CaseState {
+    Draft,
+    Active,
+    WaitingUser,
+    WaitingAuthority,
+    ResponseDue,
+    Resolved,
+    Closed,
+}
 
 impl CaseState {
     pub fn can_transition_to(&self, next: &Self) -> bool {
-        matches!((self, next), (Self::Draft, Self::Active) | (Self::Active, Self::WaitingUser) | (Self::Active, Self::WaitingAuthority) | (Self::Active, Self::ResponseDue) | (Self::Active, Self::Resolved) | (Self::WaitingUser, Self::Active) | (Self::WaitingAuthority, Self::Active) | (Self::ResponseDue, Self::Active) | (Self::ResponseDue, Self::Resolved) | (Self::Resolved, Self::Closed))
+        matches!(
+            (self, next),
+            (Self::Draft, Self::Active)
+                | (Self::Active, Self::WaitingUser)
+                | (Self::Active, Self::WaitingAuthority)
+                | (Self::Active, Self::ResponseDue)
+                | (Self::Active, Self::Resolved)
+                | (Self::WaitingUser, Self::Active)
+                | (Self::WaitingAuthority, Self::Active)
+                | (Self::ResponseDue, Self::Active)
+                | (Self::ResponseDue, Self::Resolved)
+                | (Self::Resolved, Self::Closed)
+        )
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Case { pub case_id: Id, pub state: CaseState }
+pub struct Case {
+    pub case_id: Id,
+    pub state: CaseState,
+}
 
 impl Case {
     pub fn new(case_id: Id) -> Result<Self, &'static str> {
-        if case_id.is_empty() { return Err("case id is required"); }
-        Ok(Self { case_id, state: CaseState::Draft })
+        if case_id.is_empty() {
+            return Err("case id is required");
+        }
+        Ok(Self {
+            case_id,
+            state: CaseState::Draft,
+        })
     }
+
     pub fn transition(&mut self, next: CaseState) -> Result<(), &'static str> {
-        if !self.state.can_transition_to(&next) { return Err("invalid case state transition"); }
-        self.state = next; Ok(())
+        if !self.state.can_transition_to(&next) {
+            return Err("invalid case state transition");
+        }
+        self.state = next;
+        Ok(())
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum IncidentState { Open, Recorded, UnderReview, Resolved, Closed }
+pub enum IncidentState {
+    Open,
+    Recorded,
+    UnderReview,
+    Resolved,
+    Closed,
+}
+
 impl IncidentState {
     pub fn can_transition_to(&self, next: &Self) -> bool {
-        matches!((self, next), (Self::Open, Self::Recorded) | (Self::Recorded, Self::UnderReview) | (Self::UnderReview, Self::Resolved) | (Self::Resolved, Self::Closed))
+        matches!(
+            (self, next),
+            (Self::Open, Self::Recorded)
+                | (Self::Recorded, Self::UnderReview)
+                | (Self::UnderReview, Self::Resolved)
+                | (Self::Resolved, Self::Closed)
+        )
     }
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Incident { pub incident_id: Id, pub state: IncidentState }
+pub struct Incident {
+    pub incident_id: Id,
+    pub state: IncidentState,
+}
+
 impl Incident {
     pub fn new(incident_id: Id) -> Result<Self, &'static str> {
-        if incident_id.is_empty() { return Err("incident id is required"); }
-        Ok(Self { incident_id, state: IncidentState::Open })
+        if incident_id.is_empty() {
+            return Err("incident id is required");
+        }
+        Ok(Self {
+            incident_id,
+            state: IncidentState::Open,
+        })
     }
+
     pub fn transition(&mut self, next: IncidentState) -> Result<(), &'static str> {
-        if !self.state.can_transition_to(&next) { return Err("invalid incident state transition"); }
-        self.state = next; Ok(())
+        if !self.state.can_transition_to(&next) {
+            return Err("invalid incident state transition");
+        }
+        self.state = next;
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn resource_ref_is_explicit_and_stable_on_wire() {
         let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
         let json = serde_json::to_string(&reference).unwrap();
-        assert_eq!(json, "{\"resource_type\":\"document\",\"id\":\"doc-1\"}".to_string());
-        let decoded: ResourceRef = serde_json::from_str(&json).unwrap(); assert_eq!(decoded, reference);
+        let expected = "{\"resource_type\":\"document\",\"id\":\"doc-1\"}".to_string();
+        assert_eq!(json, expected);
+        let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, reference);
     }
+
     #[test]
-    fn empty_resource_ref_is_rejected() { assert_eq!(ResourceRef::new(ResourceType::Case, ""), Err("resource reference id is required")); }
+    fn empty_resource_ref_is_rejected() {
+        assert_eq!(
+            ResourceRef::new(ResourceType::Case, ""),
+            Err("resource reference id is required")
+        );
+    }
+
     #[test]
-    fn party_relationship_resource_type_has_canonical_wire_value() { assert_eq!(serde_json::to_string(&ResourceType::PartyRelationship).unwrap(), "\"party_relationship\""); }
+    fn party_relationship_resource_type_has_canonical_wire_value() {
+        assert_eq!(
+            serde_json::to_string(&ResourceType::PartyRelationship).unwrap(),
+            "\"party_relationship\""
+        );
+    }
+
     #[test]
-    fn observation_resource_type_has_canonical_wire_value() { assert_eq!(serde_json::to_string(&ResourceType::Observation).unwrap(), "\"observation\""); }
+    fn observation_resource_type_has_canonical_wire_value() {
+        assert_eq!(
+            serde_json::to_string(&ResourceType::Observation).unwrap(),
+            "\"observation\""
+        );
+    }
 }
