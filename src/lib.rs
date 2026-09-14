@@ -69,6 +69,7 @@ pub mod deadline;
 pub mod document;
 pub mod event;
 pub mod evidence;
+pub mod evidence_query;
 pub mod evidence_repository;
 pub mod evidence_store;
 pub mod evidence_trust;
@@ -130,6 +131,9 @@ pub use document::{
 };
 pub use event::EventEnvelope;
 pub use evidence::{sha256_hex, DerivedArtifact, EvidenceCapture, EvidenceOriginal};
+pub use evidence_query::{
+    AuthorizedEvidenceQuery, EvidenceQueryError, EvidenceQueryRequest, EvidenceQueryResult,
+};
 pub use evidence_repository::{
     EvidencePersistenceError, EvidenceTrustRepository, EvidenceTrustUnitOfWorkRepository,
     InMemoryEvidenceTrustRepository, PersistedEvidence,
