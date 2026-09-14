@@ -1,3 +1,4 @@
+use crate::authorization::AuthorizationRequest;
 use crate::persistence::ResourceRecord;
 use crate::{
     AuthorizationDecision, AuthorizationResult, PersistenceError, ResourceRef, UnitOfWork,
@@ -8,6 +9,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceQueryRequest {
     pub resource_ref: ResourceRef,
+    pub authorization_request: AuthorizationRequest,
     pub authorization: AuthorizationResult,
     pub requested_data_class: Option<String>,
     pub now_epoch_seconds: u64,
@@ -16,12 +18,14 @@ pub struct ResourceQueryRequest {
 impl ResourceQueryRequest {
     pub fn new(
         resource_ref: ResourceRef,
+        authorization_request: AuthorizationRequest,
         authorization: AuthorizationResult,
         requested_data_class: Option<String>,
         now_epoch_seconds: u64,
     ) -> Self {
         Self {
             resource_ref,
+            authorization_request,
             authorization,
             requested_data_class,
             now_epoch_seconds,
@@ -29,22 +33,48 @@ impl ResourceQueryRequest {
     }
 
     fn validate(&self) -> Result<(), QueryError> {
-        if self.authorization.decision != AuthorizationDecision::Allow {
-            return Err(QueryError::AuthorizationDenied);
-        }
-        if self.authorization.resource_ref != self.resource_ref {
-            return Err(QueryError::AuthorizationMismatch);
-        }
-        if self.authorization.subject_ref.id.is_empty()
-            || self.authorization.purpose.trim().is_empty()
+        let request = &self.authorization_request;
+        let authorization = &self.authorization;
+        if request.request_id.is_empty()
+            || request.authorization_ref.id.is_empty()
+            || request.subject_ref.id.is_empty()
+            || request.action.id.is_empty()
+            || request.resource_ref.id.is_empty()
+            || request.purpose.trim().is_empty()
         {
             return Err(QueryError::InvalidRequest);
         }
-        if self.authorization.evaluated_at_epoch_seconds > self.now_epoch_seconds {
+        if request.resource_ref != self.resource_ref
+            || request.data_class != self.requested_data_class
+        {
+            return Err(QueryError::AuthorizationMismatch);
+        }
+        if request.requested_at_epoch_seconds > self.now_epoch_seconds
+            || request.freshness_seconds.is_some_and(|freshness| {
+                self.now_epoch_seconds - request.requested_at_epoch_seconds > freshness
+            })
+        {
+            return Err(QueryError::AuthorizationExpired);
+        }
+        if authorization.request_id != request.request_id
+            || authorization.authorization_ref != request.authorization_ref
+            || authorization.subject_ref != request.subject_ref
+            || authorization.action != request.action
+            || authorization.resource_ref != request.resource_ref
+            || authorization.purpose != request.purpose
+            || authorization.jurisdiction_ref != request.jurisdiction_ref
+            || authorization.data_class != request.data_class
+            || authorization.policy_refs != request.policy_refs
+        {
+            return Err(QueryError::AuthorizationMismatch);
+        }
+        if authorization.decision != AuthorizationDecision::Allow {
+            return Err(QueryError::AuthorizationDenied);
+        }
+        if authorization.evaluated_at_epoch_seconds > self.now_epoch_seconds {
             return Err(QueryError::AuthorizationInvalid);
         }
-        if self
-            .authorization
+        if authorization
             .expires_at_epoch_seconds
             .map(|expires_at| self.now_epoch_seconds >= expires_at)
             .unwrap_or(false)
@@ -58,9 +88,6 @@ impl ResourceQueryRequest {
             .unwrap_or(false)
         {
             return Err(QueryError::InvalidRequest);
-        }
-        if self.requested_data_class != self.authorization.data_class {
-            return Err(QueryError::DataClassificationMismatch);
         }
         Ok(())
     }
@@ -203,27 +230,47 @@ mod tests {
         }
     }
 
+    fn authorization_context(resource_ref: &ResourceRef) -> (AuthorizationRequest, AuthorizationResult) {
+        let request = AuthorizationRequest {
+            request_id: "request-1".into(),
+            authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
+            subject_ref: ResourceRef::new(ResourceType::Party, "party-1").unwrap(),
+            action: ResourceRef::new(ResourceType::Action, "resource.read").unwrap(),
+            resource_ref: resource_ref.clone(),
+            purpose: "direct resource retrieval".into(),
+            policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
+            jurisdiction_ref: None,
+            data_class: Some("public".into()),
+            requested_at_epoch_seconds: 1_000,
+            freshness_seconds: Some(1_000),
+        };
+        let result = AuthorizationResult {
+            request_id: request.request_id.clone(),
+            authorization_ref: request.authorization_ref.clone(),
+            subject_ref: request.subject_ref.clone(),
+            action: request.action.clone(),
+            resource_ref: request.resource_ref.clone(),
+            purpose: request.purpose.clone(),
+            jurisdiction_ref: request.jurisdiction_ref.clone(),
+            data_class: request.data_class.clone(),
+            decision: AuthorizationDecision::Allow,
+            constraints: vec![AuthorizationConstraint {
+                key: "scope".into(),
+                value: "exact_resource".into(),
+            }],
+            policy_refs: request.policy_refs.clone(),
+            evaluated_at_epoch_seconds: 1_000,
+            expires_at_epoch_seconds: Some(2_000),
+        };
+        (request, result)
+    }
+
     fn request(resource_ref: ResourceRef) -> ResourceQueryRequest {
+        let (authorization_request, authorization) = authorization_context(&resource_ref);
         ResourceQueryRequest::new(
-            resource_ref.clone(),
-            AuthorizationResult {
-                request_id: "request-1".into(),
-                authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
-                subject_ref: ResourceRef::new(ResourceType::Case, "case-1").unwrap(),
-                action: ResourceRef::new(ResourceType::Other, "resource.read").unwrap(),
-                resource_ref,
-                purpose: "direct resource retrieval".into(),
-                jurisdiction_ref: None,
-                data_class: Some("public".into()),
-                decision: AuthorizationDecision::Allow,
-                constraints: vec![AuthorizationConstraint {
-                    key: "scope".into(),
-                    value: "exact_resource".into(),
-                }],
-                policy_refs: vec![],
-                evaluated_at_epoch_seconds: 1_000,
-                expires_at_epoch_seconds: Some(2_000),
-            },
+            resource_ref,
+            authorization_request,
+            authorization,
             Some("public".into()),
             1_500,
         )
@@ -263,7 +310,17 @@ mod tests {
         let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
         let other_ref = ResourceRef::new(ResourceType::Case, "case-2").unwrap();
         let mut request = request(resource_ref);
-        request.authorization.resource_ref = other_ref;
+        request.authorization_request.resource_ref = other_ref;
+        let factory = FakeFactory::default();
+        let mut query = UnitOfWorkResourceQuery::new(factory);
+        assert_eq!(query.get(request), Err(QueryError::AuthorizationMismatch));
+    }
+
+    #[test]
+    fn authorization_result_must_match_exact_request_context() {
+        let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
+        let mut request = request(resource_ref);
+        request.authorization.purpose = "different purpose".into();
         let factory = FakeFactory::default();
         let mut query = UnitOfWorkResourceQuery::new(factory);
         assert_eq!(query.get(request), Err(QueryError::AuthorizationMismatch));
@@ -280,7 +337,18 @@ mod tests {
     }
 
     #[test]
-    fn data_classification_must_match_authorization() {
+    fn stale_request_is_rejected_before_persistence_read() {
+        let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
+        let mut request = request(resource_ref);
+        request.authorization_request.requested_at_epoch_seconds = 1_000;
+        request.authorization_request.freshness_seconds = Some(100);
+        let factory = FakeFactory::default();
+        let mut query = UnitOfWorkResourceQuery::new(factory);
+        assert_eq!(query.get(request), Err(QueryError::AuthorizationExpired));
+    }
+
+    #[test]
+    fn data_classification_must_match_authorization_request() {
         let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
         let mut request = request(resource_ref);
         request.requested_data_class = Some("restricted".into());
@@ -288,7 +356,7 @@ mod tests {
         let mut query = UnitOfWorkResourceQuery::new(factory);
         assert_eq!(
             query.get(request),
-            Err(QueryError::DataClassificationMismatch)
+            Err(QueryError::AuthorizationMismatch)
         );
     }
 
