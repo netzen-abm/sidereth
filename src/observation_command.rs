@@ -1,12 +1,10 @@
+use crate::authorization_enforcement::validate_authorization as enforce_authorization;
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
 };
-use crate::{
-    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef,
-    ResourceType,
-};
+use crate::{AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef, ResourceType};
 use serde_json::json;
 
 const OBSERVATION_CREATE_ACTION: &str = "observation.create";
@@ -136,7 +134,6 @@ fn validate_authorization(
         .as_str()
         .ok_or(ObservationCommandError::InvalidInput)?;
     let request = &context.authorization_request;
-    let authorization = &context.authorization;
 
     if request.request_id.is_empty()
         || request.authorization_ref.id.is_empty()
@@ -151,30 +148,23 @@ fn validate_authorization(
     {
         return Err(ObservationCommandError::AuthorizationMismatch);
     }
-    if authorization.decision != AuthorizationDecision::Allow {
-        return Err(ObservationCommandError::AuthorizationDenied);
-    }
-    if authorization.request_id != request.request_id
-        || authorization.authorization_ref != request.authorization_ref
-        || authorization.subject_ref != request.subject_ref
-        || authorization.action != request.action
-        || authorization.resource_ref != request.resource_ref
-        || authorization.purpose != request.purpose
-        || authorization.policy_refs != request.policy_refs
-        || authorization.jurisdiction_ref != request.jurisdiction_ref
-        || authorization.data_class != request.data_class
-    {
-        return Err(ObservationCommandError::AuthorizationMismatch);
-    }
-    if authorization.evaluated_at_epoch_seconds > context.now_epoch_seconds
-        || authorization
-            .expires_at_epoch_seconds
-            .is_some_and(|expires| context.now_epoch_seconds > expires)
-    {
-        return Err(ObservationCommandError::AuthorizationExpired);
-    }
 
-    Ok(())
+    enforce_authorization(request, &context.authorization, context.now_epoch_seconds).map_err(
+        |error| match error {
+            crate::AuthorizationValidationError::Denied => {
+                ObservationCommandError::AuthorizationDenied
+            }
+            crate::AuthorizationValidationError::Expired => {
+                ObservationCommandError::AuthorizationExpired
+            }
+            crate::AuthorizationValidationError::NotYetEvaluated
+            | crate::AuthorizationValidationError::InvalidRequest
+            | crate::AuthorizationValidationError::RequestResultMismatch
+            | crate::AuthorizationValidationError::ConstraintViolation => {
+                ObservationCommandError::AuthorizationMismatch
+            }
+        },
+    )
 }
 
 fn persist_observation<C: UnitOfWorkContext>(
