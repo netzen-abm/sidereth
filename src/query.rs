@@ -133,7 +133,10 @@ impl<F: UnitOfWorkFactory> ResourceQuery for UnitOfWorkResourceQuery<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{authorization::AuthorizationConstraint, ResourceType, Revision, UnitOfWorkError};
+    use crate::{
+        authorization::{AuthorizationConstraint, AuthorizationDecision},
+        ResourceType, Revision, UnitOfWorkError,
+    };
     use serde_json::Value;
 
     #[derive(Default)]
