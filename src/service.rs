@@ -3,15 +3,13 @@
 //! Authorization semantics are delegated to the canonical authorization
 //! evaluator. This module does not define a second authorization policy.
 
-use crate::authorization::{
-    AuthorizationDecision, AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult,
-};
+use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest};
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
 };
-use crate::{Case, CaseState, Id, ResourceRef, ResourceType};
+use crate::{validate_authorization, Case, CaseState, Id, ResourceRef, ResourceType};
 use serde_json::json;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,6 +17,7 @@ pub enum ServiceError {
     AuthorizationDenied,
     AuthorizationMismatch,
     AuthorizationExpired,
+    AuthorizationInvalid,
     Conflict,
     Duplicate,
     InvalidInput,
@@ -133,11 +132,23 @@ where
             freshness_seconds: context.freshness_seconds,
         };
         let authorization = self.evaluator.evaluate(&authorization_request);
-        authorize(
-            &authorization,
+        validate_authorization(
             &authorization_request,
+            &authorization,
             context.now_epoch_seconds,
-        )?;
+        )
+        .map_err(|error| match error {
+            crate::AuthorizationValidationError::Denied => ServiceError::AuthorizationDenied,
+            crate::AuthorizationValidationError::Expired => ServiceError::AuthorizationExpired,
+            crate::AuthorizationValidationError::RequestResultMismatch => {
+                ServiceError::AuthorizationMismatch
+            }
+            crate::AuthorizationValidationError::NotYetEvaluated
+            | crate::AuthorizationValidationError::InvalidRequest
+            | crate::AuthorizationValidationError::ConstraintViolation => {
+                ServiceError::AuthorizationInvalid
+            }
+        })?;
 
         let mut plan = AtomicCommandPlan::new(context.operation_id.clone())
             .map_err(|_| ServiceError::InvalidInput)?;
@@ -152,40 +163,6 @@ where
             execute_case_command(uow, plan, actor_id, correlation_id, operation_id, command)
         })
         .map_err(ServiceError::from)
-    }
-}
-
-fn authorize(
-    result: &AuthorizationResult,
-    request: &AuthorizationRequest,
-    now_epoch_seconds: u64,
-) -> Result<(), ServiceError> {
-    if result.request_id != request.request_id
-        || result.authorization_ref != request.authorization_ref
-        || result.subject_ref != request.subject_ref
-        || result.action != request.action
-        || result.resource_ref != request.resource_ref
-        || result.purpose != request.purpose
-        || result.policy_refs != request.policy_refs
-        || result.jurisdiction_ref != request.jurisdiction_ref
-        || result.data_class != request.data_class
-    {
-        return Err(ServiceError::AuthorizationMismatch);
-    }
-    if now_epoch_seconds < result.evaluated_at_epoch_seconds {
-        return Err(ServiceError::AuthorizationMismatch);
-    }
-    if result
-        .expires_at_epoch_seconds
-        .is_some_and(|expires_at| now_epoch_seconds > expires_at)
-    {
-        return Err(ServiceError::AuthorizationExpired);
-    }
-    match result.decision {
-        AuthorizationDecision::Allow => Ok(()),
-        AuthorizationDecision::Deny | AuthorizationDecision::NotApplicable => {
-            Err(ServiceError::AuthorizationDenied)
-        }
     }
 }
 

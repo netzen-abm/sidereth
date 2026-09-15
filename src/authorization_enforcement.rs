@@ -67,7 +67,9 @@ fn validate_constraints(
 ) -> Result<(), AuthorizationValidationError> {
     for constraint in constraints {
         match constraint.key.as_str() {
-            "scope" if constraint.value == "exact_resource" || constraint.value == "exact_evidence" => {}
+            "scope"
+                if constraint.value == "exact_resource" || constraint.value == "exact_evidence" => {
+            }
             "access_mode" if constraint.value == "read_only" => {}
             _ => return Err(AuthorizationValidationError::ConstraintViolation),
         }
@@ -125,7 +127,10 @@ mod tests {
 
     #[test]
     fn valid_allow_is_accepted() {
-        assert_eq!(validate_authorization(&request(), &allowed(), 1_050), Ok(()));
+        assert_eq!(
+            validate_authorization(&request(), &allowed(), 1_050),
+            Ok(())
+        );
     }
 
     #[test]
