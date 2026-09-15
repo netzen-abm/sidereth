@@ -62,6 +62,7 @@ pub mod action;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
+pub mod authorization_enforcement;
 pub mod capability_registry;
 pub mod command;
 pub mod compliance;
@@ -111,6 +112,7 @@ pub use authorization::{
     AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
     AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
 };
+pub use authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 pub use capability_registry::{
     CapabilityDataClass, CapabilityDependency, CapabilityImplementation, CapabilityLifecycle,
     CapabilityRegistryEntry, CapabilityRegistryError, CapabilityRiskClass, CapabilityVersion,
