@@ -4,7 +4,9 @@ use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
 };
-use crate::{AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef, ResourceType};
+use crate::{
+    AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef, ResourceType,
+};
 use serde_json::json;
 
 const OBSERVATION_CREATE_ACTION: &str = "observation.create";
