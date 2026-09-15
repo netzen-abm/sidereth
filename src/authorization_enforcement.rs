@@ -1,4 +1,6 @@
-use crate::authorization::{AuthorizationDecision, AuthorizationRequest, AuthorizationResult};
+use crate::authorization::{
+    AuthorizationDecision, AuthorizationRequest, AuthorizationResult,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthorizationValidationError {
@@ -67,7 +69,9 @@ fn validate_constraints(
 ) -> Result<(), AuthorizationValidationError> {
     for constraint in constraints {
         match constraint.key.as_str() {
-            "scope" if constraint.value == "exact_resource" || constraint.value == "exact_evidence" => {}
+            "scope"
+                if constraint.value == "exact_resource"
+                    || constraint.value == "exact_evidence" => {}
             "access_mode" if constraint.value == "read_only" => {}
             _ => return Err(AuthorizationValidationError::ConstraintViolation),
         }
