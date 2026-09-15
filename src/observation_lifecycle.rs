@@ -4,7 +4,9 @@ use crate::persistence::{
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode, Revision,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
-use crate::{AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef, ResourceType};
+use crate::{
+    AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef, ResourceType,
+};
 use serde_json::json;
 
 const OBSERVATION_CORRECT_ACTION: &str = "observation.correct";
@@ -393,7 +395,11 @@ fn persist_lifecycle<C: UnitOfWorkContext>(
             "provenance_id": provenance_id,
             "actor_ref": actor_ref,
             "source_refs": source_refs,
-            "input_refs": [observation_ref.clone(), prior_observation.clone(), authorization_ref],
+            "input_refs": [
+                observation_ref.clone(),
+                prior_observation.clone(),
+                authorization_ref
+            ],
             "operation": operation.event_type(),
             "occurred_at": recorded_at
         }),
