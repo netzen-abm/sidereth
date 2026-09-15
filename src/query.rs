@@ -1,7 +1,7 @@
 use crate::authorization::AuthorizationRequest;
 use crate::persistence::ResourceRecord;
 use crate::{
-    AuthorizationDecision, AuthorizationResult, PersistenceError, ResourceRef, UnitOfWork,
+    validate_authorization, AuthorizationResult, PersistenceError, ResourceRef, UnitOfWork,
     UnitOfWorkContext, UnitOfWorkFactory,
 };
 
@@ -34,52 +34,10 @@ impl ResourceQueryRequest {
 
     fn validate(&self) -> Result<(), QueryError> {
         let request = &self.authorization_request;
-        let authorization = &self.authorization;
-        if request.request_id.is_empty()
-            || request.authorization_ref.id.is_empty()
-            || request.subject_ref.id.is_empty()
-            || request.action.id.is_empty()
-            || request.resource_ref.id.is_empty()
-            || request.purpose.trim().is_empty()
-        {
-            return Err(QueryError::InvalidRequest);
-        }
         if request.resource_ref != self.resource_ref
             || request.data_class != self.requested_data_class
         {
             return Err(QueryError::AuthorizationMismatch);
-        }
-        if request.requested_at_epoch_seconds > self.now_epoch_seconds
-            || request.freshness_seconds.is_some_and(|freshness| {
-                self.now_epoch_seconds - request.requested_at_epoch_seconds > freshness
-            })
-        {
-            return Err(QueryError::AuthorizationExpired);
-        }
-        if authorization.request_id != request.request_id
-            || authorization.authorization_ref != request.authorization_ref
-            || authorization.subject_ref != request.subject_ref
-            || authorization.action != request.action
-            || authorization.resource_ref != request.resource_ref
-            || authorization.purpose != request.purpose
-            || authorization.jurisdiction_ref != request.jurisdiction_ref
-            || authorization.data_class != request.data_class
-            || authorization.policy_refs != request.policy_refs
-        {
-            return Err(QueryError::AuthorizationMismatch);
-        }
-        if authorization.decision != AuthorizationDecision::Allow {
-            return Err(QueryError::AuthorizationDenied);
-        }
-        if authorization.evaluated_at_epoch_seconds > self.now_epoch_seconds {
-            return Err(QueryError::AuthorizationInvalid);
-        }
-        if authorization
-            .expires_at_epoch_seconds
-            .map(|expires_at| self.now_epoch_seconds >= expires_at)
-            .unwrap_or(false)
-        {
-            return Err(QueryError::AuthorizationExpired);
         }
         if self
             .requested_data_class
@@ -89,7 +47,21 @@ impl ResourceQueryRequest {
         {
             return Err(QueryError::InvalidRequest);
         }
-        Ok(())
+
+        validate_authorization(request, &self.authorization, self.now_epoch_seconds).map_err(
+            |error| match error {
+                crate::AuthorizationValidationError::Denied => QueryError::AuthorizationDenied,
+                crate::AuthorizationValidationError::Expired => QueryError::AuthorizationExpired,
+                crate::AuthorizationValidationError::RequestResultMismatch => {
+                    QueryError::AuthorizationMismatch
+                }
+                crate::AuthorizationValidationError::NotYetEvaluated
+                | crate::AuthorizationValidationError::InvalidRequest
+                | crate::AuthorizationValidationError::ConstraintViolation => {
+                    QueryError::AuthorizationInvalid
+                }
+            },
+        )
     }
 }
 
