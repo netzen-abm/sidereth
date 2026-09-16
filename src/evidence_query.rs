@@ -279,10 +279,13 @@ mod tests {
     fn unknown_authorization_constraint_fails_closed() {
         let vault = vault();
         let mut request = request();
-        request.authorization.constraints.push(AuthorizationConstraint {
-            key: "future_constraint".into(),
-            value: "allow_all".into(),
-        });
+        request
+            .authorization
+            .constraints
+            .push(AuthorizationConstraint {
+                key: "future_constraint".into(),
+                value: "allow_all".into(),
+            });
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
         assert_eq!(
             query.get(request),
