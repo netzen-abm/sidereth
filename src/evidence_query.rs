@@ -1,7 +1,7 @@
 use crate::authorization::AuthorizationRequest;
 use crate::{
-    validate_authorization, AuthorizationDecision, AuthorizationResult, EvidenceObjectStore,
-    EvidenceOriginal, Id, ResourceRef, ResourceType,
+    validate_authorization, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal, Id,
+    ResourceRef, ResourceType,
 };
 
 /// Provider-neutral request for retrieval of evidence content.
@@ -132,7 +132,7 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> AuthorizedEvidenc
 mod tests {
     use super::*;
     use crate::authorization::AuthorizationConstraint;
-    use crate::{EvidenceRepository, InMemoryEvidenceVault};
+    use crate::{AuthorizationDecision, EvidenceRepository, InMemoryEvidenceVault};
 
     fn authorization_context(
         evidence_ref: &ResourceRef,
