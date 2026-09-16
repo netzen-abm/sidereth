@@ -101,7 +101,9 @@ impl CapabilityLease {
             return Err(CapabilityLeaseError::InvalidLease);
         }
 
-        if self.state == CapabilityLeaseState::Active && self.activated_at_epoch_seconds.is_none() {
+        if self.state == CapabilityLeaseState::Active
+            && self.activated_at_epoch_seconds.is_none()
+        {
             return Err(CapabilityLeaseError::InvalidLease);
         }
 
@@ -112,7 +114,10 @@ impl CapabilityLease {
                 | CapabilityLeaseState::Cancelled
                 | CapabilityLeaseState::Expired
         ) && self.released_at_epoch_seconds.is_none()
-            && !matches!(self.state, CapabilityLeaseState::Revoked | CapabilityLeaseState::Expired)
+            && !matches!(
+                self.state,
+                CapabilityLeaseState::Revoked | CapabilityLeaseState::Expired
+            )
         {
             return Err(CapabilityLeaseError::InvalidLease);
         }
@@ -147,6 +152,7 @@ impl CapabilityLease {
                 CapabilityLeaseError::NotActivatable
             });
         }
+
         self.validate_context(
             capability_ref,
             resource_ref,
@@ -174,12 +180,14 @@ impl CapabilityLease {
         session_ref: Option<&ResourceRef>,
     ) -> Result<(), CapabilityLeaseError> {
         self.validate()?;
+
         if self.is_expired_at(now_epoch_seconds) {
             return Err(CapabilityLeaseError::Expired);
         }
         if !self.state.can_activate() {
             return Err(CapabilityLeaseError::NotActivatable);
         }
+
         self.validate_context(
             capability_ref,
             resource_ref,
@@ -245,16 +253,26 @@ impl CapabilityLease {
             return Err(CapabilityLeaseError::InvalidTransition);
         }
 
-        if next != CapabilityLeaseState::Expired && at_epoch_seconds >= self.expires_at_epoch_seconds {
+        if next != CapabilityLeaseState::Expired
+            && at_epoch_seconds >= self.expires_at_epoch_seconds
+        {
             return Err(CapabilityLeaseError::Expired);
         }
 
         self.state = next;
         match next {
-            CapabilityLeaseState::Active => self.activated_at_epoch_seconds = Some(at_epoch_seconds),
-            CapabilityLeaseState::Revoked => self.revoked_at_epoch_seconds = Some(at_epoch_seconds),
-            CapabilityLeaseState::Cancelled => self.cancelled_at_epoch_seconds = Some(at_epoch_seconds),
-            CapabilityLeaseState::Released => self.released_at_epoch_seconds = Some(at_epoch_seconds),
+            CapabilityLeaseState::Active => {
+                self.activated_at_epoch_seconds = Some(at_epoch_seconds)
+            }
+            CapabilityLeaseState::Revoked => {
+                self.revoked_at_epoch_seconds = Some(at_epoch_seconds)
+            }
+            CapabilityLeaseState::Cancelled => {
+                self.cancelled_at_epoch_seconds = Some(at_epoch_seconds)
+            }
+            CapabilityLeaseState::Released => {
+                self.released_at_epoch_seconds = Some(at_epoch_seconds)
+            }
             CapabilityLeaseState::Expired => self.released_at_epoch_seconds = None,
             _ => {}
         }
@@ -307,38 +325,44 @@ mod tests {
         let incident = lease.incident_ref.clone();
         let session = lease.session_ref.clone();
 
-        assert!(lease.validate_activation(
-            150,
-            &capability,
-            resource.as_ref(),
-            &subject,
-            actor.as_ref(),
-            "safety incident evidence capture",
-            Some("1"),
-            "incident-1:audio",
-            incident.as_ref(),
-            session.as_ref(),
-        ).is_ok());
+        assert!(lease
+            .validate_activation(
+                150,
+                &capability,
+                resource.as_ref(),
+                &subject,
+                actor.as_ref(),
+                "safety incident evidence capture",
+                Some("1"),
+                "incident-1:audio",
+                incident.as_ref(),
+                session.as_ref(),
+            )
+            .is_ok());
 
-        lease.transition(CapabilityLeaseState::Active, 150).unwrap();
-        assert!(lease.validate_use(
-            150,
-            &capability,
-            resource.as_ref(),
-            &subject,
-            actor.as_ref(),
-            "safety incident evidence capture",
-            Some("1"),
-            "incident-1:audio",
-            incident.as_ref(),
-            session.as_ref(),
-        ).is_ok());
+        lease
+            .transition(CapabilityLeaseState::Active, 150)
+            .unwrap();
+        assert!(lease
+            .validate_use(
+                150,
+                &capability,
+                resource.as_ref(),
+                &subject,
+                actor.as_ref(),
+                "safety incident evidence capture",
+                Some("1"),
+                "incident-1:audio",
+                incident.as_ref(),
+                session.as_ref(),
+            )
+            .is_ok());
     }
 
     #[test]
     fn exact_expiry_is_fail_closed() {
         let lease = lease();
-        assert_eq!(lease.is_expired_at(200), true);
+        assert!(lease.is_expired_at(200));
         assert_eq!(
             lease.validate_activation(
                 200,
@@ -361,6 +385,7 @@ mod tests {
         let lease = lease();
         let mut bad_purpose = lease.purpose.clone();
         bad_purpose.push_str("-different");
+
         assert_eq!(
             lease.validate_activation(
                 150,
@@ -391,6 +416,7 @@ mod tests {
             ),
             Err(CapabilityLeaseError::ScopeMismatch)
         );
+
         let other_subject = reference(ResourceType::Party, "party-2");
         assert_eq!(
             lease.validate_activation(
@@ -412,9 +438,15 @@ mod tests {
     #[test]
     fn terminal_lease_cannot_reactivate() {
         let mut lease = lease();
-        lease.transition(CapabilityLeaseState::Active, 150).unwrap();
-        lease.transition(CapabilityLeaseState::Completed, 160).unwrap();
-        lease.transition(CapabilityLeaseState::Released, 161).unwrap();
+        lease
+            .transition(CapabilityLeaseState::Active, 150)
+            .unwrap();
+        lease
+            .transition(CapabilityLeaseState::Completed, 160)
+            .unwrap();
+        lease
+            .transition(CapabilityLeaseState::Released, 161)
+            .unwrap();
         assert!(lease.state.is_terminal());
         assert_eq!(
             lease.transition(CapabilityLeaseState::Active, 170),
@@ -425,8 +457,12 @@ mod tests {
     #[test]
     fn revocation_and_cancellation_are_terminal_for_use() {
         let mut revoked = lease();
-        revoked.transition(CapabilityLeaseState::Active, 150).unwrap();
-        revoked.transition(CapabilityLeaseState::Revoked, 155).unwrap();
+        revoked
+            .transition(CapabilityLeaseState::Active, 150)
+            .unwrap();
+        revoked
+            .transition(CapabilityLeaseState::Revoked, 155)
+            .unwrap();
         assert_eq!(
             revoked.validate_use(
                 156,
@@ -444,17 +480,27 @@ mod tests {
         );
 
         let mut cancelled = lease();
-        cancelled.transition(CapabilityLeaseState::Active, 150).unwrap();
-        cancelled.transition(CapabilityLeaseState::Cancelled, 155).unwrap();
+        cancelled
+            .transition(CapabilityLeaseState::Active, 150)
+            .unwrap();
+        cancelled
+            .transition(CapabilityLeaseState::Cancelled, 155)
+            .unwrap();
         assert!(cancelled.state.is_terminal());
     }
 
     #[test]
     fn release_is_recorded_and_old_lease_is_not_reusable() {
         let mut lease = lease();
-        lease.transition(CapabilityLeaseState::Active, 150).unwrap();
-        lease.transition(CapabilityLeaseState::Completed, 160).unwrap();
-        lease.transition(CapabilityLeaseState::Released, 161).unwrap();
+        lease
+            .transition(CapabilityLeaseState::Active, 150)
+            .unwrap();
+        lease
+            .transition(CapabilityLeaseState::Completed, 160)
+            .unwrap();
+        lease
+            .transition(CapabilityLeaseState::Released, 161)
+            .unwrap();
         assert_eq!(lease.released_at_epoch_seconds, Some(161));
         assert_eq!(
             lease.validate_use(
