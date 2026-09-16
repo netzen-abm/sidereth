@@ -1,4 +1,6 @@
-use crate::authorization::{AuthorizationDecision, AuthorizationRequest, AuthorizationResult};
+use crate::authorization::{
+    AuthorizationConstraint, AuthorizationDecision, AuthorizationRequest, AuthorizationResult,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthorizationValidationError {
@@ -62,15 +64,36 @@ pub fn validate_authorization(
 
 /// The constraint vocabulary is deliberately closed. Unknown constraints fail
 /// closed rather than being silently ignored and thereby widening authority.
+/// Identical duplicates are idempotent; conflicting values for the same key
+/// fail closed.
 fn validate_constraints(
-    constraints: &[crate::authorization::AuthorizationConstraint],
+    constraints: &[AuthorizationConstraint],
 ) -> Result<(), AuthorizationValidationError> {
+    let mut scope: Option<&str> = None;
+    let mut access_mode: Option<&str> = None;
+
     for constraint in constraints {
         match constraint.key.as_str() {
             "scope"
-                if constraint.value == "exact_resource" || constraint.value == "exact_evidence" => {
+                if constraint.value == "exact_resource" || constraint.value == "exact_evidence" =>
+            {
+                if let Some(existing) = scope {
+                    if existing != constraint.value {
+                        return Err(AuthorizationValidationError::ConstraintViolation);
+                    }
+                } else {
+                    scope = Some(constraint.value.as_str());
+                }
             }
-            "access_mode" if constraint.value == "read_only" => {}
+            "access_mode" if constraint.value == "read_only" => {
+                if let Some(existing) = access_mode {
+                    if existing != constraint.value {
+                        return Err(AuthorizationValidationError::ConstraintViolation);
+                    }
+                } else {
+                    access_mode = Some(constraint.value.as_str());
+                }
+            }
             _ => return Err(AuthorizationValidationError::ConstraintViolation),
         }
     }
@@ -80,7 +103,6 @@ fn validate_constraints(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::authorization::AuthorizationConstraint;
     use crate::{ResourceRef, ResourceType};
 
     fn reference(resource_type: ResourceType, id: &str) -> ResourceRef {
@@ -125,6 +147,13 @@ mod tests {
         }
     }
 
+    fn constraint(key: &str, value: &str) -> AuthorizationConstraint {
+        AuthorizationConstraint {
+            key: key.into(),
+            value: value.into(),
+        }
+    }
+
     #[test]
     fn valid_allow_is_accepted() {
         assert_eq!(
@@ -144,10 +173,64 @@ mod tests {
     #[test]
     fn unknown_constraint_fails_closed() {
         let mut result = allowed();
-        result.constraints.push(AuthorizationConstraint {
-            key: "future_constraint".into(),
-            value: "x".into(),
-        });
+        result
+            .constraints
+            .push(constraint("future_constraint", "x"));
+        assert_eq!(
+            validate_authorization(&request(), &result, 1_050),
+            Err(AuthorizationValidationError::ConstraintViolation)
+        );
+    }
+
+    #[test]
+    fn unknown_constraint_value_fails_closed() {
+        let mut result = allowed();
+        result
+            .constraints
+            .push(constraint("scope", "broader_resource"));
+        assert_eq!(
+            validate_authorization(&request(), &result, 1_050),
+            Err(AuthorizationValidationError::ConstraintViolation)
+        );
+    }
+
+    #[test]
+    fn identical_duplicate_constraint_is_idempotent() {
+        let mut result = allowed();
+        result
+            .constraints
+            .push(constraint("scope", "exact_resource"));
+        assert_eq!(validate_authorization(&request(), &result, 1_050), Ok(()));
+    }
+
+    #[test]
+    fn conflicting_scope_constraints_fail_closed() {
+        let mut result = allowed();
+        result
+            .constraints
+            .push(constraint("scope", "exact_evidence"));
+        assert_eq!(
+            validate_authorization(&request(), &result, 1_050),
+            Err(AuthorizationValidationError::ConstraintViolation)
+        );
+    }
+
+    #[test]
+    fn identical_read_only_duplicate_is_idempotent() {
+        let mut result = allowed();
+        result
+            .constraints
+            .push(constraint("access_mode", "read_only"));
+        result
+            .constraints
+            .push(constraint("access_mode", "read_only"));
+        assert_eq!(validate_authorization(&request(), &result, 1_050), Ok(()));
+    }
+
+    #[test]
+    fn unsupported_access_mode_value_fails_closed() {
+        let mut result = allowed();
+        result.constraints.push(constraint("access_mode", "write"));
         assert_eq!(
             validate_authorization(&request(), &result, 1_050),
             Err(AuthorizationValidationError::ConstraintViolation)
