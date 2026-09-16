@@ -1,7 +1,8 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `ab36d34a90a9363044e4700576523a4a87259534`
+**Last audited baseline:** `main` at `0ac5cdb8e8da545e1e5276af510ba4e8677558b9`
+**Audit date:** 2026-09-16
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
 
@@ -17,6 +18,8 @@
 - [ ] Verify workflow/deployment dependencies on final integration branch
 - [ ] Decide branch deletion only after final evidence
 - [x] Establish documentation authority and duplication governance
+- [x] Establish repository `.gitignore` baseline
+- [x] Archive and remove transient root-level capability-registry diagnostic
 
 ## Gate 1 — Product foundation
 - [x] Define legal/regulatory OS boundary
@@ -37,9 +40,13 @@
 - [ ] database schema implementation
 - [ ] OpenAPI contract
 - [x] capability contract (draft)
+- [x] capability registry contract/conformance baseline
+- [x] purpose-bound capability lease contract/conformance baseline
 - [x] event contract baseline
 - [x] state-machine baseline
 - [x] authorization matrix baseline
+- [x] canonical authorization policy contract
+- [x] typed authorization constraint semantics/conformance baseline
 - [x] encryption/storage model (draft)
 - [x] audit model (draft)
 - [x] error model (draft)
@@ -50,6 +57,7 @@
 - [x] persistence boundary audit
 - [x] persistence contract hardening v1.2-C
 - [x] contract review and consistency audit for persistence boundary
+- [x] Observation contract and conformance baseline
 
 ## Gate 3 — Universal core
 - [x] Case Engine foundation
@@ -65,6 +73,7 @@
 - [x] Response Engine foundation
 - [x] Escalation/Remedy Engine foundation
 - [ ] Human Assistance Router
+- [x] Longitudinal observation/projection foundation
 
 ## Gate 4 — Legal knowledge
 - [x] Legal Source Registry foundation
@@ -85,6 +94,8 @@
 - [ ] consent boundaries
 - [ ] retention/deletion
 - [x] access control foundation
+- [x] canonical consumer-side authorization enforcement foundation
+- [x] purpose-bound capability lease lifecycle contract/model/conformance foundation
 - [ ] threat model
 - [ ] model/tool injection defenses
 - [ ] security audit
@@ -94,9 +105,11 @@
 - [x] Tool Gateway contract/conformance design
 - [x] canonical Authorization Contract
 - [x] Authorization Evaluator
+- [x] canonical consumer-side Authorization Enforcement
 - [x] Execution Gate
 - [x] AuthorizationResult contextual binding
-- [ ] Tool Gateway implementation — PR #73 in progress; not production-ready
+- [x] typed AuthorizationConstraint semantics/conformance
+- [ ] Tool Gateway implementation — implementation exists, but production readiness remains deferred
 - [ ] Tool Identity production implementation
 - [ ] Tool Runtime production boundary
 - [ ] Policy engine production layer
@@ -109,16 +122,16 @@
 - [x] MCP adapter boundary
 
 ### Tool Gateway implementation gates — current
-- [x] Exact-head Foundation CI at `7a028da2dd200b6cdf45950d69dff43b61ffadaf`
-- [x] Exact-head security/supply-chain checks passed
-- [ ] Trusted gateway clock / authorization expiry enforcement
-- [ ] Returned authorization-constraint enforcement
-- [ ] Registry-driven implementation/provider selection
-- [ ] Rich implementation/provider/provenance audit
-- [ ] Durable concurrent idempotency integration
-- [ ] Direct adapter bypass evidence/tests
+- [ ] Trusted gateway clock / authorization expiry enforcement proven at gateway boundary
+- [ ] Returned authorization-constraint enforcement proven at gateway boundary
+- [ ] Registry-driven implementation/provider selection proven
+- [ ] Rich implementation/provider/provenance audit proven
+- [ ] Durable concurrent idempotency integration proven
+- [ ] Direct adapter bypass evidence/tests completed
 - [ ] TG-001–TG-060 evidence matrix completed
 - [ ] Production-ready decision
+
+> The Tool Gateway contract remains canonical, but gateway expansion is deliberately sequenced after the shared authorization, constraint and capability-lease foundations and a fresh protected-operation convergence audit.
 
 ## Gate 7 — UX
 - [ ] Home
@@ -186,7 +199,8 @@
 ## Gate 10 — Production
 - [x] CI/CD foundation validation
 - [x] RustSec dependency audit foundation
-- [x] secret scanning foundation gate
+- [x] GitHub Actions security validation foundation
+- [x] secret-pattern scanning foundation gate
 - [ ] SBOM
 - [ ] release signing
 - [ ] observability
@@ -203,6 +217,9 @@
 - [x] AI-agent reading protocol
 - [x] Developer reading protocol
 - [x] Current Tool Gateway status documented honestly
+- [x] GitHub repository governance baseline documented
+- [ ] GitHub `main` ruleset activated
+- [ ] Live GitHub governance configuration independently verified
 - [ ] Full Markdown semantic-duplicate inventory
 - [ ] Full internal-link audit after any physical moves
 - [ ] Documentation consistency CI
