@@ -101,9 +101,7 @@ impl CapabilityLease {
             return Err(CapabilityLeaseError::InvalidLease);
         }
 
-        if self.state == CapabilityLeaseState::Active
-            && self.activated_at_epoch_seconds.is_none()
-        {
+        if self.state == CapabilityLeaseState::Active && self.activated_at_epoch_seconds.is_none() {
             return Err(CapabilityLeaseError::InvalidLease);
         }
 
@@ -264,9 +262,7 @@ impl CapabilityLease {
             CapabilityLeaseState::Active => {
                 self.activated_at_epoch_seconds = Some(at_epoch_seconds)
             }
-            CapabilityLeaseState::Revoked => {
-                self.revoked_at_epoch_seconds = Some(at_epoch_seconds)
-            }
+            CapabilityLeaseState::Revoked => self.revoked_at_epoch_seconds = Some(at_epoch_seconds),
             CapabilityLeaseState::Cancelled => {
                 self.cancelled_at_epoch_seconds = Some(at_epoch_seconds)
             }
@@ -340,9 +336,7 @@ mod tests {
             )
             .is_ok());
 
-        lease
-            .transition(CapabilityLeaseState::Active, 150)
-            .unwrap();
+        lease.transition(CapabilityLeaseState::Active, 150).unwrap();
         assert!(lease
             .validate_use(
                 150,
@@ -438,9 +432,7 @@ mod tests {
     #[test]
     fn terminal_lease_cannot_reactivate() {
         let mut lease = lease();
-        lease
-            .transition(CapabilityLeaseState::Active, 150)
-            .unwrap();
+        lease.transition(CapabilityLeaseState::Active, 150).unwrap();
         lease
             .transition(CapabilityLeaseState::Completed, 160)
             .unwrap();
@@ -492,9 +484,7 @@ mod tests {
     #[test]
     fn release_is_recorded_and_old_lease_is_not_reusable() {
         let mut lease = lease();
-        lease
-            .transition(CapabilityLeaseState::Active, 150)
-            .unwrap();
+        lease.transition(CapabilityLeaseState::Active, 150).unwrap();
         lease
             .transition(CapabilityLeaseState::Completed, 160)
             .unwrap();
