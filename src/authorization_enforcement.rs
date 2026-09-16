@@ -230,9 +230,7 @@ mod tests {
     #[test]
     fn unsupported_access_mode_value_fails_closed() {
         let mut result = allowed();
-        result
-            .constraints
-            .push(constraint("access_mode", "write"));
+        result.constraints.push(constraint("access_mode", "write"));
         assert_eq!(
             validate_authorization(&request(), &result, 1_050),
             Err(AuthorizationValidationError::ConstraintViolation)
