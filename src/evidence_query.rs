@@ -1,7 +1,7 @@
 use crate::authorization::AuthorizationRequest;
 use crate::{
-    AuthorizationDecision, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal, Id,
-    ResourceRef, ResourceType,
+    validate_authorization, AuthorizationDecision, AuthorizationResult, EvidenceObjectStore,
+    EvidenceOriginal, Id, ResourceRef, ResourceType,
 };
 
 /// Provider-neutral request for retrieval of evidence content.
@@ -34,54 +34,32 @@ impl EvidenceQueryRequest {
 
     fn validate(&self) -> Result<(), EvidenceQueryError> {
         let request = &self.authorization_request;
-        let authorization = &self.authorization;
-        if request.request_id.is_empty()
-            || request.authorization_ref.id.is_empty()
-            || request.subject_ref.id.is_empty()
-            || request.action.id.is_empty()
-            || request.resource_ref.id.is_empty()
-            || request.purpose.trim().is_empty()
-        {
-            return Err(EvidenceQueryError::InvalidRequest);
-        }
         if request.resource_ref != self.evidence_ref
             || request.resource_ref.resource_type != ResourceType::Evidence
         {
             return Err(EvidenceQueryError::AuthorizationMismatch);
         }
-        if request.requested_at_epoch_seconds > self.now_epoch_seconds
-            || request.freshness_seconds.is_some_and(|freshness| {
-                self.now_epoch_seconds - request.requested_at_epoch_seconds > freshness
-            })
-        {
-            return Err(EvidenceQueryError::AuthorizationExpired);
-        }
-        if authorization.request_id != request.request_id
-            || authorization.authorization_ref != request.authorization_ref
-            || authorization.subject_ref != request.subject_ref
-            || authorization.action != request.action
-            || authorization.resource_ref != request.resource_ref
-            || authorization.purpose != request.purpose
-            || authorization.jurisdiction_ref != request.jurisdiction_ref
-            || authorization.data_class != request.data_class
-            || authorization.policy_refs != request.policy_refs
-        {
-            return Err(EvidenceQueryError::AuthorizationMismatch);
-        }
-        if authorization.decision != AuthorizationDecision::Allow {
-            return Err(EvidenceQueryError::AuthorizationDenied);
-        }
-        if authorization.evaluated_at_epoch_seconds > self.now_epoch_seconds {
-            return Err(EvidenceQueryError::AuthorizationInvalid);
-        }
-        if authorization
-            .expires_at_epoch_seconds
-            .map(|expires_at| self.now_epoch_seconds >= expires_at)
-            .unwrap_or(false)
-        {
-            return Err(EvidenceQueryError::AuthorizationExpired);
-        }
-        Ok(())
+
+        validate_authorization(request, &self.authorization, self.now_epoch_seconds).map_err(
+            |error| match error {
+                crate::AuthorizationValidationError::InvalidRequest => {
+                    EvidenceQueryError::InvalidRequest
+                }
+                crate::AuthorizationValidationError::RequestResultMismatch => {
+                    EvidenceQueryError::AuthorizationMismatch
+                }
+                crate::AuthorizationValidationError::NotYetEvaluated
+                | crate::AuthorizationValidationError::ConstraintViolation => {
+                    EvidenceQueryError::AuthorizationInvalid
+                }
+                crate::AuthorizationValidationError::Expired => {
+                    EvidenceQueryError::AuthorizationExpired
+                }
+                crate::AuthorizationValidationError::Denied => {
+                    EvidenceQueryError::AuthorizationDenied
+                }
+            },
+        )
     }
 }
 
@@ -294,6 +272,21 @@ mod tests {
         assert_eq!(
             query.get(request),
             Err(EvidenceQueryError::AuthorizationExpired)
+        );
+    }
+
+    #[test]
+    fn unknown_authorization_constraint_fails_closed() {
+        let vault = vault();
+        let mut request = request();
+        request.authorization.constraints.push(AuthorizationConstraint {
+            key: "future_constraint".into(),
+            value: "allow_all".into(),
+        });
+        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        assert_eq!(
+            query.get(request),
+            Err(EvidenceQueryError::AuthorizationInvalid)
         );
     }
 
