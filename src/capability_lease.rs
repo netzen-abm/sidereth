@@ -128,6 +128,7 @@ impl CapabilityLease {
     }
 
     /// Validate the exact context needed before activating or using a lease.
+    #[allow(clippy::too_many_arguments)]
     pub fn validate_use(
         &self,
         now_epoch_seconds: u64,
@@ -164,6 +165,8 @@ impl CapabilityLease {
         )
     }
 
+    /// Validate the exact context needed before activating a lease.
+    #[allow(clippy::too_many_arguments)]
     pub fn validate_activation(
         &self,
         now_epoch_seconds: u64,
