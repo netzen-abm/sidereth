@@ -1,0 +1,45 @@
+# Rust build output
+/target/
+
+# IDE / editor metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and local diagnostics
+*.log
+*.tmp
+*.temp
+
+# Local database / test artifacts
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage / profiling output
+coverage/
+*.profraw
+*.profdata
+
+# Local certificates and private keys
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Tool / dependency caches
+.cargo/
+.cache/
+
+# Do not ignore source-controlled evidence, fixtures, schemas, migrations,
+# canonical contracts, documentation, or reproducibility artifacts.
