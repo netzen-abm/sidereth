@@ -156,7 +156,10 @@ mod tests {
 
     #[test]
     fn valid_allow_is_accepted() {
-        assert_eq!(validate_authorization(&request(), &allowed(), 1_050), Ok(()));
+        assert_eq!(
+            validate_authorization(&request(), &allowed(), 1_050),
+            Ok(())
+        );
     }
 
     #[test]
@@ -225,12 +228,11 @@ mod tests {
     }
 
     #[test]
-    fn conflicting_access_mode_constraints_fail_closed() {
+    fn unsupported_access_mode_value_fails_closed() {
         let mut result = allowed();
         result
             .constraints
-            .push(constraint("access_mode", "read_only"));
-        result.constraints.push(constraint("access_mode", "write"));
+            .push(constraint("access_mode", "write"));
         assert_eq!(
             validate_authorization(&request(), &result, 1_050),
             Err(AuthorizationValidationError::ConstraintViolation)
