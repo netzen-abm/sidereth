@@ -1,18 +1,17 @@
 //! Bounded, provider-neutral Tool Gateway execution boundary.
 //!
-//! The gateway composes canonical authorization, typed constraint validation,
-//! Tool Registry resolution, capability leases, idempotency and provider
-//! execution. It does not define policy or grant authority.
+//! The gateway composes canonical authorization, Tool Registry resolution,
+//! capability leases and canonical idempotency. It does not grant authority.
 
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
 use crate::persistence::{IdempotencyClaim, IdempotencyStore, PersistenceError};
 use crate::tool_registry::{
-    InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryError, ToolVersion,
-    ToolVersionRequirement,
+    InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryEntry, ToolRegistryError,
+    ToolVersion, ToolVersionRequirement,
 };
-use crate::{Id, ResourceRef};
+use crate::{sha256_hex, Id, ResourceRef};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -48,7 +47,6 @@ pub enum ToolGatewayError {
     DataClassNotSupported,
     JurisdictionNotSupported,
     ExecutionModeNotSupported,
-    CapabilityMismatch,
     ProviderFailed,
     Unknown,
 }
@@ -59,21 +57,16 @@ pub enum ToolGatewayPhase {
     Claimed,
 }
 
-/// Provider boundary. Providers receive an already validated invocation and
-/// registry entry; they never receive authority to reinterpret policy.
 pub trait ToolGatewayProvider {
     type Output;
 
     fn execute(
         &mut self,
         invocation: &ToolGatewayInvocation,
-        tool: &crate::tool_registry::ToolRegistryEntry,
+        tool: &ToolRegistryEntry,
     ) -> Result<Self::Output, ToolGatewayError>;
 }
 
-/// Bounded gateway kernel. The caller supplies the canonical AuthorizationResult
-/// and the registry; the gateway performs consumer-side enforcement before any
-/// provider call.
 pub struct ToolGateway<'a, I: IdempotencyStore> {
     registry: &'a InMemoryToolRegistry,
     idempotency: &'a mut I,
@@ -81,14 +74,11 @@ pub struct ToolGateway<'a, I: IdempotencyStore> {
 
 impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
     pub fn new(registry: &'a InMemoryToolRegistry, idempotency: &'a mut I) -> Self {
-        Self {
-            registry,
-            idempotency,
-        }
+        Self { registry, idempotency }
     }
 
-    /// Validate all pre-execution control-plane requirements without claiming
-    /// idempotency. This phase must remain side-effect free.
+    /// Side-effect-free control-plane validation. Idempotency is deliberately
+    /// claimed only after every authority and execution-context check passes.
     pub fn validate(
         &self,
         invocation: &ToolGatewayInvocation,
@@ -99,21 +89,11 @@ impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
         if invocation.idempotency_ref.trim().is_empty() {
             return Err(ToolGatewayError::MissingIdempotency);
         }
-        if invocation.request_id != request.request_id
-            || invocation.authorization_ref != request.authorization_ref
-            || invocation.subject_ref != request.subject_ref
-            || invocation.action != request.action
-            || invocation.resource_ref != request.resource_ref
-            || invocation.purpose != request.purpose
-            || invocation.jurisdiction_ref != request.jurisdiction_ref
-            || invocation.data_class.as_ref().map(|v| format!("{v:?}"))
-                != request.data_class.as_deref().map(str::to_owned)
-        {
+        if !invocation_context_matches_request(invocation, request) {
             return Err(ToolGatewayError::Authorization(
                 AuthorizationValidationError::RequestResultMismatch,
             ));
         }
-
         validate_authorization(request, authorization, now_epoch_seconds)
             .map_err(ToolGatewayError::Authorization)?;
 
@@ -121,35 +101,12 @@ impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
             .registry
             .resolve(&invocation.tool_id, &invocation.tool_version)
             .map_err(ToolGatewayError::Registry)?;
-
-        if !tool.lifecycle.selectable_for_execution() {
-            return Err(ToolGatewayError::ToolLifecycleUnavailable);
-        }
-        if !tool.execution_modes.contains(&invocation.execution_mode) {
-            return Err(ToolGatewayError::ExecutionModeNotSupported);
-        }
-        if let Some(data_class) = invocation.data_class {
-            if !tool.data_classes.contains(&data_class) {
-                return Err(ToolGatewayError::DataClassNotSupported);
-            }
-        }
-        if let Some(jurisdiction) = invocation.jurisdiction_ref.as_ref() {
-            if !tool.jurisdiction_scope.contains(&jurisdiction.id) {
-                return Err(ToolGatewayError::JurisdictionNotSupported);
-            }
-        }
-        if invocation.requested_scope.trim().is_empty() {
-            return Err(ToolGatewayError::Authorization(
-                AuthorizationValidationError::ConstraintViolation,
-            ));
-        }
-        enforce_constraints(&authorization.constraints, &invocation.requested_scope)?;
+        validate_registry_context(invocation, tool)?;
+        validate_authorized_constraints(&authorization.constraints, invocation)?;
 
         if let Some(lease) = invocation.capability_lease.as_ref() {
             if lease.authorization_ref != invocation.authorization_ref {
-                return Err(ToolGatewayError::Lease(
-                    CapabilityLeaseError::InvalidLease,
-                ));
+                return Err(ToolGatewayError::Lease(CapabilityLeaseError::InvalidLease));
             }
             lease.validate_use(
                 now_epoch_seconds,
@@ -169,25 +126,17 @@ impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
         Ok(ToolGatewayPhase::Validated)
     }
 
-    /// Claim the canonical operation identity after all authorization and scope
-    /// checks have passed. Durable/concurrent safety is delegated to the
-    /// deployment's IdempotencyStore implementation.
-    pub fn claim(
-        &mut self,
-        invocation: &ToolGatewayInvocation,
-    ) -> Result<ToolGatewayPhase, ToolGatewayError> {
-        match self
-            .idempotency
-            .claim(invocation.idempotency_ref.clone())
-            .map_err(ToolGatewayError::Idempotency)?
-        {
+    /// The idempotency key is derived from the complete immutable invocation
+    /// context, so a caller-controlled idempotency reference cannot be reused
+    /// to cross subject/resource/purpose/tool boundaries.
+    pub fn claim(&mut self, invocation: &ToolGatewayInvocation) -> Result<ToolGatewayPhase, ToolGatewayError> {
+        let key = operation_key(invocation)?;
+        match self.idempotency.claim(key).map_err(ToolGatewayError::Idempotency)? {
             IdempotencyClaim::Claimed => Ok(ToolGatewayPhase::Claimed),
             IdempotencyClaim::AlreadyClaimed => Err(ToolGatewayError::IdempotencyAlreadyClaimed),
         }
     }
 
-    /// Validate, then claim idempotency, then invoke the provider. Provider
-    /// execution is the first point at which an external side effect may occur.
     pub fn execute<P: ToolGatewayProvider>(
         &mut self,
         invocation: &ToolGatewayInvocation,
@@ -206,41 +155,86 @@ impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
     }
 }
 
-fn enforce_constraints(
-    constraints: &[crate::authorization::AuthorizationConstraint],
-    requested_scope: &str,
-) -> Result<(), ToolGatewayError> {
-    let mut scope = None;
-    let mut read_only = false;
+fn invocation_context_matches_request(
+    invocation: &ToolGatewayInvocation,
+    request: &AuthorizationRequest,
+) -> bool {
+    invocation.request_id == request.request_id
+        && invocation.authorization_ref == request.authorization_ref
+        && invocation.subject_ref == request.subject_ref
+        && invocation.action == request.action
+        && invocation.resource_ref == request.resource_ref
+        && invocation.purpose == request.purpose
+        && invocation.jurisdiction_ref == request.jurisdiction_ref
+        && invocation.data_class.map(data_class_wire).as_deref() == request.data_class.as_deref()
+}
 
+fn data_class_wire(value: ToolDataClass) -> String {
+    match value {
+        ToolDataClass::Public => "public",
+        ToolDataClass::Internal => "internal",
+        ToolDataClass::Confidential => "confidential",
+        ToolDataClass::Restricted => "restricted",
+    }
+    .to_owned()
+}
+
+fn validate_registry_context(
+    invocation: &ToolGatewayInvocation,
+    tool: &ToolRegistryEntry,
+) -> Result<(), ToolGatewayError> {
+    if !tool.lifecycle.selectable_for_execution() {
+        return Err(ToolGatewayError::ToolLifecycleUnavailable);
+    }
+    if !tool.execution_modes.contains(&invocation.execution_mode) {
+        return Err(ToolGatewayError::ExecutionModeNotSupported);
+    }
+    if let Some(data_class) = invocation.data_class {
+        if !tool.data_classes.contains(&data_class) {
+            return Err(ToolGatewayError::DataClassNotSupported);
+        }
+    }
+    if let Some(jurisdiction) = invocation.jurisdiction_ref.as_ref() {
+        if !tool.jurisdiction_scope.contains(&jurisdiction.id) {
+            return Err(ToolGatewayError::JurisdictionNotSupported);
+        }
+    }
+    if invocation.requested_scope.trim().is_empty() {
+        return Err(ToolGatewayError::Authorization(
+            AuthorizationValidationError::ConstraintViolation,
+        ));
+    }
+    Ok(())
+}
+
+fn validate_authorized_constraints(
+    constraints: &[crate::authorization::AuthorizationConstraint],
+    invocation: &ToolGatewayInvocation,
+) -> Result<(), ToolGatewayError> {
+    let mut scope: Option<&str> = None;
+    let mut access_mode: Option<&str> = None;
     for constraint in constraints {
         match (constraint.key.as_str(), constraint.value.as_str()) {
-            ("scope", "exact_resource") => {
+            ("scope", "exact_resource") | ("scope", "exact_evidence") => {
                 if let Some(existing) = scope {
-                    if existing != "exact_resource" {
+                    if existing != constraint.value {
                         return Err(ToolGatewayError::Authorization(
                             AuthorizationValidationError::ConstraintViolation,
                         ));
                     }
                 }
-                scope = Some("exact_resource");
-                if requested_scope.trim().is_empty() {
-                    return Err(ToolGatewayError::Authorization(
-                        AuthorizationValidationError::ConstraintViolation,
-                    ));
-                }
+                scope = Some(constraint.value.as_str());
             }
-            ("scope", "exact_evidence") => {
-                if let Some(existing) = scope {
-                    if existing != "exact_evidence" {
+            ("access_mode", "read_only") => {
+                if let Some(existing) = access_mode {
+                    if existing != constraint.value {
                         return Err(ToolGatewayError::Authorization(
                             AuthorizationValidationError::ConstraintViolation,
                         ));
                     }
                 }
-                scope = Some("exact_evidence");
+                access_mode = Some(constraint.value.as_str());
             }
-            ("access_mode", "read_only") => read_only = true,
             _ => {
                 return Err(ToolGatewayError::Authorization(
                     AuthorizationValidationError::ConstraintViolation,
@@ -248,264 +242,109 @@ fn enforce_constraints(
             }
         }
     }
-
-    let _ = read_only;
+    if scope.is_some() && invocation.requested_scope.trim().is_empty() {
+        return Err(ToolGatewayError::Authorization(
+            AuthorizationValidationError::ConstraintViolation,
+        ));
+    }
     Ok(())
+}
+
+fn operation_key(invocation: &ToolGatewayInvocation) -> Result<Id, ToolGatewayError> {
+    let canonical = serde_json::to_vec(invocation)
+        .map_err(|_| ToolGatewayError::Idempotency(PersistenceError::SerializationFailure))?;
+    Ok(format!("tool-gateway:{}", sha256_hex(&canonical)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::authorization::{AccessAction, AuthorizationConstraint, AuthorizationDecision};
+    use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::persistence::{IdempotencyClaim, PersistenceError};
-    use crate::tool_registry::{
-        ToolImplementation, ToolLifecycle, ToolRiskClass, ToolVersionRequirement,
-    };
+    use crate::tool_registry::{ToolImplementation, ToolLifecycle, ToolRiskClass};
     use std::collections::BTreeSet;
 
     #[derive(Default)]
-    struct Idempotency {
-        claimed: BTreeSet<Id>,
-    }
-
+    struct Idempotency { claimed: BTreeSet<Id> }
     impl IdempotencyStore for Idempotency {
-        fn lookup(&self, operation_id: &Id) -> Result<bool, PersistenceError> {
-            Ok(self.claimed.contains(operation_id))
-        }
-
+        fn lookup(&self, operation_id: &Id) -> Result<bool, PersistenceError> { Ok(self.claimed.contains(operation_id)) }
         fn claim(&mut self, operation_id: Id) -> Result<IdempotencyClaim, PersistenceError> {
-            if self.claimed.insert(operation_id) {
-                Ok(IdempotencyClaim::Claimed)
-            } else {
-                Ok(IdempotencyClaim::AlreadyClaimed)
-            }
+            Ok(if self.claimed.insert(operation_id) { IdempotencyClaim::Claimed } else { IdempotencyClaim::AlreadyClaimed })
         }
     }
 
     #[derive(Default)]
-    struct Provider {
-        calls: usize,
-    }
-
+    struct Provider { calls: usize }
     impl ToolGatewayProvider for Provider {
         type Output = &'static str;
-
-        fn execute(
-            &mut self,
-            _invocation: &ToolGatewayInvocation,
-            _tool: &crate::tool_registry::ToolRegistryEntry,
-        ) -> Result<Self::Output, ToolGatewayError> {
-            self.calls += 1;
-            Ok("ok")
-        }
+        fn execute(&mut self, _: &ToolGatewayInvocation, _: &ToolRegistryEntry) -> Result<Self::Output, ToolGatewayError> { self.calls += 1; Ok("ok") }
     }
 
-    fn reference(resource_type: crate::ResourceType, id: &str) -> ResourceRef {
-        ResourceRef::new(resource_type, id).unwrap()
-    }
+    fn r(t: crate::ResourceType, id: &str) -> ResourceRef { ResourceRef::new(t, id).unwrap() }
 
     fn registry() -> InMemoryToolRegistry {
         let mut registry = InMemoryToolRegistry::new();
-        registry
-            .register(
-                crate::tool_registry::ToolRegistryEntry {
-                    tool_id: "tool-1".into(),
-                    version: ToolVersion::new(1, 0, 0),
-                    name: "test".into(),
-                    purpose: "protected read".into(),
-                    lifecycle: ToolLifecycle::Active,
-                    risk_class: ToolRiskClass::ReadOnly,
-                    data_classes: [ToolDataClass::Restricted].into_iter().collect(),
-                    capability_ref: reference(crate::ResourceType::Other, "cap-1"),
-                    function_ref: None,
-                    jurisdiction_scope: vec!["IN".into()],
-                    permission_requirements: vec![],
-                    approval_required: false,
-                    input_schema_ref: None,
-                    output_schema_ref: None,
-                    execution_modes: [ToolExecutionMode::Sync].into_iter().collect(),
-                    dependencies: vec![],
-                    implementations: vec![ToolImplementation {
-                        implementation_id: "impl-1".into(),
-                        provider_id: "provider-1".into(),
-                        implementation_version: "1".into(),
-                        adapter_refs: vec![],
-                    }],
-                    provenance_requirements: vec![],
-                    observability_refs: vec![],
-                    documentation_refs: vec![],
-                },
-                crate::tool_registry::ToolRegistryAuditRecord {
-                    change_id: "change-1".into(),
-                    tool_id: "tool-1".into(),
-                    version: ToolVersion::new(1, 0, 0),
-                    change_type: "register".into(),
-                    actor_ref: "actor-1".into(),
-                    authorization_ref: "auth-1".into(),
-                    timestamp: "1000".into(),
-                    previous_lifecycle: None,
-                    new_lifecycle: None,
-                },
-            )
-            .unwrap();
+        registry.register(
+            ToolRegistryEntry {
+                tool_id: "tool-1".into(), version: ToolVersion::new(1,0,0), name: "test".into(), purpose: "protected read".into(),
+                lifecycle: ToolLifecycle::Active, risk_class: ToolRiskClass::ReadOnly, data_classes: [ToolDataClass::Restricted].into_iter().collect(),
+                capability_ref: r(crate::ResourceType::Other,"cap-1"), function_ref: None, jurisdiction_scope: vec!["IN".into()], permission_requirements: vec![], approval_required: false,
+                input_schema_ref: None, output_schema_ref: None, execution_modes: [ToolExecutionMode::Sync].into_iter().collect(), dependencies: vec![],
+                implementations: vec![ToolImplementation { implementation_id: "impl-1".into(), provider_id: "provider-1".into(), implementation_version: "1".into(), adapter_refs: vec![] }],
+                provenance_requirements: vec![], observability_refs: vec![], documentation_refs: vec![],
+            },
+            crate::tool_registry::ToolRegistryAuditRecord { change_id:"change-1".into(), tool_id:"tool-1".into(), version:ToolVersion::new(1,0,0), change_type:"register".into(), actor_ref:"actor-1".into(), authorization_ref:"auth-1".into(), timestamp:"1000".into(), previous_lifecycle:None, new_lifecycle:None }
+        ).unwrap();
         registry
     }
 
     fn request() -> AuthorizationRequest {
-        AuthorizationRequest {
-            request_id: "req-1".into(),
-            authorization_ref: reference(crate::ResourceType::Other, "auth-1"),
-            subject_ref: reference(crate::ResourceType::Party, "party-1"),
-            action: reference(crate::ResourceType::Action, "read"),
-            resource_ref: reference(crate::ResourceType::Case, "case-1"),
-            purpose: "protected read".into(),
-            policy_refs: vec![reference(crate::ResourceType::Other, "policy-1")],
-            jurisdiction_ref: Some(reference(crate::ResourceType::Jurisdiction, "IN")),
-            data_class: Some("restricted".into()),
-            requested_at_epoch_seconds: 1_000,
-            freshness_seconds: Some(100),
-        }
+        AuthorizationRequest { request_id:"req-1".into(), authorization_ref:r(crate::ResourceType::Other,"auth-1"), subject_ref:r(crate::ResourceType::Party,"party-1"), action:r(crate::ResourceType::Action,"read"), resource_ref:r(crate::ResourceType::Case,"case-1"), purpose:"protected read".into(), policy_refs:vec![r(crate::ResourceType::Other,"policy-1")], jurisdiction_ref:Some(r(crate::ResourceType::Jurisdiction,"IN")), data_class:Some("restricted".into()), requested_at_epoch_seconds:1000, freshness_seconds:Some(100) }
     }
 
     fn authorization() -> AuthorizationResult {
-        let request = request();
-        AuthorizationResult {
-            request_id: request.request_id.clone(),
-            authorization_ref: request.authorization_ref.clone(),
-            subject_ref: request.subject_ref.clone(),
-            action: request.action.clone(),
-            resource_ref: request.resource_ref.clone(),
-            purpose: request.purpose.clone(),
-            jurisdiction_ref: request.jurisdiction_ref.clone(),
-            data_class: request.data_class.clone(),
-            decision: AuthorizationDecision::Allow,
-            constraints: vec![AuthorizationConstraint {
-                key: "scope".into(),
-                value: "exact_resource".into(),
-            }],
-            policy_refs: request.policy_refs.clone(),
-            evaluated_at_epoch_seconds: 1_000,
-            expires_at_epoch_seconds: Some(1_100),
-        }
+        let q=request();
+        AuthorizationResult { request_id:q.request_id.clone(), authorization_ref:q.authorization_ref.clone(), subject_ref:q.subject_ref.clone(), action:q.action.clone(), resource_ref:q.resource_ref.clone(), purpose:q.purpose.clone(), jurisdiction_ref:q.jurisdiction_ref.clone(), data_class:q.data_class.clone(), decision:AuthorizationDecision::Allow, constraints:vec![AuthorizationConstraint{key:"scope".into(),value:"exact_resource".into()}], policy_refs:q.policy_refs.clone(), evaluated_at_epoch_seconds:1000, expires_at_epoch_seconds:Some(1100) }
     }
 
     fn invocation() -> ToolGatewayInvocation {
-        ToolGatewayInvocation {
-            request_id: "req-1".into(),
-            authorization_ref: reference(crate::ResourceType::Other, "auth-1"),
-            subject_ref: reference(crate::ResourceType::Party, "party-1"),
-            actor_ref: None,
-            action: reference(crate::ResourceType::Action, "read"),
-            resource_ref: reference(crate::ResourceType::Case, "case-1"),
-            purpose: "protected read".into(),
-            jurisdiction_ref: Some(reference(crate::ResourceType::Jurisdiction, "IN")),
-            data_class: Some(ToolDataClass::Restricted),
-            tool_id: "tool-1".into(),
-            tool_version: ToolVersionRequirement::Exact(ToolVersion::new(1, 0, 0)),
-            idempotency_ref: "op-1".into(),
-            requested_scope: "case-1".into(),
-            execution_mode: ToolExecutionMode::Sync,
-            capability_lease: None,
-            incident_ref: None,
-            session_ref: None,
-        }
+        ToolGatewayInvocation { request_id:"req-1".into(), authorization_ref:r(crate::ResourceType::Other,"auth-1"), subject_ref:r(crate::ResourceType::Party,"party-1"), actor_ref:None, action:r(crate::ResourceType::Action,"read"), resource_ref:r(crate::ResourceType::Case,"case-1"), purpose:"protected read".into(), jurisdiction_ref:Some(r(crate::ResourceType::Jurisdiction,"IN")), data_class:Some(ToolDataClass::Restricted), tool_id:"tool-1".into(), tool_version:ToolVersionRequirement::Exact(ToolVersion::new(1,0,0)), idempotency_ref:"op-1".into(), requested_scope:"case-1".into(), execution_mode:ToolExecutionMode::Sync, capability_lease:None, incident_ref:None, session_ref:None }
     }
 
     #[test]
-    fn exact_context_and_registry_are_required() {
-        let registry = registry();
-        let mut idempotency = Idempotency::default();
-        let gateway = ToolGateway::new(&registry, &mut idempotency);
-        assert_eq!(
-            gateway.validate(&invocation(), &request(), &authorization(), 1_050),
-            Ok(ToolGatewayPhase::Validated)
-        );
+    fn valid_context_passes_without_claiming() {
+        let registry=registry(); let mut idempotency=Idempotency::default(); let gateway=ToolGateway::new(&registry,&mut idempotency);
+        assert_eq!(gateway.validate(&invocation(),&request(),&authorization(),1050),Ok(ToolGatewayPhase::Validated)); assert!(idempotency.claimed.is_empty());
     }
 
     #[test]
-    fn subject_mismatch_fails_before_provider() {
-        let registry = registry();
-        let mut idempotency = Idempotency::default();
-        let gateway = ToolGateway::new(&registry, &mut idempotency);
-        let mut invocation = invocation();
-        invocation.subject_ref = reference(crate::ResourceType::Party, "party-2");
-        assert!(matches!(
-            gateway.validate(&invocation, &request(), &authorization(), 1_050),
-            Err(ToolGatewayError::Authorization(
-                AuthorizationValidationError::RequestResultMismatch
-            ))
-        ));
+    fn subject_mismatch_fails_closed() {
+        let registry=registry(); let mut idempotency=Idempotency::default(); let gateway=ToolGateway::new(&registry,&mut idempotency); let mut i=invocation(); i.subject_ref=r(crate::ResourceType::Party,"party-2");
+        assert!(matches!(gateway.validate(&i,&request(),&authorization(),1050),Err(ToolGatewayError::Authorization(AuthorizationValidationError::RequestResultMismatch))));
     }
 
     #[test]
     fn exact_expiry_fails_closed() {
-        let registry = registry();
-        let mut idempotency = Idempotency::default();
-        let gateway = ToolGateway::new(&registry, &mut idempotency);
-        assert!(matches!(
-            gateway.validate(&invocation(), &request(), &authorization(), 1_100),
-            Err(ToolGatewayError::Authorization(
-                AuthorizationValidationError::Expired
-            ))
-        ));
+        let registry=registry(); let mut idempotency=Idempotency::default(); let gateway=ToolGateway::new(&registry,&mut idempotency);
+        assert!(matches!(gateway.validate(&invocation(),&request(),&authorization(),1100),Err(ToolGatewayError::Authorization(AuthorizationValidationError::Expired))));
     }
 
     #[test]
-    fn duplicate_idempotency_is_blocked_before_provider() {
-        let registry = registry();
-        let mut idempotency = Idempotency::default();
-        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
-        let request = request();
-        let authorization = authorization();
-        let invocation = invocation();
-        let mut provider = Provider::default();
-        assert_eq!(
-            gateway.execute(&invocation, &request, &authorization, 1_050, &mut provider),
-            Ok("ok")
-        );
-        assert_eq!(provider.calls, 1);
-        assert_eq!(
-            gateway.execute(&invocation, &request, &authorization, 1_050, &mut provider),
-            Err(ToolGatewayError::IdempotencyAlreadyClaimed)
-        );
-        assert_eq!(provider.calls, 1);
+    fn duplicate_context_bound_operation_is_blocked() {
+        let registry=registry(); let mut idempotency=Idempotency::default(); let mut gateway=ToolGateway::new(&registry,&mut idempotency); let q=request(); let a=authorization(); let i=invocation(); let mut p=Provider::default();
+        assert_eq!(gateway.execute(&i,&q,&a,1050,&mut p),Ok("ok")); assert_eq!(p.calls,1);
+        assert_eq!(gateway.execute(&i,&q,&a,1050,&mut p),Err(ToolGatewayError::IdempotencyAlreadyClaimed)); assert_eq!(p.calls,1);
     }
 
     #[test]
-    fn deny_never_claims_idempotency() {
-        let registry = registry();
-        let mut idempotency = Idempotency::default();
-        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
-        let mut denied = authorization();
-        denied.decision = AuthorizationDecision::Deny;
-        let invocation = invocation();
-        let request = request();
-        let mut provider = Provider::default();
-        assert_eq!(
-            gateway.execute(&invocation, &request, &denied, 1_050, &mut provider),
-            Err(ToolGatewayError::Authorization(
-                AuthorizationValidationError::Denied
-            ))
-        );
-        assert_eq!(provider.calls, 0);
-        assert!(!idempotency.lookup(&"op-1".into()).unwrap());
+    fn denied_operation_never_claims() {
+        let registry=registry(); let mut idempotency=Idempotency::default(); let mut gateway=ToolGateway::new(&registry,&mut idempotency); let mut a=authorization(); a.decision=AuthorizationDecision::Deny; let mut p=Provider::default();
+        assert_eq!(gateway.execute(&invocation(),&request(),&a,1050,&mut p),Err(ToolGatewayError::Authorization(AuthorizationValidationError::Denied))); assert!(idempotency.claimed.is_empty());
     }
 
     #[test]
     fn unsupported_constraint_fails_closed() {
-        let registry = registry();
-        let mut idempotency = Idempotency::default();
-        let gateway = ToolGateway::new(&registry, &mut idempotency);
-        let mut authorization = authorization();
-        authorization.constraints.push(AuthorizationConstraint {
-            key: "future".into(),
-            value: "x".into(),
-        });
-        assert!(matches!(
-            gateway.validate(&invocation(), &request(), &authorization, 1_050),
-            Err(ToolGatewayError::Authorization(
-                AuthorizationValidationError::ConstraintViolation
-            ))
-        ));
+        let registry=registry(); let mut idempotency=Idempotency::default(); let gateway=ToolGateway::new(&registry,&mut idempotency); let mut a=authorization(); a.constraints.push(AuthorizationConstraint{key:"future".into(),value:"x".into()});
+        assert!(matches!(gateway.validate(&invocation(),&request(),&a,1050),Err(ToolGatewayError::Authorization(AuthorizationValidationError::ConstraintViolation))));
     }
 }
