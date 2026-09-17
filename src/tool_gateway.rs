@@ -513,7 +513,7 @@ mod tests {
         let mut registry = registry();
         let mut entry = registry
             .resolve(
-                &"tool-1".into(),
+                &String::from("tool-1"),
                 &ToolVersionRequirement::Exact(ToolVersion::new(1, 0, 0)),
             )
             .unwrap()
