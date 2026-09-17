@@ -191,7 +191,9 @@ pub use security::{
 };
 pub use service::{CaseCommand, CaseService, CommandContext, CommandResult, ServiceError};
 pub use timeline::Timeline;
-pub use tool_gateway::{ToolGateway, ToolGatewayError, ToolGatewayInvocation, ToolGatewayPhase, ToolGatewayProvider};
+pub use tool_gateway::{
+    ToolGateway, ToolGatewayError, ToolGatewayInvocation, ToolGatewayPhase, ToolGatewayProvider,
+};
 pub use tool_registry::{
     InMemoryToolRegistry, ToolDataClass, ToolDependency, ToolExecutionMode, ToolImplementation,
     ToolLifecycle, ToolRegistryAuditRecord, ToolRegistryCriteria, ToolRegistryEntry,
