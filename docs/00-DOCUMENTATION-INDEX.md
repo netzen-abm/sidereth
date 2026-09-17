@@ -39,6 +39,7 @@ A lower-level document cannot override a higher-level contract merely because it
 - `DECISIONS/` — detailed decision records requiring context, alternatives and rationale.
 - `SIDERETH-DOCUMENTATION-GOVERNANCE.md` — documentation authority, lifecycle, duplication and AI/developer reading rules.
 - `SIDERETH-GLOSSARY.md` — canonical terminology.
+- `DECISIONS/PLATFORM-RUNTIME-PRIVACY-LICENSING-2026-09-17.md` — canonical decision for polyglot runtime, privacy/safety defaults, optional hardware and layered licensing.
 
 Do not create another general-purpose decision list.
 
@@ -51,7 +52,7 @@ Do not create another general-purpose decision list.
 - `SIDERETH-ECOSYSTEM-ROADMAP.md` — strategic capability-led roadmap.
 - `ROADMAP.md` — delivery roadmap and execution sequencing; must remain consistent with the ecosystem roadmap.
 - `SIDERETH-ECOSYSTEM-DISCUSSION-RECORD.md` — consolidated discussion context; not a contract.
-- `THE-PURPLE-FROG-BRAND-IDENTITY.md` — public brand/conservation identity.
+- `brand/THE-PURPLE-FROG-BRAND-IDENTITY.md` — public brand/conservation identity.
 - `08-MCP-ARCHITECTURE.md` — MCP interoperability boundary.
 - `ESTIMATE-WIREFRAME-PLAN.md` — planning/UX estimate only.
 
@@ -63,12 +64,14 @@ Do not create another general-purpose decision list.
 - ecosystem architecture defines composition, reusable capability semantics, domain packs, adapters, provider neutrality and Trust Kernel rules;
 - focused architecture specifications define a bounded cross-cutting architectural concern without creating a competing master architecture.
 
-Do not merge them merely to reduce file count unless a future audit proves their scopes can be consolidated without loss of authority clarity.
-
-Current focused architecture specifications:
+Current focused architecture specifications include:
 
 - `architecture/LONGITUDINAL-PROJECTION.md` — canonical architecture for the derived longitudinal read/projection layer; explicitly not a `LongitudinalRecord` domain aggregate.
 - `architecture/READ-QUERY-BOUNDARY.md` — canonical architecture for provider-neutral direct resource discovery/query, distinct from mutation and derived projection.
+- `architecture/PLATFORM-RUNTIME-AND-HARDWARE-STRATEGY.md` — canonical language/runtime, interoperability and hardware-independence strategy.
+- `architecture/PRIVACY-AND-SAFETY-BY-DESIGN.md` — canonical privacy, safety, sensitive-capability and secure-default principles.
+
+Do not merge focused architecture documents merely to reduce file count unless a future audit proves their scopes can be consolidated without loss of authority clarity.
 
 ## 5. Implementation control
 
@@ -85,7 +88,7 @@ Key contract families include:
 
 - canonical domain model;
 - Case/Incident/Event;
-- **Observation and Observation Conformance** — `contracts/OBSERVATION-CONTRACT.md`, `contracts/OBSERVATION-CONFORMANCE.md`;
+- Observation and Observation Conformance;
 - Party, Document, Evidence and Evidence Trust;
 - capability and Capability Registry;
 - Tool Registry;
@@ -96,31 +99,34 @@ Key contract families include:
 - API/error/idempotency/versioning;
 - Tool Gateway.
 
-The Observation contract is governed by D-032. Its semantic vocabulary reuses the Intelligence contract's epistemic statuses; observation origin/modality is separate from epistemic status. Observation conformance is now at an **IMPLEMENTED BASELINE / LIFECYCLE CONFORMANCE IN PROGRESS** stage; see the conformance matrix for exact requirement-level evidence and deferred gates.
-
 A contract defines a boundary. Code must conform to it. A convenient implementation must not redefine the boundary.
 
-## 7. Current Tool Gateway status
+## 7. Legal, licensing and brand
+
+- `legal/LICENSING-ARCHITECTURE.md` — layered Apache-2.0 / AGPL / proprietary-commercial licensing strategy.
+- `legal/COMMERCIAL-EULA-FRAMEWORK.md` — non-final EULA structure requiring legal review.
+- `brand/THE-PURPLE-FROG-BRAND-IDENTITY.md` — brand and combined Gaur + Purple Frog emblem governance.
+- `conservation/THE-PURPLE-FROG-CONSERVATION-AWARENESS.md` — conservation-awareness principles and sourced-claim rules.
+
+Software licensing does not grant trademark or brand-use rights.
+
+## 8. Current Tool Gateway status
 
 The Tool Gateway contract is canonical in:
 
 - `contracts/TOOL-GATEWAY-CONTRACT.md`
 - `contracts/TOOL-GATEWAY-CONFORMANCE.md`
 
-The implementation in PR #73 is evidence against those contracts and is **not production-ready** until the mandatory conformance evidence is complete.
+The implementation must consume the canonical authorization/policy boundary and is **not production-ready** until the bounded readiness/conformance evidence is complete. See the current implementation issue/PR state rather than relying on historical PR numbers in this index.
 
-Exact implementation head audited: `7a028da2dd200b6cdf45950d69dff43b61ffadaf`.
-
-Known remaining semantic gates include authorization freshness/expiry, returned-constraint enforcement, registry-driven implementation selection, richer audit/provenance, durable/concurrent idempotency, direct-bypass evidence and TG-001–TG-060 conformance.
-
-## 8. Migration and archive
+## 9. Migration and archive
 
 - `migration/` — active repository cleanup, migration and audit plans/results.
 - `archive/` — historical/superseded material; never use it as current implementation authority.
 
-The former `docs/ARCHITECTURE-BLUEPRINT.md` is already preserved under `docs/archive/superseded/`.
+The former `docs/ARCHITECTURE-BLUEPRINT.md` is preserved under `docs/archive/superseded/`.
 
-## 9. Documentation status vocabulary
+## 10. Documentation status vocabulary
 
 ### Specification status
 
@@ -140,7 +146,7 @@ VISION → DESIGNED → IMPLEMENTED → FUNCTIONAL → TESTED
 
 Never infer an implementation status from prose alone.
 
-## 10. Change rules
+## 11. Change rules
 
 Before creating a new specification:
 
@@ -161,9 +167,9 @@ Before moving or deleting a document:
 7. archive first;
 8. delete only after evidence.
 
-## 11. Repository structure
+## 12. Repository structure
 
-The active documentation organization is intentionally logical before it is physical:
+The active repository organization now distinguishes implementation, assets, documentation domains and historical material:
 
 ```text
 docs/
@@ -174,17 +180,20 @@ docs/
 ├── SIDERETH-GLOSSARY.md
 ├── DECISION-REGISTER.md
 ├── DECISIONS/
-├── contracts/
 ├── architecture/
+├── brand/
+├── conservation/
+├── contracts/
+├── legal/
 ├── migration/
+├── evidence/
+├── audits/
 └── archive/
 ```
 
-Focused `architecture/` documents should be used for genuinely distinct cross-cutting architecture concerns and must not become duplicate master architectures.
+This taxonomy is semantic rather than cosmetic: a document should move only when its scope and reference impact are understood.
 
-Additional physical folders such as `planning/` and `evidence/` should be introduced only through a separate link-audited migration. Cosmetic mass moves are not justified.
-
-## 12. Non-negotiable documentation rule
+## 13. Non-negotiable documentation rule
 
 Documentation must never imply implementation that is not supported by source code, automated tests, deployment evidence or other reproducible evidence.
 

@@ -2,17 +2,17 @@
 
 **Privacy-first Legal & Regulatory Infrastructure**
 
-**The Purple Frog** is the public product identity for a privacy-first, modular legal and regulatory infrastructure platform. The underlying ecosystem and technical architecture remain **SIDERETH** until a separate explicit platform-brand decision is made.
+**The Purple Frog** is the public product identity for a privacy-first, modular legal and regulatory infrastructure platform. The underlying ecosystem and technical architecture remain **SIDERETH** unless a separate explicit platform-brand decision is made.
 
 > **The Purple Frog — one product, shared infrastructure, many capabilities.**
 
-The product name honors endangered and critically endangered species and uses biodiversity awareness as part of its public identity. The supplied **Gaur / Indian Bison (*Bos gaurus*)** emblem is the initial conservation symbol for the brand: a Vulnerable species used to build awareness of threatened life and support protection of threatened species, including Endangered and Critically Endangered species.
+The canonical visual identity combines the **Gaur / Indian Bison (*Bos gaurus*)** and the **Purple Frog / Indian Purple Frog (*Nasikabatrachus sahyadrensis*)**. The emblem is a brand symbol; species taxonomy and conservation-status claims remain independently sourced.
 
 ## Conservation mission
 
 > **Awareness of a Vulnerable species. Protection of threatened species. Respect for every species.**
 
-The Gaur is the initial ambassador for this mission. It must not be described as Critically Endangered; conservation status claims must remain sourced and current.
+Conservation-status claims must remain sourced, scoped and current. The brand must not turn scientific status into decorative marketing language.
 
 ## What it does
 
@@ -27,50 +27,69 @@ The Gaur is the initial ambassador for this mission. It must not be described as
 - Route high-stakes matters to qualified human professionals
 
 ## Architecture principle
-The platform is built around shared, domain-independent capabilities. Web, mobile and messaging surfaces are independent adapters over the same contracts and engines. Domain logic must not be duplicated per surface.
+
+The platform is built around shared, domain-independent capabilities. Web, mobile, messaging, AI and future hardware surfaces are independent adapters over shared contracts and engines. Domain logic must not be duplicated per surface.
+
+## Privacy and safety by design/by default
+
+Sensitive capabilities are inactive by default. Microphone, camera, location, contacts, protected storage, external data egress and other sensitive resources require a bounded authorization path and purpose-bound capability lease where applicable. After the bounded purpose completes, active use is released; later use requires fresh activation under policy.
+
+Local-first processing, data minimisation, explicit purpose, least privilege, encryption, provenance and auditability are architectural requirements rather than optional add-ons.
 
 ## AI, agent and MCP boundary
+
 AI is optional and user-controlled. AI/agent systems receive only the minimum authorized, policy-filtered data required for a task. Personal or sensitive case information must never be exposed directly to an AI or agent merely because it is available in the system. Redaction, data minimisation, purpose limitation, authorization, audit and provider/model policy are mandatory boundaries.
 
-Agents automate bounded workflows, not high-impact legal judgment. MCP is an interoperability boundary for approved tools; it does not replace SIDERETH policy, authorization, case, evidence or audit infrastructure. Genkit remains a candidate AI/agent runtime and is not a SIDERETH core dependency.
+Agents automate bounded workflows, not high-impact legal judgment. MCP is an interoperability boundary for approved tools; it does not replace SIDERETH policy, authorization, case, evidence or audit infrastructure.
 
-## Privacy principle
-Local-first by default. Sensitive case data should remain under user control. External processing is minimized, explicitly authorized, encrypted and auditable. AI-disabled operation must remain possible for core deterministic workflows.
+## Runtime and language strategy
 
-## Conservation identity
-The Purple Frog uses the Gaur as a conservation ambassador. Its mission begins with awareness of a Vulnerable species and extends to protection of threatened species, including Endangered and Critically Endangered species. Conservation-status claims are treated as sourced data, not decorative marketing. The product may later introduce structured species-awareness resources covering Vulnerable, Endangered, Critically Endangered and other conservation categories.
+Rust is the canonical domain/security/runtime language. TypeScript, Python, Kotlin, Swift and SQL are selected by function; WebAssembly/WIT provides an optional portable interoperability boundary; C/C++ is limited to justified vendor/hardware FFI; Mojo remains benchmark-gated rather than a core dependency.
 
-## Initial engineering milestone
-Build the domain-independent Case and Incident Engine first, with evidence, events, source provenance and deterministic state transitions. Then add Panchayat and Municipality domain adapters without duplicating shared infrastructure.
+This makes SIDERETH intentionally **polyglot without becoming poly-semantic**: the domain contracts are language-neutral and implementations are replaceable adapters.
 
-## Repository status
-The repository is undergoing a controlled foundation build. Historical prototype artifacts were audited for usefulness before disposition; obsolete material is removed from the active product path while repository history remains preserved.
+## Hardware independence
+
+Dedicated hardware is optional. Future cameras, microphones, GNSS, wearables, sensors, evidence-capture devices and embedded systems must integrate through adapters over the same authorization, capability lease, evidence and provenance infrastructure. No device vendor or hardware family is a canonical dependency.
+
+## Licensing
+
+SIDERETH uses a layered licensing strategy rather than one blanket ecosystem license:
+
+- **Apache-2.0** — default for reusable open core/infrastructure;
+- **AGPL-3.0** — explicitly designated network-facing components where strong network copyleft is intentional;
+- **Proprietary/commercial + custom EULA** — separately distributed commercial-only extensions/services;
+- third-party code/data/models — their applicable licenses/terms;
+- **The Purple Frog** name and logo — separate trademark/copyright/brand-use controls.
+
+See `docs/legal/LICENSING-ARCHITECTURE.md`.
 
 ## Documentation entry point
+
 **Before changing architecture, contracts, implementation boundaries or documentation, read `docs/00-DOCUMENTATION-INDEX.md` and `docs/SIDERETH-DOCUMENTATION-GOVERNANCE.md`.**
 
-The documentation system uses one canonical authority per concept, separates decisions from contracts and plans, and requires evidence before implementation-status claims. Archive material is historical only.
+The documentation system uses one canonical authority per concept, separates decisions from contracts and plans, and requires evidence before implementation-status claims.
 
 ## Current foundation documents
+
 - `docs/00-DOCUMENTATION-INDEX.md`
 - `docs/00-SIDERETH-MASTER-DECISIONS.md`
 - `docs/01-SIDERETH-MASTER-BLUEPRINT.md`
 - `docs/SIDERETH-DOCUMENTATION-GOVERNANCE.md`
 - `docs/SIDERETH-ARCHITECTURE.md`
 - `docs/SIDERETH-ECOSYSTEM-ARCHITECTURE.md`
-- `docs/SIDERETH-CAPABILITY-MODEL.md`
-- `docs/SIDERETH-ECOSYSTEM-ROADMAP.md`
-- `docs/SIDERETH-GLOSSARY.md`
-- `docs/SIDERETH-MASTER-CHECKLIST.md`
-- `docs/THE-PURPLE-FROG-BRAND-IDENTITY.md`
-- `docs/08-MCP-ARCHITECTURE.md`
-- `docs/ESTIMATE-WIREFRAME-PLAN.md`
+- `docs/architecture/PLATFORM-RUNTIME-AND-HARDWARE-STRATEGY.md`
+- `docs/architecture/PRIVACY-AND-SAFETY-BY-DESIGN.md`
+- `docs/legal/LICENSING-ARCHITECTURE.md`
+- `docs/brand/THE-PURPLE-FROG-BRAND-IDENTITY.md`
 - `docs/contracts/`
 - `docs/migration/`
 - `docs/archive/`
 
 ## Development rule
+
 Do not infer implementation from architecture documents. A capability becomes complete only when its contract, implementation, tests, security controls, documentation and observability are present and verified.
 
 ## Current implementation priority
-The current bounded platform priority is the Tool Gateway implementation. PR #73 has green exact-head foundation/security CI but remains below production-ready until the canonical Tool Gateway conformance evidence is complete. See `docs/SIDERETH-DOCUMENTATION-GOVERNANCE.md` and `docs/SIDERETH-MASTER-CHECKLIST.md` for the current evidence-based status.
+
+The current bounded platform priority is governed by the Tool Gateway readiness gate. The gateway must consume the canonical authorization/policy boundary and is not production-ready until its required conformance evidence is complete. Current implementation status must be verified from source, tests, CI and the active issue/PR rather than from historical PR numbers in README text.
