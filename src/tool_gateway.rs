@@ -4,14 +4,12 @@
 //! capability leases and canonical idempotency. It does not grant authority.
 
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
-use crate::authorization_enforcement::{
-    validate_authorization, AuthorizationValidationError,
-};
+use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
 use crate::persistence::{IdempotencyClaim, IdempotencyStore, PersistenceError};
 use crate::tool_registry::{
-    InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryEntry,
-    ToolRegistryError, ToolVersionRequirement,
+    InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryEntry, ToolRegistryError,
+    ToolVersionRequirement,
 };
 use crate::{sha256_hex, Id, ResourceRef};
 use serde::{Deserialize, Serialize};
@@ -113,9 +111,7 @@ impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
 
         if let Some(lease) = invocation.capability_lease.as_ref() {
             if lease.authorization_ref != invocation.authorization_ref {
-                return Err(ToolGatewayError::Lease(
-                    CapabilityLeaseError::InvalidLease,
-                ));
+                return Err(ToolGatewayError::Lease(CapabilityLeaseError::InvalidLease));
             }
             lease
                 .validate_use(
@@ -149,9 +145,7 @@ impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
             .map_err(ToolGatewayError::Idempotency)?
         {
             IdempotencyClaim::Claimed => Ok(ToolGatewayPhase::Claimed),
-            IdempotencyClaim::AlreadyClaimed => {
-                Err(ToolGatewayError::IdempotencyAlreadyClaimed)
-            }
+            IdempotencyClaim::AlreadyClaimed => Err(ToolGatewayError::IdempotencyAlreadyClaimed),
         }
     }
 
@@ -289,9 +283,7 @@ mod tests {
     use super::*;
     use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::persistence::{IdempotencyClaim, PersistenceError};
-    use crate::tool_registry::{
-        ToolImplementation, ToolLifecycle, ToolRiskClass, ToolVersion,
-    };
+    use crate::tool_registry::{ToolImplementation, ToolLifecycle, ToolRiskClass, ToolVersion};
     use std::collections::BTreeSet;
 
     #[derive(Default)]
@@ -304,10 +296,7 @@ mod tests {
             Ok(self.claimed.contains(operation_id))
         }
 
-        fn claim(
-            &mut self,
-            operation_id: Id,
-        ) -> Result<IdempotencyClaim, PersistenceError> {
+        fn claim(&mut self, operation_id: Id) -> Result<IdempotencyClaim, PersistenceError> {
             Ok(if self.claimed.insert(operation_id) {
                 IdempotencyClaim::Claimed
             } else {
