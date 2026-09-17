@@ -1,8 +1,8 @@
 # SIDERETH — Documentation Governance and Authority Map
 
-**Status:** CANONICAL / DOCUMENTATION GOVERNANCE
-**Scope:** Human, developer, AI-agent and documentation-maintenance behavior across the SIDERETH repository
-**Baseline audited:** `main` at `ab36d34a90a9363044e4700576523a4a87259534`
+**Status:** CANONICAL / DOCUMENTATION GOVERNANCE  
+**Scope:** Human, developer, AI-agent and documentation-maintenance behavior across the SIDERETH repository  
+**Baseline audited:** `main` at `29b4fdb17eb50df06ff99af19e5aa17edc94165e`
 
 ## 1. Purpose
 
@@ -96,7 +96,7 @@ Documentation must never advance an implementation status without reproducible e
 - `docs/SIDERETH-ECOSYSTEM-ROADMAP.md` — capability-led strategic roadmap.
 - `docs/ROADMAP.md` — delivery roadmap; must remain consistent with the ecosystem roadmap.
 - `docs/SIDERETH-ECOSYSTEM-DISCUSSION-RECORD.md` — consolidated discussion record; it is supporting context, not a contract.
-- `docs/THE-PURPLE-FROG-BRAND-IDENTITY.md` — public brand and conservation identity.
+- `docs/brand/THE-PURPLE-FROG-BRAND-IDENTITY.md` — public brand and conservation identity.
 - `docs/08-MCP-ARCHITECTURE.md` — MCP as an adapter/interoperability boundary, never as canonical authority.
 - `docs/ESTIMATE-WIREFRAME-PLAN.md` — UX/estimate planning only.
 
@@ -108,6 +108,7 @@ Documentation must never advance an implementation status without reproducible e
 - capability contract and capability registry;
 - tool registry;
 - authorization/policy;
+- capability lease;
 - action/approval/execution gate;
 - intelligence;
 - evidence/provenance;
@@ -136,7 +137,7 @@ The documentation audit found that the repository had already started a cleanup 
 
 They should remain separate unless a future audit demonstrates that their scopes can be consolidated without losing authority clarity.
 
-The historical `ARCHITECTURE-BLUEPRINT.md` has already been removed from the active path and preserved under `docs/archive/superseded/`. The migration cleanup record should be updated to reflect that this disposition has been completed.
+The historical `ARCHITECTURE-BLUEPRINT.md` has already been removed from the active path and preserved under `docs/archive/superseded/`. The migration cleanup record should reflect this completed disposition.
 
 ### Decision documents
 
@@ -153,40 +154,23 @@ Do not create a third general-purpose decision list.
 
 ### Tool Gateway
 
-The Tool Gateway contract and conformance matrix are canonical in `docs/contracts/`. The implementation PR is evidence against those documents and must not silently weaken them.
+The Tool Gateway contract and conformance matrix are canonical in `docs/contracts/`. The implementation is **not currently present on `main`**. Historical PR #73 implemented an earlier provider-neutral gateway kernel, but PR #73 was closed as superseded and must not be treated as current implementation evidence.
 
-## 7. Tool Gateway documentation state as of this baseline
+The current implementation gate is Issue #111, which requires a fresh bounded implementation after the authorization, constraint, lease and evidence-retrieval convergence work.
 
-PR #73 implements the first provider-neutral gateway kernel, but it is not production-ready.
+## 7. Historical Tool Gateway record
 
-Verified at exact implementation head:
+The following is retained only as historical evidence of the superseded PR #73 design and must not be used as a statement of current implementation:
 
-`7a028da2dd200b6cdf45950d69dff43b61ffadaf`
+- Historical PR: `#73`
+- Historical implementation head: `7a028da2dd200b6cdf45950d69dff43b61ffadaf`
+- PR #73 was closed because its implementation predates the current canonical authorization/lease architecture and is superseded by the current Tool Gateway readiness gate.
 
-Current evidence:
-
-- Foundation validation: PASS.
-- Formatting: PASS.
-- Compilation: PASS.
-- Test suite: PASS.
-- Live PostgreSQL proof matrix: PASS.
-- Clippy: PASS.
-- GitHub Actions security analysis: PASS.
-- RustSec audit: PASS.
-
-Remaining semantic work includes:
-
-1. trusted/current-time authorization expiry enforcement;
-2. returned authorization-constraint enforcement;
-3. registry-driven implementation/provider selection;
-4. richer invocation, implementation and provenance audit;
-5. canonical durable/concurrent idempotency integration;
-6. explicit evidence against direct adapter execution bypasses;
-7. the TG-001–TG-060 conformance evidence matrix.
-
-Green CI is necessary evidence but is not equivalent to Tool Gateway contract conformance or production readiness.
+Its historical CI results and semantic gaps belong to the PR record, not to the current `main` implementation status.
 
 ## 8. Canonical Tool Gateway execution boundary
+
+When Issue #111 is implemented, the intended boundary is:
 
 ```text
 Caller / Surface / Agent / MCP Adapter
@@ -223,6 +207,8 @@ The following are never authority sources:
 - MCP metadata;
 - provider identity;
 - adapter implementation preference.
+
+This section defines the target contract boundary; it does not claim that the gateway is implemented today.
 
 ## 9. AI-agent reading protocol
 
