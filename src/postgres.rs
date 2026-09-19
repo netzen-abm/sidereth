@@ -449,7 +449,7 @@ pub fn to_json<T: serde::Serialize>(value: &T) -> Result<Value, PersistenceError
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{IdempotencyClaim, IdempotencyStore};
+    use crate::persistence::IdempotencyClaim;
 
     #[test]
     fn durable_store_preserves_connection_configuration_boundary() {
