@@ -7,6 +7,7 @@
 use std::sync::{Arc, Mutex};
 
 use postgres::{Client, NoTls};
+use std::sync::Mutex;
 use serde_json::Value;
 
 use crate::persistence::{
@@ -397,20 +398,21 @@ impl UnitOfWorkFactory for PostgresUnitOfWorkFactory {
 /// The store is intentionally provider-neutral at the trait boundary and does
 /// not grant authorization.
 pub struct PostgresIdempotencyStore {
-    client: Client,
+    client: Mutex<Client>,
 }
 
 impl PostgresIdempotencyStore {
     pub fn new(connection_string: impl Into<String>) -> Result<Self, PersistenceError> {
         let client = Client::connect(&connection_string.into(), NoTls)
             .map_err(PostgresUnitOfWork::map_error)?;
-        Ok(Self { client })
+        Ok(Self { client: Mutex::new(client) })
     }
 }
 
 impl IdempotencyStore for PostgresIdempotencyStore {
     fn lookup(&self, operation_id: &crate::Id) -> Result<bool, PersistenceError> {
-        self.client
+        let client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
+        client
             .query_opt(
                 "SELECT 1 FROM sidereth_tool_gateway_idempotency WHERE operation_id = $1",
                 &[operation_id],
@@ -420,7 +422,7 @@ impl IdempotencyStore for PostgresIdempotencyStore {
     }
 
     fn claim(&mut self, operation_id: crate::Id) -> Result<IdempotencyClaim, PersistenceError> {
-        let client = &mut self.client;
+        let client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
         client
             .query_opt(
                 "INSERT INTO sidereth_tool_gateway_idempotency (operation_id)
