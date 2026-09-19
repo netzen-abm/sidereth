@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use postgres::{Client, NoTls};
 
 use crate::persistence::{
-    IdempotencyClaim, IdempotencyStore, PersistenceError, ResourceLink, ResourceLinkClass,
+    IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore, PersistenceError, ResourceLink, ResourceLinkClass,
     ResourceRecord, ResourceWrite, ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
 };
@@ -448,6 +448,63 @@ impl IdempotencyStore for PostgresIdempotencyStore {
             .map_err(PostgresUnitOfWork::map_error)
     }
 }
+
+impl IdempotencyLifecycleStore for PostgresIdempotencyStore {
+    fn state(&self, operation_id: &crate::Id) -> Result<Option<IdempotencyState>, PersistenceError> {
+        let mut client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
+        client
+            .query_opt(
+                "SELECT state FROM sidereth_tool_gateway_idempotency WHERE operation_id = $1",
+                &[operation_id],
+            )
+            .map_err(PostgresUnitOfWork::map_error)?
+            .map(|row| {
+                let state: &str = row.get(0);
+                match state {
+                    "claimed" => Ok(IdempotencyState::Claimed),
+                    "in_progress" => Ok(IdempotencyState::InProgress),
+                    "completed" => Ok(IdempotencyState::Completed),
+                    "failed" => Ok(IdempotencyState::Failed),
+                    "unknown" => Ok(IdempotencyState::Unknown),
+                    _ => Err(PersistenceError::IntegrityFailure),
+                }
+            })
+            .transpose()
+    }
+
+    fn mark_in_progress(&mut self, operation_id: &crate::Id) -> Result<(), PersistenceError> {
+        self.set_state(operation_id, "in_progress")
+    }
+
+    fn mark_completed(&mut self, operation_id: &crate::Id) -> Result<(), PersistenceError> {
+        self.set_state(operation_id, "completed")
+    }
+
+    fn mark_failed(&mut self, operation_id: &crate::Id) -> Result<(), PersistenceError> {
+        self.set_state(operation_id, "failed")
+    }
+
+    fn mark_unknown(&mut self, operation_id: &crate::Id) -> Result<(), PersistenceError> {
+        self.set_state(operation_id, "unknown")
+    }
+}
+
+impl PostgresIdempotencyStore {
+    fn set_state(&mut self, operation_id: &crate::Id, state: &str) -> Result<(), PersistenceError> {
+        let mut client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
+        let affected = client
+            .execute(
+                "UPDATE sidereth_tool_gateway_idempotency SET state = $2, updated_at = CURRENT_TIMESTAMP WHERE operation_id = $1",
+                &[operation_id, &state],
+            )
+            .map_err(PostgresUnitOfWork::map_error)?;
+        if affected == 0 {
+            return Err(PersistenceError::NotFound);
+        }
+        Ok(())
+    }
+}
+
 
 pub fn to_json<T: serde::Serialize>(value: &T) -> Result<Value, PersistenceError> {
     serde_json::to_value(value).map_err(|_| PersistenceError::SerializationFailure)
