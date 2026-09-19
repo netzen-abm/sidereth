@@ -419,10 +419,7 @@ impl IdempotencyStore for PostgresIdempotencyStore {
             .map_err(PostgresUnitOfWork::map_error)
     }
 
-    fn claim(
-        &mut self,
-        operation_id: crate::Id,
-    ) -> Result<IdempotencyClaim, PersistenceError> {
+    fn claim(&mut self, operation_id: crate::Id) -> Result<IdempotencyClaim, PersistenceError> {
         self.client
             .query_opt(
                 "INSERT INTO sidereth_tool_gateway_idempotency (operation_id)
