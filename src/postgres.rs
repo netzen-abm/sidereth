@@ -449,19 +449,6 @@ pub fn to_json<T: serde::Serialize>(value: &T) -> Result<Value, PersistenceError
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::IdempotencyClaim;
-
-    #[test]
-    fn durable_store_preserves_connection_configuration_boundary() {
-        // Construction is intentionally the only provider-specific concern;
-        // claim semantics are exercised by the live PostgreSQL proof matrix.
-        let result = PostgresIdempotencyStore::new("host=invalid user=sidereth");
-        assert!(result.is_err());
-        let _ = IdempotencyClaim::Claimed;
-    }
-
-
-    use super::*;
 
     #[test]
     fn factory_preserves_connection_configuration() {
