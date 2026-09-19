@@ -407,19 +407,21 @@ fn live_postgres_case_and_evidence_trust_rollback_is_atomic() {
     assert!(records.2.is_none(), "provenance must roll back");
 }
 
-
 #[test]
 #[ignore = "requires live PostgreSQL"]
 fn live_postgres_tool_gateway_idempotency_claim_survives_restart() {
-    use sidereth_core::postgres::PostgresIdempotencyStore;
     use sidereth_core::persistence::{IdempotencyClaim, IdempotencyStore};
+    use sidereth_core::postgres::PostgresIdempotencyStore;
 
     let url = database_url();
     let operation = format!("tool-gateway-restart-{}", std::process::id());
 
     {
         let mut store = PostgresIdempotencyStore::new(url.clone()).unwrap();
-        assert_eq!(store.claim(operation.clone()).unwrap(), IdempotencyClaim::Claimed);
+        assert_eq!(
+            store.claim(operation.clone()).unwrap(),
+            IdempotencyClaim::Claimed
+        );
     }
 
     let mut restarted_store = PostgresIdempotencyStore::new(url).unwrap();
@@ -433,8 +435,8 @@ fn live_postgres_tool_gateway_idempotency_claim_survives_restart() {
 #[test]
 #[ignore = "requires live PostgreSQL"]
 fn live_postgres_tool_gateway_idempotency_concurrent_claim_has_one_winner() {
-    use sidereth_core::postgres::PostgresIdempotencyStore;
     use sidereth_core::persistence::{IdempotencyClaim, IdempotencyStore};
+    use sidereth_core::postgres::PostgresIdempotencyStore;
     use std::sync::{Arc, Barrier};
     use std::thread;
 
@@ -454,10 +456,22 @@ fn live_postgres_tool_gateway_idempotency_concurrent_claim_has_one_winner() {
         }));
     }
 
-    let results: Vec<_> = handles.into_iter().map(|handle| handle.join().unwrap()).collect();
-    assert_eq!(results.iter().filter(|r| **r == IdempotencyClaim::Claimed).count(), 1);
+    let results: Vec<_> = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect();
     assert_eq!(
-        results.iter().filter(|r| **r == IdempotencyClaim::AlreadyClaimed).count(),
+        results
+            .iter()
+            .filter(|r| **r == IdempotencyClaim::Claimed)
+            .count(),
+        1
+    );
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| **r == IdempotencyClaim::AlreadyClaimed)
+            .count(),
         1
     );
 }
