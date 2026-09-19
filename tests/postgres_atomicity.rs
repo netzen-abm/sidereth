@@ -412,7 +412,7 @@ fn live_postgres_case_and_evidence_trust_rollback_is_atomic() {
 #[test]
 #[ignore = "requires live PostgreSQL"]
 fn live_postgres_tool_gateway_idempotency_claim_survives_restart() {
-    use sidereth_core::persistence::{IdempotencyClaim, IdempotencyStore};
+    use sidereth_core::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore};
     use sidereth_core::postgres::PostgresIdempotencyStore;
 
     let url = database_url();
@@ -424,10 +424,24 @@ fn live_postgres_tool_gateway_idempotency_claim_survives_restart() {
             store.claim(operation.clone()).unwrap(),
             IdempotencyClaim::Claimed
         );
+        assert_eq!(
+            store.state(&operation).unwrap(),
+            Some(IdempotencyState::Claimed)
+        );
+        store.mark_in_progress(&operation).unwrap();
+        assert_eq!(
+            store.state(&operation).unwrap(),
+            Some(IdempotencyState::InProgress)
+        );
+        store.mark_completed(&operation).unwrap();
     }
 
     let mut restarted_store = PostgresIdempotencyStore::new(url).unwrap();
     assert!(restarted_store.lookup(&operation).unwrap());
+    assert_eq!(
+        restarted_store.state(&operation).unwrap(),
+        Some(IdempotencyState::Completed)
+    );
     assert_eq!(
         restarted_store.claim(operation).unwrap(),
         IdempotencyClaim::AlreadyClaimed
