@@ -263,10 +263,9 @@ fn validate_authorized_constraints(
         if (scope_constraint == "exact_resource" || scope_constraint == "exact_evidence")
             && invocation.requested_scope != invocation.resource_ref.id
         {
-                return Err(ToolGatewayError::Authorization(
-                    AuthorizationValidationError::ConstraintViolation,
-                ));
-            }
+            return Err(ToolGatewayError::Authorization(
+                AuthorizationValidationError::ConstraintViolation,
+            ));
         }
     }
 
