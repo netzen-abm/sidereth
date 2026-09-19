@@ -4,9 +4,10 @@
 //! compare-and-set writes are enforced in SQL so concurrent writers cannot
 //! silently overwrite a newer revision.
 
-use postgres::{Client, NoTls};
-use std::sync::{Arc, Mutex};
 use serde_json::Value;
+use std::sync::{Arc, Mutex};
+
+use postgres::{Client, NoTls};
 
 use crate::persistence::{
     IdempotencyClaim, IdempotencyStore, PersistenceError, ResourceLink, ResourceLinkClass,
