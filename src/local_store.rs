@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::persistence::{
-    CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
+    CaseStore, EventStore, IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore, IncidentStore, Persisted,
     PersistenceError, Revision,
 };
 use crate::{Case, EventEnvelope, Id, Incident};
