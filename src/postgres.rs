@@ -10,8 +10,9 @@ use postgres::{Client, NoTls};
 use serde_json::Value;
 
 use crate::persistence::{
-    PersistenceError, ResourceLink, ResourceLinkClass, ResourceRecord, ResourceWrite,
-    ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
+    IdempotencyClaim, IdempotencyStore, PersistenceError, ResourceLink, ResourceLinkClass,
+    ResourceRecord, ResourceWrite, ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext,
+    UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{ResourceRef, ResourceType};
 
@@ -385,6 +386,59 @@ impl UnitOfWorkFactory for PostgresUnitOfWorkFactory {
             client: Arc::new(Mutex::new(client)),
             active: true,
         })
+    }
+}
+
+/// Durable PostgreSQL idempotency store for gateway operation claims.
+///
+/// A claim is committed as a single atomic INSERT guarded by the primary key.
+/// This deliberately uses the database as the concurrency boundary: two
+/// independent processes may race, but PostgreSQL can persist only one claim.
+/// The store is intentionally provider-neutral at the trait boundary and does
+/// not grant authorization.
+pub struct PostgresIdempotencyStore {
+    client: Client,
+}
+
+impl PostgresIdempotencyStore {
+    pub fn new(connection_string: impl Into<String>) -> Result<Self, PersistenceError> {
+        let client = Client::connect(&connection_string.into(), NoTls)
+            .map_err(PostgresUnitOfWork::map_error)?;
+        Ok(Self { client })
+    }
+}
+
+impl IdempotencyStore for PostgresIdempotencyStore {
+    fn lookup(&self, operation_id: &crate::Id) -> Result<bool, PersistenceError> {
+        self.client
+            .query_opt(
+                "SELECT 1 FROM sidereth_tool_gateway_idempotency WHERE operation_id = $1",
+                &[operation_id],
+            )
+            .map(|row| row.is_some())
+            .map_err(PostgresUnitOfWork::map_error)
+    }
+
+    fn claim(
+        &mut self,
+        operation_id: crate::Id,
+    ) -> Result<IdempotencyClaim, PersistenceError> {
+        self.client
+            .query_opt(
+                "INSERT INTO sidereth_tool_gateway_idempotency (operation_id)
+                 VALUES ($1)
+                 ON CONFLICT (operation_id) DO NOTHING
+                 RETURNING operation_id",
+                &[&operation_id],
+            )
+            .map(|row| {
+                if row.is_some() {
+                    IdempotencyClaim::Claimed
+                } else {
+                    IdempotencyClaim::AlreadyClaimed
+                }
+            })
+            .map_err(PostgresUnitOfWork::map_error)
     }
 }
 
