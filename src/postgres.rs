@@ -420,8 +420,8 @@ impl IdempotencyStore for PostgresIdempotencyStore {
     }
 
     fn claim(&mut self, operation_id: crate::Id) -> Result<IdempotencyClaim, PersistenceError> {
-        self.client
-            .query_opt(
+        let client = &mut self.client;
+        client.query_opt(
                 "INSERT INTO sidereth_tool_gateway_idempotency (operation_id)
                  VALUES ($1)
                  ON CONFLICT (operation_id) DO NOTHING
