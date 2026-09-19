@@ -6,7 +6,7 @@
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
-use crate::persistence::{IdempotencyClaim, IdempotencyStore, PersistenceError};
+use crate::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyStore, PersistenceError};
 use crate::tool_registry::{
     InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryEntry, ToolRegistryError,
     ToolVersionRequirement,
@@ -69,12 +69,12 @@ pub trait ToolGatewayProvider {
     ) -> Result<Self::Output, ToolGatewayError>;
 }
 
-pub struct ToolGateway<'a, I: IdempotencyStore> {
+pub struct ToolGateway<'a, I: IdempotencyLifecycleStore> {
     registry: &'a InMemoryToolRegistry,
     idempotency: &'a mut I,
 }
 
-impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
+impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
     pub fn new(registry: &'a InMemoryToolRegistry, idempotency: &'a mut I) -> Self {
         Self {
             registry,
@@ -159,11 +159,28 @@ impl<'a, I: IdempotencyStore> ToolGateway<'a, I> {
     ) -> Result<P::Output, ToolGatewayError> {
         self.validate(invocation, request, authorization, now_epoch_seconds)?;
         self.claim(invocation)?;
+        let operation_id = operation_key(invocation)?;
+        self.idempotency
+            .mark_in_progress(&operation_id)
+            .map_err(ToolGatewayError::Idempotency)?;
         let tool = self
             .registry
             .resolve(&invocation.tool_id, &invocation.tool_version)
             .map_err(ToolGatewayError::Registry)?;
-        provider.execute(invocation, tool)
+        match provider.execute(invocation, tool) {
+            Ok(output) => {
+                self.idempotency
+                    .mark_completed(&operation_id)
+                    .map_err(ToolGatewayError::Idempotency)?;
+                Ok(output)
+            }
+            Err(error) => {
+                self.idempotency
+                    .mark_failed(&operation_id)
+                    .map_err(ToolGatewayError::Idempotency)?;
+                Err(error)
+            }
+        }
     }
 }
 
