@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::persistence::{
-    CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
+    CaseStore, EventStore, IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore, IncidentStore, Persisted,
     PersistenceError, Revision,
 };
 use crate::{Case, EventEnvelope, Id, Incident};
@@ -211,6 +211,52 @@ impl IdempotencyStore for LocalFileStore {
             .map_err(|_| PersistenceError::Unavailable)?;
         file.flush().map_err(|_| PersistenceError::Unavailable)?;
         Ok(IdempotencyClaim::Claimed)
+    }
+}
+
+
+impl IdempotencyLifecycleStore for LocalFileStore {
+    fn state(&self, operation_id: &Id) -> Result<Option<IdempotencyState>, PersistenceError> {
+        let path = self.path("idempotency", operation_id)?;
+        if !path.exists() {
+            return Ok(None);
+        }
+        let state_path = path.with_extension("state");
+        if !state_path.exists() {
+            return Ok(Some(IdempotencyState::Claimed));
+        }
+        let bytes = std::fs::read(state_path).map_err(|_| PersistenceError::Unavailable)?;
+        serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|_| PersistenceError::SerializationFailure)
+    }
+
+    fn mark_in_progress(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+        self.write_lifecycle_state(operation_id, IdempotencyState::InProgress)
+    }
+
+    fn mark_completed(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+        self.write_lifecycle_state(operation_id, IdempotencyState::Completed)
+    }
+
+    fn mark_failed(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+        self.write_lifecycle_state(operation_id, IdempotencyState::Failed)
+    }
+
+    fn mark_unknown(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+        self.write_lifecycle_state(operation_id, IdempotencyState::Unknown)
+    }
+}
+
+impl LocalFileStore {
+    fn write_lifecycle_state(
+        &self,
+        operation_id: &Id,
+        state: IdempotencyState,
+    ) -> Result<(), PersistenceError> {
+        let path = self.path("idempotency", operation_id)?.with_extension("state");
+        let bytes = serde_json::to_vec(&state).map_err(|_| PersistenceError::SerializationFailure)?;
+        std::fs::write(path, bytes).map_err(|_| PersistenceError::Unavailable)
     }
 }
 
