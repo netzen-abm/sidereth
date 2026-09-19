@@ -412,7 +412,7 @@ impl PostgresIdempotencyStore {
 
 impl IdempotencyStore for PostgresIdempotencyStore {
     fn lookup(&self, operation_id: &crate::Id) -> Result<bool, PersistenceError> {
-        let client = self
+        let mut client = self
             .client
             .lock()
             .map_err(|_| PersistenceError::Unavailable)?;
