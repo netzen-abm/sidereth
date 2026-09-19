@@ -44,6 +44,10 @@ fn prepare(factory: &mut PostgresUnitOfWorkFactory) {
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (resource_type, resource_id)
                 );
+                CREATE TABLE IF NOT EXISTS sidereth_tool_gateway_idempotency (
+                    operation_id TEXT PRIMARY KEY,
+                    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 CREATE TABLE IF NOT EXISTS sidereth_resource_links (
                     source_type TEXT NOT NULL,
                     source_id TEXT NOT NULL,
