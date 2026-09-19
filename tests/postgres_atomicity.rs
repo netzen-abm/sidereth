@@ -46,7 +46,9 @@ fn prepare(factory: &mut PostgresUnitOfWorkFactory) {
                 );
                 CREATE TABLE IF NOT EXISTS sidereth_tool_gateway_idempotency (
                     operation_id TEXT PRIMARY KEY,
-                    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    state TEXT NOT NULL DEFAULT 'claimed' CHECK (state IN ('claimed', 'in_progress', 'completed', 'failed', 'unknown')),
+                    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE TABLE IF NOT EXISTS sidereth_resource_links (
                     source_type TEXT NOT NULL,
