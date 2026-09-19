@@ -109,6 +109,10 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         validate_registry_context(invocation, tool)?;
         validate_authorized_constraints(&authorization.constraints, invocation)?;
 
+        if tool.capability_lease_required && invocation.capability_lease.is_none() {
+            return Err(ToolGatewayError::Lease(CapabilityLeaseError::InvalidLease));
+        }
+
         if let Some(lease) = invocation.capability_lease.as_ref() {
             if lease.authorization_ref != invocation.authorization_ref {
                 return Err(ToolGatewayError::Lease(CapabilityLeaseError::InvalidLease));
