@@ -104,6 +104,10 @@ pub struct ToolRegistryEntry {
     pub function_ref: Option<ResourceRef>,
     pub jurisdiction_scope: Vec<String>,
     pub permission_requirements: Vec<String>,
+    /// Explicitly declares whether this tool requires a SIDERETH capability lease.
+    /// Registry metadata does not grant authority; it only makes the requirement
+    /// discoverable to the gateway.
+    pub capability_lease_required: bool,
     pub approval_required: bool,
     pub input_schema_ref: Option<ResourceRef>,
     pub output_schema_ref: Option<ResourceRef>,
@@ -521,6 +525,7 @@ mod tests {
             function_ref: None,
             jurisdiction_scope: vec!["IN".into()],
             permission_requirements: vec![],
+            capability_lease_required: false,
             approval_required: false,
             input_schema_ref: None,
             output_schema_ref: None,
