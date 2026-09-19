@@ -542,6 +542,43 @@ mod tests {
     }
 
     #[test]
+    fn required_capability_lease_cannot_be_omitted() {
+        let mut registry = registry();
+        let mut entry = registry
+            .resolve(
+                &String::from("tool-1"),
+                &ToolVersionRequirement::Exact(ToolVersion::new(1, 0, 0)),
+            )
+            .unwrap()
+            .clone();
+        entry.capability_lease_required = true;
+        registry = InMemoryToolRegistry::new();
+        registry
+            .register(
+                entry,
+                crate::tool_registry::ToolRegistryAuditRecord {
+                    change_id: "change-lease".into(),
+                    tool_id: "tool-1".into(),
+                    version: ToolVersion::new(1, 0, 0),
+                    change_type: "register".into(),
+                    actor_ref: "actor-1".into(),
+                    authorization_ref: "auth-1".into(),
+                    timestamp: "1002".into(),
+                    previous_lifecycle: None,
+                    new_lifecycle: None,
+                },
+            )
+            .unwrap();
+        let mut idempotency = Idempotency::default();
+        let gateway = ToolGateway::new(&registry, &mut idempotency);
+        assert!(matches!(
+            gateway.validate(&invocation(), &request(), &authorization(), 1050),
+            Err(ToolGatewayError::Lease(CapabilityLeaseError::InvalidLease))
+        ));
+        assert!(idempotency.claimed.is_empty());
+    }
+
+    #[test]
     fn approval_required_never_executes_or_claims() {
         let mut registry = registry();
         let mut entry = registry
