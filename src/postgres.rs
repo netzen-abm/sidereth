@@ -4,10 +4,8 @@
 //! compare-and-set writes are enforced in SQL so concurrent writers cannot
 //! silently overwrite a newer revision.
 
-use std::sync::{Arc, Mutex};
-
 use postgres::{Client, NoTls};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use serde_json::Value;
 
 use crate::persistence::{
@@ -405,7 +403,9 @@ impl PostgresIdempotencyStore {
     pub fn new(connection_string: impl Into<String>) -> Result<Self, PersistenceError> {
         let client = Client::connect(&connection_string.into(), NoTls)
             .map_err(PostgresUnitOfWork::map_error)?;
-        Ok(Self { client: Mutex::new(client) })
+        Ok(Self {
+            client: Mutex::new(client),
+        })
     }
 }
 
@@ -425,7 +425,10 @@ impl IdempotencyStore for PostgresIdempotencyStore {
     }
 
     fn claim(&mut self, operation_id: crate::Id) -> Result<IdempotencyClaim, PersistenceError> {
-        let client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
+        let client = self
+            .client
+            .lock()
+            .map_err(|_| PersistenceError::Unavailable)?;
         client
             .query_opt(
                 "INSERT INTO sidereth_tool_gateway_idempotency (operation_id)
