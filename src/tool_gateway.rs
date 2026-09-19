@@ -260,8 +260,9 @@ fn validate_authorized_constraints(
     }
 
     if let Some(scope_constraint) = scope {
-        if scope_constraint == "exact_resource" || scope_constraint == "exact_evidence" {
-            if invocation.requested_scope != invocation.resource_ref.id {
+        if (scope_constraint == "exact_resource" || scope_constraint == "exact_evidence")
+            && invocation.requested_scope != invocation.resource_ref.id
+        {
                 return Err(ToolGatewayError::Authorization(
                     AuthorizationValidationError::ConstraintViolation,
                 ));
