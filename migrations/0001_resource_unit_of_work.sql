@@ -48,5 +48,7 @@ CREATE INDEX IF NOT EXISTS idx_sidereth_resource_links_target
 -- can exist for a canonical operation key, including across process restarts.
 CREATE TABLE IF NOT EXISTS sidereth_tool_gateway_idempotency (
     operation_id TEXT PRIMARY KEY,
-    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    state TEXT NOT NULL DEFAULT 'claimed' CHECK (state IN ('claimed', 'in_progress', 'completed', 'failed', 'unknown')),
+    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
