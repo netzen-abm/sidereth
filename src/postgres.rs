@@ -426,7 +426,7 @@ impl IdempotencyStore for PostgresIdempotencyStore {
     }
 
     fn claim(&mut self, operation_id: crate::Id) -> Result<IdempotencyClaim, PersistenceError> {
-        let client = self
+        let mut client = self
             .client
             .lock()
             .map_err(|_| PersistenceError::Unavailable)?;
