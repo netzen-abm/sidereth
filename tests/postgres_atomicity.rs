@@ -412,7 +412,9 @@ fn live_postgres_case_and_evidence_trust_rollback_is_atomic() {
 #[test]
 #[ignore = "requires live PostgreSQL"]
 fn live_postgres_tool_gateway_idempotency_claim_survives_restart() {
-    use sidereth_core::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore};
+    use sidereth_core::persistence::{
+        IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
+    };
     use sidereth_core::postgres::PostgresIdempotencyStore;
 
     let url = database_url();
