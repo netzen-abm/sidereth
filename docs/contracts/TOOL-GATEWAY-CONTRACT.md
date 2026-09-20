@@ -153,6 +153,10 @@ A tool input must not contain protected data outside the authorized resource, pu
 
 The gateway must support reduction or rejection of excess data before invocation where the canonical contract permits such enforcement.
 
+The canonical v0.1 implementation establishes a `ToolDataAccessGrant` bound to the invocation's resource, purpose, data class and exact scope. A provider receives this grant rather than an unconstrained data-access authority. Provider data requests must match the grant exactly for resource, purpose and scope and may request only the same or a less-sensitive data classification. Broader selectors and broader classification require a separately contracted capability; they must not be inferred by the provider.
+
+This boundary is a data-access control, not an authorization evaluator. Canonical Authorization, capability leases and the Execution Gate remain authoritative. The grant does not itself permit arbitrary persistence access; providers must use the canonical data/query adapter exposed by the applicable tool contract.
+
 Secrets, credentials, protected evidence and sensitive personal data must not be forwarded to an implementation unless explicitly authorized and required by the canonical tool contract.
 
 ## 8. Risk and approval

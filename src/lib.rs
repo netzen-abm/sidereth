@@ -100,6 +100,7 @@ pub mod response;
 pub mod security;
 pub mod service;
 pub mod timeline;
+pub mod tool_data_access;
 pub mod tool_gateway;
 #[allow(clippy::manual_flatten)]
 pub mod tool_registry;
@@ -191,6 +192,7 @@ pub use security::{
 };
 pub use service::{CaseCommand, CaseService, CommandContext, CommandResult, ServiceError};
 pub use timeline::Timeline;
+pub use tool_data_access::{ToolDataAccessError, ToolDataAccessGrant, ToolDataAccessRequest};
 pub use tool_gateway::{
     ToolGateway, ToolGatewayError, ToolGatewayInvocation, ToolGatewayPhase, ToolGatewayProvider,
 };
