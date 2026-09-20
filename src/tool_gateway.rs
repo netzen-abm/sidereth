@@ -127,6 +127,11 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
             .map_err(ToolGatewayError::Registry)?;
         validate_registry_context(invocation, tool)?;
         validate_registry_implementation_binding(invocation, tool)?;
+        if invocation.capability_ref != tool.capability_ref
+            || invocation.function_ref != tool.function_ref
+        {
+            return Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion));
+        }
         validate_authorized_constraints(&authorization.constraints, invocation)?;
 
         if tool.capability_lease_required && invocation.capability_lease.is_none() {
