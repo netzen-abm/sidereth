@@ -3,7 +3,9 @@
 //! The gateway composes canonical authorization, Tool Registry resolution,
 //! capability leases and canonical idempotency. It does not grant authority.
 
-use crate::action::{Action, ApprovalRecord, ExecutionGate, ExecutionGateError, ExecutionGateInput};
+use crate::action::{
+    Action, ApprovalRecord, ExecutionGate, ExecutionGateError, ExecutionGateInput,
+};
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
@@ -613,7 +615,15 @@ mod tests {
         let mut i = invocation();
         i.capability_ref = r(crate::ResourceType::Other, "cap-forged");
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
+            gateway.execute(
+                &i,
+                &request(),
+                &authorization(),
+                None,
+                None,
+                1050,
+                &mut provider
+            ),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -631,7 +641,15 @@ mod tests {
         let mut i = invocation();
         i.function_ref = Some(r(crate::ResourceType::Other, "fn-forged"));
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
+            gateway.execute(
+                &i,
+                &request(),
+                &authorization(),
+                None,
+                None,
+                1050,
+                &mut provider
+            ),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -649,7 +667,15 @@ mod tests {
         let mut i = invocation();
         i.implementation_id = "impl-forged".into();
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
+            gateway.execute(
+                &i,
+                &request(),
+                &authorization(),
+                None,
+                None,
+                1050,
+                &mut provider
+            ),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -667,7 +693,15 @@ mod tests {
         let mut i = invocation();
         i.provider_id = "provider-forged".into();
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
+            gateway.execute(
+                &i,
+                &request(),
+                &authorization(),
+                None,
+                None,
+                1050,
+                &mut provider
+            ),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -685,7 +719,15 @@ mod tests {
         let mut i = invocation();
         i.implementation_version = "forged".into();
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
+            gateway.execute(
+                &i,
+                &request(),
+                &authorization(),
+                None,
+                None,
+                1050,
+                &mut provider
+            ),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
