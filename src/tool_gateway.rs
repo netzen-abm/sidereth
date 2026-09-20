@@ -1047,7 +1047,8 @@ mod tests {
             "Execute protected tool".into(),
             "prov-action-1".into(),
             "2026-09-20T10:00:00Z".into(),
-        ).unwrap();
+        )
+        .unwrap();
         action.requires_explicit_approval = true;
         action.authorization_ref = Some("auth-1".into());
         action.approval_ref = Some("approval-1".into());
