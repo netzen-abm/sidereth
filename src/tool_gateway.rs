@@ -581,7 +581,9 @@ mod tests {
         i.capability_ref = r(crate::ResourceType::Other, "cap-forged");
         assert!(matches!(
             gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
-            Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion))
+            Err(ToolGatewayError::Registry(
+                ToolRegistryError::UnsupportedVersion,
+            ))
         ));
         assert_eq!(provider.calls, 0);
         assert!(idempotency.claimed.is_empty());
@@ -597,7 +599,9 @@ mod tests {
         i.function_ref = Some(r(crate::ResourceType::Other, "fn-forged"));
         assert!(matches!(
             gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
-            Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion))
+            Err(ToolGatewayError::Registry(
+                ToolRegistryError::UnsupportedVersion,
+            ))
         ));
         assert_eq!(provider.calls, 0);
         assert!(idempotency.claimed.is_empty());
@@ -613,7 +617,9 @@ mod tests {
         i.implementation_id = "impl-forged".into();
         assert!(matches!(
             gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
-            Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion))
+            Err(ToolGatewayError::Registry(
+                ToolRegistryError::UnsupportedVersion,
+            ))
         ));
         assert_eq!(provider.calls, 0);
         assert!(idempotency.claimed.is_empty());
@@ -629,7 +635,9 @@ mod tests {
         i.provider_id = "provider-forged".into();
         assert!(matches!(
             gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
-            Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion))
+            Err(ToolGatewayError::Registry(
+                ToolRegistryError::UnsupportedVersion,
+            ))
         ));
         assert_eq!(provider.calls, 0);
         assert!(idempotency.claimed.is_empty());
@@ -645,7 +653,9 @@ mod tests {
         i.implementation_version = "forged".into();
         assert!(matches!(
             gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
-            Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion))
+            Err(ToolGatewayError::Registry(
+                ToolRegistryError::UnsupportedVersion,
+            ))
         ));
         assert_eq!(provider.calls, 0);
         assert!(idempotency.claimed.is_empty());
