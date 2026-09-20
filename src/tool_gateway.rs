@@ -6,7 +6,9 @@
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
-use crate::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyStore, PersistenceError};
+use crate::persistence::{
+    IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyStore, PersistenceError,
+};
 use crate::tool_registry::{
     InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryEntry, ToolRegistryError,
     ToolVersionRequirement,
@@ -303,7 +305,9 @@ fn operation_key(invocation: &ToolGatewayInvocation) -> Result<Id, ToolGatewayEr
 mod tests {
     use super::*;
     use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
-    use crate::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, PersistenceError};
+    use crate::persistence::{
+        IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, PersistenceError,
+    };
     use crate::tool_registry::{ToolImplementation, ToolLifecycle, ToolRiskClass, ToolVersion};
     use std::collections::BTreeSet;
 
@@ -328,13 +332,24 @@ mod tests {
 
     impl IdempotencyLifecycleStore for Idempotency {
         fn state(&self, operation_id: &Id) -> Result<Option<IdempotencyState>, PersistenceError> {
-            Ok(self.claimed.contains(operation_id).then_some(IdempotencyState::Completed))
+            Ok(self
+                .claimed
+                .contains(operation_id)
+                .then_some(IdempotencyState::Completed))
         }
 
-        fn mark_in_progress(&mut self, _: &Id) -> Result<(), PersistenceError> { Ok(()) }
-        fn mark_completed(&mut self, _: &Id) -> Result<(), PersistenceError> { Ok(()) }
-        fn mark_failed(&mut self, _: &Id) -> Result<(), PersistenceError> { Ok(()) }
-        fn mark_unknown(&mut self, _: &Id) -> Result<(), PersistenceError> { Ok(()) }
+        fn mark_in_progress(&mut self, _: &Id) -> Result<(), PersistenceError> {
+            Ok(())
+        }
+        fn mark_completed(&mut self, _: &Id) -> Result<(), PersistenceError> {
+            Ok(())
+        }
+        fn mark_failed(&mut self, _: &Id) -> Result<(), PersistenceError> {
+            Ok(())
+        }
+        fn mark_unknown(&mut self, _: &Id) -> Result<(), PersistenceError> {
+            Ok(())
+        }
     }
 
     #[derive(Default)]
