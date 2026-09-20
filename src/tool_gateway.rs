@@ -92,6 +92,15 @@ pub trait ToolGatewayProvider {
     ) -> Result<Self::Output, ToolGatewayError>;
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ToolGatewayExecutionContext<'a> {
+    pub request: &'a AuthorizationRequest,
+    pub authorization: &'a AuthorizationResult,
+    pub action: Option<&'a Action>,
+    pub approval: Option<&'a ApprovalRecord>,
+    pub now_epoch_seconds: u64,
+}
+
 pub struct ToolGateway<'a, I: IdempotencyLifecycleStore> {
     registry: &'a InMemoryToolRegistry,
     idempotency: &'a mut I,
@@ -187,20 +196,27 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
     pub fn execute<P: ToolGatewayProvider>(
         &mut self,
         invocation: &ToolGatewayInvocation,
-        request: &AuthorizationRequest,
-        authorization: &AuthorizationResult,
-        action: Option<&Action>,
-        approval: Option<&ApprovalRecord>,
-        now_epoch_seconds: u64,
+        context: ToolGatewayExecutionContext<'_>,
         provider: &mut P,
     ) -> Result<P::Output, ToolGatewayError> {
-        self.validate(invocation, request, authorization, now_epoch_seconds)?;
+        self.validate(
+            invocation,
+            context.request,
+            context.authorization,
+            context.now_epoch_seconds,
+        )?;
         let tool = self
             .registry
             .resolve(&invocation.tool_id, &invocation.tool_version)
             .map_err(ToolGatewayError::Registry)?;
         validate_provider_binding(invocation, tool, provider)?;
-        validate_execution_gate(invocation, tool, authorization, action, approval)?;
+        validate_execution_gate(
+            invocation,
+            tool,
+            context.authorization,
+            context.action,
+            context.approval,
+        )?;
         self.claim(invocation)?;
         let operation_id = operation_key(invocation)?;
         self.idempotency
@@ -617,11 +633,13 @@ mod tests {
         assert!(matches!(
             gateway.execute(
                 &i,
-                &request(),
-                &authorization(),
-                None,
-                None,
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::Registry(
@@ -643,11 +661,13 @@ mod tests {
         assert!(matches!(
             gateway.execute(
                 &i,
-                &request(),
-                &authorization(),
-                None,
-                None,
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::Registry(
@@ -669,11 +689,13 @@ mod tests {
         assert!(matches!(
             gateway.execute(
                 &i,
-                &request(),
-                &authorization(),
-                None,
-                None,
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::Registry(
@@ -695,11 +717,13 @@ mod tests {
         assert!(matches!(
             gateway.execute(
                 &i,
-                &request(),
-                &authorization(),
-                None,
-                None,
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::Registry(
@@ -721,11 +745,13 @@ mod tests {
         assert!(matches!(
             gateway.execute(
                 &i,
-                &request(),
-                &authorization(),
-                None,
-                None,
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::Registry(
