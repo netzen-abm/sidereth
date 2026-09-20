@@ -281,15 +281,15 @@ fn record_invocation_audit(
     let actor = invocation
         .actor_ref
         .as_ref()
-        .ok_or(ToolGatewayError::Audit("invocation actor is required for audit"))?;
+        .ok_or(ToolGatewayError::Audit(
+            "invocation actor is required for audit",
+        ))?;
     let operation_id = operation_key(invocation)?;
     let provenance_id = format!("provenance-tool-gateway-{}", operation_id);
     let audit_id = format!("audit-tool-gateway-{}", operation_id);
-    let provenance_ref = ResourceRef::new(
-        crate::ResourceType::Provenance,
-        provenance_id.clone(),
-    )
-    .map_err(|_| ToolGatewayError::Audit("invalid invocation provenance reference"))?;
+    let provenance_ref =
+        ResourceRef::new(crate::ResourceType::Provenance, provenance_id.clone())
+            .map_err(|_| ToolGatewayError::Audit("invalid invocation provenance reference"))?;
 
     let record = AuditRecord {
         audit_id,
@@ -316,7 +316,9 @@ fn record_invocation_audit(
         resource_ref: Some(invocation.resource_ref.clone()),
         purpose: Some(invocation.purpose.clone()),
         jurisdiction_ref: invocation.jurisdiction_ref.clone(),
-        data_class: invocation.data_class.map(|value| format!("{value:?}").to_lowercase()),
+        data_class: invocation
+            .data_class
+            .map(|value| format!("{value:?}").to_lowercase()),
         requested_scope: Some(invocation.requested_scope.clone()),
         execution_mode: Some(format!("{:?}", invocation.execution_mode).to_lowercase()),
         idempotency_ref: Some(invocation.idempotency_ref.clone()),
