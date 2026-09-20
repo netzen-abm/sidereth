@@ -514,7 +514,6 @@ impl PostgresIdempotencyStore {
     }
 }
 
-
 pub fn to_json<T: serde::Serialize>(value: &T) -> Result<Value, PersistenceError> {
     serde_json::to_value(value).map_err(|_| PersistenceError::SerializationFailure)
 }
