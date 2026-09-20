@@ -69,10 +69,7 @@ impl ToolDataAccessGrant {
     /// request the granted class or a less-sensitive class, never a broader one.
     /// Scope is intentionally exact in v0.1; broader selectors require a
     /// separately contracted capability rather than ad-hoc interpretation.
-    pub fn authorize(
-        &self,
-        request: &ToolDataAccessRequest,
-    ) -> Result<(), ToolDataAccessError> {
+    pub fn authorize(&self, request: &ToolDataAccessRequest) -> Result<(), ToolDataAccessError> {
         if request.resource_ref != self.resource_ref {
             return Err(ToolDataAccessError::ResourceMismatch);
         }
@@ -130,7 +127,9 @@ mod tests {
 
     #[test]
     fn exact_authorized_request_passes() {
-        assert!(grant().authorize(&request(ToolDataClass::Confidential)).is_ok());
+        assert!(grant()
+            .authorize(&request(ToolDataClass::Confidential))
+            .is_ok());
     }
 
     #[test]
