@@ -130,7 +130,9 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         if invocation.capability_ref != tool.capability_ref
             || invocation.function_ref != tool.function_ref
         {
-            return Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion));
+            return Err(ToolGatewayError::Registry(
+                ToolRegistryError::UnsupportedVersion,
+            ));
         }
         validate_authorized_constraints(&authorization.constraints, invocation)?;
 
@@ -281,7 +283,9 @@ fn validate_registry_implementation_binding(
                 && implementation.implementation_version == invocation.implementation_version
         })
         .map(|_| ())
-        .ok_or(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion))
+        .ok_or(ToolGatewayError::Registry(
+            ToolRegistryError::UnsupportedVersion,
+        ))
 }
 
 fn validate_provider_binding<P: ToolGatewayProvider>(
@@ -294,7 +298,9 @@ fn validate_provider_binding<P: ToolGatewayProvider>(
         || provider.implementation_id() != invocation.implementation_id
         || provider.implementation_version() != invocation.implementation_version
     {
-        return Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion));
+        return Err(ToolGatewayError::Registry(
+            ToolRegistryError::UnsupportedVersion,
+        ));
     }
     Ok(())
 }
@@ -415,9 +421,15 @@ mod tests {
     impl ToolGatewayProvider for Provider {
         type Output = &'static str;
 
-        fn provider_id(&self) -> &str { "provider-1" }
-        fn implementation_id(&self) -> &str { "impl-1" }
-        fn implementation_version(&self) -> &str { "1" }
+        fn provider_id(&self) -> &str {
+            "provider-1"
+        }
+        fn implementation_id(&self) -> &str {
+            "impl-1"
+        }
+        fn implementation_version(&self) -> &str {
+            "1"
+        }
 
         fn execute(
             &mut self,
