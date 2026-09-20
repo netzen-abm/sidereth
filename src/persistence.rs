@@ -229,6 +229,7 @@ pub enum IdempotencyClaim {
     AlreadyClaimed,
 }
 
+/// Durable execution-state contract layered on top of idempotency claim semantics.
 pub trait IdempotencyLifecycleStore: IdempotencyStore {
     fn state(&self, operation_id: &Id) -> Result<Option<IdempotencyState>, PersistenceError>;
     fn mark_in_progress(&mut self, operation_id: &Id) -> Result<(), PersistenceError>;
