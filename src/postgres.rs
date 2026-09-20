@@ -412,7 +412,10 @@ impl PostgresIdempotencyStore {
 
 impl IdempotencyStore for PostgresIdempotencyStore {
     fn lookup(&self, operation_id: &crate::Id) -> Result<bool, PersistenceError> {
-        let mut client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
+        let mut client = self
+            .client
+            .lock()
+            .map_err(|_| PersistenceError::Unavailable)?;
         client
             .query_opt(
                 "SELECT 1 FROM sidereth_tool_gateway_idempotency WHERE operation_id = $1",
@@ -447,7 +450,10 @@ impl IdempotencyStore for PostgresIdempotencyStore {
 }
 
 impl IdempotencyLifecycleStore for PostgresIdempotencyStore {
-    fn state(&self, operation_id: &crate::Id) -> Result<Option<IdempotencyState>, PersistenceError> {
+    fn state(
+        &self,
+        operation_id: &crate::Id,
+    ) -> Result<Option<IdempotencyState>, PersistenceError> {
         let mut client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
         client
             .query_opt(
