@@ -304,7 +304,8 @@ mod tests {
     use super::*;
     use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::persistence::{
-        IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, PersistenceError,
+        IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
+        PersistenceError,
     };
     use crate::tool_registry::{ToolImplementation, ToolLifecycle, ToolRiskClass, ToolVersion};
     use std::collections::BTreeSet;
