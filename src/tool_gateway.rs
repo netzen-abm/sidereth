@@ -11,6 +11,7 @@ use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
 use crate::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, PersistenceError};
+use crate::tool_data_access::ToolDataAccessGrant;
 use crate::tool_registry::{
     InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryEntry, ToolRegistryError,
     ToolVersionRequirement,
@@ -227,10 +228,23 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         )?;
         self.claim(invocation)?;
         let operation_id = operation_key(invocation)?;
+        let data_access = ToolDataAccessGrant::from_invocation(
+            operation_id.clone(),
+            invocation.authorization_ref.clone(),
+            invocation.resource_ref.clone(),
+            invocation.purpose.clone(),
+            invocation
+                .data_class
+                .ok_or(ToolGatewayError::DataClassNotSupported)?,
+            invocation.requested_scope.clone(),
+        )
+        .map_err(|_| {
+            ToolGatewayError::Authorization(AuthorizationValidationError::ConstraintViolation)
+        })?;
         self.idempotency
             .mark_in_progress(&operation_id)
             .map_err(ToolGatewayError::Idempotency)?;
-        match provider.execute(invocation, tool) {
+        match provider.execute(invocation, tool, &data_access) {
             Ok(output) => {
                 self.idempotency
                     .mark_completed(&operation_id)
