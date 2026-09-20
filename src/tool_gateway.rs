@@ -267,15 +267,18 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
     }
 }
 
+struct ToolGatewayAuditContext<'a> {
+    request: &'a AuthorizationRequest,
+    approval: Option<&'a ApprovalRecord>,
+    occurred_at: &'a str,
+    outcome: &'a str,
+    failure: Option<&'a str>,
+}
+
 fn record_invocation_audit(
     audit: &mut dyn AuditProvenanceSink,
     invocation: &ToolGatewayInvocation,
-    request: &AuthorizationRequest,
-    _action: Option<&Action>,
-    approval: Option<&ApprovalRecord>,
-    occurred_at: &str,
-    outcome: &str,
-    failure: Option<&str>,
+    context: ToolGatewayAuditContext<'_>,
 ) -> Result<(), ToolGatewayError> {
     let actor = invocation
         .actor_ref
@@ -296,15 +299,15 @@ fn record_invocation_audit(
         action: invocation.action.id.clone(),
         aggregate_type: format!("{:?}", invocation.resource_ref.resource_type),
         aggregate_id: invocation.resource_ref.id.clone(),
-        occurred_at: occurred_at.to_owned(),
+        occurred_at: context.occurred_at.to_owned(),
         correlation_id: Some(invocation.request_id.clone()),
         causation_id: None,
         provenance_ref: Some(provenance_ref),
         invocation_id: Some(operation_id.clone()),
-        request_id: Some(request.request_id.clone()),
-        authorization_ref: Some(request.authorization_ref.clone()),
+        request_id: Some(context.request.request_id.clone()),
+        authorization_ref: Some(context.request.authorization_ref.clone()),
         action_ref: Some(invocation.action.clone()),
-        approval_ref: approval.map(|value| value.action_ref.clone()),
+        approval_ref: context.approval.map(|value| value.action_ref.clone()),
         tool_id: Some(invocation.tool_id.clone()),
         tool_version: Some(format_tool_version(&invocation.tool_version)),
         capability_ref: Some(invocation.capability_ref.clone()),
@@ -322,7 +325,7 @@ fn record_invocation_audit(
         execution_mode: Some(format!("{:?}", invocation.execution_mode).to_lowercase()),
         idempotency_ref: Some(invocation.idempotency_ref.clone()),
         outcome: Some(outcome.to_owned()),
-        failure: failure.map(str::to_owned),
+        failure: context.failure.map(str::to_owned),
         input_hash: Some(sha256_hex(
             &serde_json::to_vec(invocation)
                 .map_err(|_| ToolGatewayError::Audit("cannot hash invocation"))?,
@@ -337,7 +340,7 @@ fn record_invocation_audit(
             invocation.capability_ref.clone(),
         ],
         input_refs: vec![invocation.resource_ref.clone()],
-        operation: format!("tool-gateway.{}", outcome),
+        operation: format!("tool-gateway.{}", context.outcome),
         occurred_at: occurred_at.to_owned(),
     };
     audit
