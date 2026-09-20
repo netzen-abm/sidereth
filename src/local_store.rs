@@ -254,8 +254,11 @@ impl LocalFileStore {
         operation_id: &Id,
         state: IdempotencyState,
     ) -> Result<(), PersistenceError> {
-        let path = self.path("idempotency", operation_id)?.with_extension("state");
-        let bytes = serde_json::to_vec(&state).map_err(|_| PersistenceError::SerializationFailure)?;
+        let path = self
+            .path("idempotency", operation_id)?
+            .with_extension("state");
+        let bytes =
+            serde_json::to_vec(&state).map_err(|_| PersistenceError::SerializationFailure)?;
         std::fs::write(path, bytes).map_err(|_| PersistenceError::Unavailable)
     }
 }
