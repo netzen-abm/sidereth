@@ -961,7 +961,7 @@ mod tests {
             .unwrap();
 
         let mut action = Action::new(
-            "action-1".into(),
+            "read".into(),
             crate::action::ActionKind::ExternalOperation,
             "party-1".into(),
             "Execute protected tool".into(),
@@ -974,7 +974,7 @@ mod tests {
 
         let approval = ApprovalRecord {
             approval_id: "approval-1".into(),
-            action_ref: r(crate::ResourceType::Action, "action-1"),
+            action_ref: r(crate::ResourceType::Action, "read"),
             approver_ref: r(crate::ResourceType::Party, "approver-1"),
             authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             decision: crate::action::ApprovalDecision::Granted,
@@ -1041,7 +1041,7 @@ mod tests {
             .unwrap();
 
         let mut action = Action::new(
-            "action-1".into(),
+            "read".into(),
             crate::action::ActionKind::ExternalOperation,
             "party-1".into(),
             "Execute protected tool".into(),
@@ -1056,7 +1056,7 @@ mod tests {
 
         let approval = ApprovalRecord {
             approval_id: "approval-1".into(),
-            action_ref: r(crate::ResourceType::Action, "action-1"),
+            action_ref: r(crate::ResourceType::Action, "read"),
             approver_ref: r(crate::ResourceType::Party, "approver-1"),
             authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             decision: crate::action::ApprovalDecision::Granted,
