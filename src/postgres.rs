@@ -497,7 +497,10 @@ impl IdempotencyLifecycleStore for PostgresIdempotencyStore {
 
 impl PostgresIdempotencyStore {
     fn set_state(&mut self, operation_id: &crate::Id, state: &str) -> Result<(), PersistenceError> {
-        let mut client = self.client.lock().map_err(|_| PersistenceError::Unavailable)?;
+        let mut client = self
+            .client
+            .lock()
+            .map_err(|_| PersistenceError::Unavailable)?;
         let affected = client
             .execute(
                 "UPDATE sidereth_tool_gateway_idempotency SET state = $2, updated_at = CURRENT_TIMESTAMP WHERE operation_id = $1",
