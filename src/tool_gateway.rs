@@ -265,9 +265,6 @@ fn validate_registry_context(
             return Err(ToolGatewayError::JurisdictionNotSupported);
         }
     }
-    if tool.approval_required {
-        return Err(ToolGatewayError::ApprovalRequired);
-    }
     if invocation.requested_scope.trim().is_empty() {
         return Err(ToolGatewayError::Authorization(
             AuthorizationValidationError::ConstraintViolation,
