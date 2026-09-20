@@ -238,12 +238,13 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                 record_invocation_audit(
                     context.audit,
                     invocation,
-                    context.request,
-                    context.action,
-                    context.approval,
-                    invocation.occurred_at.as_str(),
-                    "completed",
-                    None,
+                    ToolGatewayAuditContext {
+                        request: context.request,
+                        approval: context.approval,
+                        occurred_at: invocation.occurred_at.as_str(),
+                        outcome: "completed",
+                        failure: None,
+                    },
                 )?;
                 Ok(output)
             }
@@ -254,12 +255,13 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                 record_invocation_audit(
                     context.audit,
                     invocation,
-                    context.request,
-                    context.action,
-                    context.approval,
-                    invocation.occurred_at.as_str(),
-                    "failed",
-                    Some("provider_failed"),
+                    ToolGatewayAuditContext {
+                        request: context.request,
+                        approval: context.approval,
+                        occurred_at: invocation.occurred_at.as_str(),
+                        outcome: "failed",
+                        failure: Some("provider_failed"),
+                    },
                 )?;
                 Err(error)
             }
@@ -324,7 +326,7 @@ fn record_invocation_audit(
         requested_scope: Some(invocation.requested_scope.clone()),
         execution_mode: Some(format!("{:?}", invocation.execution_mode).to_lowercase()),
         idempotency_ref: Some(invocation.idempotency_ref.clone()),
-        outcome: Some(outcome.to_owned()),
+        outcome: Some(context.outcome.to_owned()),
         failure: context.failure.map(str::to_owned),
         input_hash: Some(sha256_hex(
             &serde_json::to_vec(invocation)
@@ -336,12 +338,12 @@ fn record_invocation_audit(
         provenance_id,
         actor_ref: Some(actor.clone()),
         source_refs: vec![
-            request.authorization_ref.clone(),
+            context.request.authorization_ref.clone(),
             invocation.capability_ref.clone(),
         ],
         input_refs: vec![invocation.resource_ref.clone()],
         operation: format!("tool-gateway.{}", context.outcome),
-        occurred_at: occurred_at.to_owned(),
+        occurred_at: context.occurred_at.to_owned(),
     };
     audit
         .record_invocation(record, provenance)
