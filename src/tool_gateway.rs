@@ -21,6 +21,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ToolGatewayInvocation {
     pub request_id: Id,
+    /// Timestamp captured when the invocation was created.
+    pub occurred_at: String,
     pub authorization_ref: ResourceRef,
     pub subject_ref: ResourceRef,
     pub actor_ref: Option<ResourceRef>,
@@ -203,6 +205,9 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         context: ToolGatewayExecutionContext<'_>,
         provider: &mut P,
     ) -> Result<P::Output, ToolGatewayError> {
+        if invocation.occurred_at.trim().is_empty() {
+            return Err(ToolGatewayError::Audit("invocation timestamp is required"));
+        }
         self.validate(
             invocation,
             context.request,
@@ -237,6 +242,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                     context.request,
                     context.action,
                     context.approval,
+                    invocation.occurred_at.as_str(),
                     "completed",
                     None,
                 )?;
@@ -252,6 +258,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                     context.request,
                     context.action,
                     context.approval,
+                    invocation.occurred_at.as_str(),
                     "failed",
                     Some("provider_failed"),
                 )?;
@@ -267,6 +274,7 @@ fn record_invocation_audit(
     request: &AuthorizationRequest,
     action: Option<&Action>,
     approval: Option<&ApprovalRecord>,
+    occurred_at: &str,
     outcome: &str,
     failure: Option<&str>,
 ) -> Result<(), ToolGatewayError> {
@@ -289,7 +297,7 @@ fn record_invocation_audit(
         action: invocation.action.id.clone(),
         aggregate_type: format!("{:?}", invocation.resource_ref.resource_type),
         aggregate_id: invocation.resource_ref.id.clone(),
-        occurred_at: invocation.request_id.clone(),
+        occurred_at: occurred_at.to_owned(),
         correlation_id: Some(invocation.request_id.clone()),
         causation_id: None,
         provenance_ref: Some(provenance_ref),
@@ -329,7 +337,7 @@ fn record_invocation_audit(
         ],
         input_refs: vec![invocation.resource_ref.clone()],
         operation: format!("tool-gateway.{}", outcome),
-        occurred_at: invocation.request_id.clone(),
+        occurred_at: occurred_at.to_owned(),
     };
     audit
         .record_invocation(record, provenance)
@@ -653,6 +661,7 @@ mod tests {
     fn request() -> AuthorizationRequest {
         AuthorizationRequest {
             request_id: "req-1".into(),
+            occurred_at: "2026-09-20T10:00:00Z".into(),
             authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             subject_ref: r(crate::ResourceType::Party, "party-1"),
             action: r(crate::ResourceType::Action, "read"),
@@ -693,7 +702,7 @@ mod tests {
             request_id: "req-1".into(),
             authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             subject_ref: r(crate::ResourceType::Party, "party-1"),
-            actor_ref: None,
+            actor_ref: Some(r(crate::ResourceType::Party, "party-1")),
             capability_ref: r(crate::ResourceType::Other, "cap-1"),
             function_ref: None,
             action: r(crate::ResourceType::Action, "read"),
