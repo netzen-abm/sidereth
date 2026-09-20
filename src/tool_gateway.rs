@@ -297,7 +297,7 @@ fn record_invocation_audit(
         request_id: Some(request.request_id.clone()),
         authorization_ref: Some(request.authorization_ref.clone()),
         action_ref: Some(invocation.action.clone()),
-        approval_ref: approval.map(|value| value.approval_ref.clone()),
+        approval_ref: approval.map(|value| value.approval_id.clone()),
         tool_id: Some(invocation.tool_id.clone()),
         tool_version: Some(format_tool_version(&invocation.tool_version)),
         capability_ref: Some(invocation.capability_ref.clone()),
@@ -764,6 +764,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         let mut i = invocation();
         i.function_ref = Some(r(crate::ResourceType::Other, "fn-forged"));
         assert!(matches!(
@@ -793,6 +794,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         let mut i = invocation();
         i.implementation_id = "impl-forged".into();
         assert!(matches!(
@@ -804,6 +806,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -821,6 +824,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         let mut i = invocation();
         i.provider_id = "provider-forged".into();
         assert!(matches!(
@@ -832,6 +836,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -849,6 +854,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         let mut i = invocation();
         i.implementation_version = "forged".into();
         assert!(matches!(
@@ -860,6 +866,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -908,6 +915,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -970,6 +978,7 @@ mod tests {
         let a = authorization();
         let i = invocation();
         let mut p = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         assert_eq!(
             gateway.execute(
                 &i,
@@ -979,6 +988,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut p
             ),
@@ -994,6 +1004,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut p
             ),
@@ -1071,6 +1082,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         assert_eq!(
             gateway.execute(
                 &invocation(),
@@ -1080,6 +1092,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -1156,6 +1169,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         assert_eq!(
             gateway.execute(
                 &invocation(),
@@ -1165,6 +1179,7 @@ mod tests {
                     action: Some(&action),
                     approval: Some(&approval),
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -1231,6 +1246,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         assert_eq!(
             gateway.execute(
                 &invocation(),
@@ -1240,6 +1256,7 @@ mod tests {
                     action: Some(&action),
                     approval: Some(&approval),
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
