@@ -271,7 +271,7 @@ fn record_invocation_audit(
     audit: &mut dyn AuditProvenanceSink,
     invocation: &ToolGatewayInvocation,
     request: &AuthorizationRequest,
-    action: Option<&Action>,
+    _action: Option<&Action>,
     approval: Option<&ApprovalRecord>,
     occurred_at: &str,
     outcome: &str,
@@ -662,6 +662,7 @@ mod tests {
     fn request() -> AuthorizationRequest {
         AuthorizationRequest {
             request_id: "req-1".into(),
+            occurred_at: "2026-09-20T10:00:00Z".into(),
             authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             subject_ref: r(crate::ResourceType::Party, "party-1"),
             action: r(crate::ResourceType::Action, "read"),
