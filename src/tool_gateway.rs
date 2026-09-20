@@ -22,12 +22,22 @@ pub struct ToolGatewayInvocation {
     pub actor_ref: Option<ResourceRef>,
     pub action: ResourceRef,
     pub resource_ref: ResourceRef,
+    /// Canonical capability bound by the registered tool contract.
+    pub capability_ref: ResourceRef,
+    /// Optional canonical function binding declared by the registered tool.
+    pub function_ref: Option<ResourceRef>,
     pub purpose: String,
     pub purpose_version: Option<String>,
     pub jurisdiction_ref: Option<ResourceRef>,
     pub data_class: Option<ToolDataClass>,
     pub tool_id: Id,
     pub tool_version: ToolVersionRequirement,
+    /// Exact implementation selected from the Tool Registry.
+    pub implementation_id: Id,
+    /// Exact provider identity for the selected implementation.
+    pub provider_id: Id,
+    /// Provider implementation version bound by the registry contract.
+    pub implementation_version: String,
     pub idempotency_ref: Id,
     pub requested_scope: String,
     pub execution_mode: ToolExecutionMode,
@@ -61,6 +71,15 @@ pub enum ToolGatewayPhase {
 
 pub trait ToolGatewayProvider {
     type Output;
+
+    /// Stable provider identity. This must match the registry-selected implementation.
+    fn provider_id(&self) -> &str;
+
+    /// Stable implementation identity. This must match the registry-selected implementation.
+    fn implementation_id(&self) -> &str;
+
+    /// Provider implementation version. This must match the registry contract.
+    fn implementation_version(&self) -> &str;
 
     fn execute(
         &mut self,
@@ -107,6 +126,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
             .resolve(&invocation.tool_id, &invocation.tool_version)
             .map_err(ToolGatewayError::Registry)?;
         validate_registry_context(invocation, tool)?;
+        validate_registry_implementation_binding(invocation, tool)?;
         validate_authorized_constraints(&authorization.constraints, invocation)?;
 
         if tool.capability_lease_required && invocation.capability_lease.is_none() {
@@ -171,6 +191,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
             .registry
             .resolve(&invocation.tool_id, &invocation.tool_version)
             .map_err(ToolGatewayError::Registry)?;
+        validate_provider_binding(invocation, tool, provider)?;
         match provider.execute(invocation, tool) {
             Ok(output) => {
                 self.idempotency
@@ -239,6 +260,36 @@ fn validate_registry_context(
         return Err(ToolGatewayError::Authorization(
             AuthorizationValidationError::ConstraintViolation,
         ));
+    }
+    Ok(())
+}
+
+fn validate_registry_implementation_binding(
+    invocation: &ToolGatewayInvocation,
+    tool: &ToolRegistryEntry,
+) -> Result<(), ToolGatewayError> {
+    tool.implementations
+        .iter()
+        .find(|implementation| {
+            implementation.implementation_id == invocation.implementation_id
+                && implementation.provider_id == invocation.provider_id
+                && implementation.implementation_version == invocation.implementation_version
+        })
+        .map(|_| ())
+        .ok_or(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion))
+}
+
+fn validate_provider_binding<P: ToolGatewayProvider>(
+    invocation: &ToolGatewayInvocation,
+    tool: &ToolRegistryEntry,
+    provider: &P,
+) -> Result<(), ToolGatewayError> {
+    validate_registry_implementation_binding(invocation, tool)?;
+    if provider.provider_id() != invocation.provider_id
+        || provider.implementation_id() != invocation.implementation_id
+        || provider.implementation_version() != invocation.implementation_version
+    {
+        return Err(ToolGatewayError::Registry(ToolRegistryError::UnsupportedVersion));
     }
     Ok(())
 }
@@ -359,6 +410,10 @@ mod tests {
     impl ToolGatewayProvider for Provider {
         type Output = &'static str;
 
+        fn provider_id(&self) -> &str { "provider-1" }
+        fn implementation_id(&self) -> &str { "impl-1" }
+        fn implementation_version(&self) -> &str { "1" }
+
         fn execute(
             &mut self,
             _: &ToolGatewayInvocation,
@@ -428,6 +483,8 @@ mod tests {
             subject_ref: r(crate::ResourceType::Party, "party-1"),
             action: r(crate::ResourceType::Action, "read"),
             resource_ref: r(crate::ResourceType::Case, "case-1"),
+            capability_ref: r(crate::ResourceType::Other, "cap-1"),
+            function_ref: None,
             purpose: "protected read".into(),
             policy_refs: vec![r(crate::ResourceType::Other, "policy-1")],
             jurisdiction_ref: Some(r(crate::ResourceType::Jurisdiction, "IN")),
@@ -473,6 +530,9 @@ mod tests {
             data_class: Some(ToolDataClass::Restricted),
             tool_id: "tool-1".into(),
             tool_version: ToolVersionRequirement::Exact(ToolVersion::new(1, 0, 0)),
+            implementation_id: "impl-1".into(),
+            provider_id: "provider-1".into(),
+            implementation_version: "1".into(),
             idempotency_ref: "op-1".into(),
             requested_scope: "case-1".into(),
             execution_mode: ToolExecutionMode::Sync,
