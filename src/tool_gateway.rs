@@ -790,7 +790,10 @@ mod tests {
         let a = authorization();
         let i = invocation();
         let mut p = Provider::default();
-        assert_eq!(gateway.execute(&i, &q, &a, None, None, 1050, &mut p), Ok("ok"));
+        assert_eq!(
+            gateway.execute(&i, &q, &a, None, None, 1050, &mut p),
+            Ok("ok")
+        );
         assert_eq!(p.calls, 1);
         assert_eq!(
             gateway.execute(&i, &q, &a, None, None, 1050, &mut p),
