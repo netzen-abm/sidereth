@@ -699,9 +699,15 @@ mod tests {
         struct WrongProvider;
         impl ToolGatewayProvider for WrongProvider {
             type Output = &'static str;
-            fn provider_id(&self) -> &str { "provider-forged" }
-            fn implementation_id(&self) -> &str { "impl-1" }
-            fn implementation_version(&self) -> &str { "1" }
+            fn provider_id(&self) -> &str {
+                "provider-forged"
+            }
+            fn implementation_id(&self) -> &str {
+                "impl-1"
+            }
+            fn implementation_version(&self) -> &str {
+                "1"
+            }
             fn execute(
                 &mut self,
                 _: &ToolGatewayInvocation,
@@ -784,10 +790,10 @@ mod tests {
         let a = authorization();
         let i = invocation();
         let mut p = Provider::default();
-        assert_eq!(gateway.execute(&i, &q, &a, 1050, &mut p), Ok("ok"));
+        assert_eq!(gateway.execute(&i, &q, &a, None, None, 1050, &mut p), Ok("ok"));
         assert_eq!(p.calls, 1);
         assert_eq!(
-            gateway.execute(&i, &q, &a, 1050, &mut p),
+            gateway.execute(&i, &q, &a, None, None, 1050, &mut p),
             Err(ToolGatewayError::IdempotencyAlreadyClaimed)
         );
         assert_eq!(p.calls, 1);
@@ -932,11 +938,15 @@ mod tests {
             provenance_ref: r(crate::ResourceType::Provenance, "prov-approval-1"),
             decided_at: "2026-09-20T10:01:00Z".into(),
         };
-        action.bind_approval(&approval, "2026-09-20T10:01:00Z".into()).unwrap();
-        action.transition(
-            crate::action::ActionStatus::Approved,
-            "2026-09-20T10:02:00Z".into(),
-        ).unwrap();
+        action
+            .bind_approval(&approval, "2026-09-20T10:01:00Z".into())
+            .unwrap();
+        action
+            .transition(
+                crate::action::ActionStatus::Approved,
+                "2026-09-20T10:02:00Z".into(),
+            )
+            .unwrap();
 
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
