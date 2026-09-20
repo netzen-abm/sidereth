@@ -137,7 +137,11 @@ impl AuditProvenanceSink for InMemoryAudit {
     ) -> Result<(), &'static str> {
         record.validate()?;
         provenance.validate()?;
-        if self.records.iter().any(|item| item.audit_id == record.audit_id) {
+        if self
+            .records
+            .iter()
+            .any(|item| item.audit_id == record.audit_id)
+        {
             return Err("audit record already exists");
         }
         if self
