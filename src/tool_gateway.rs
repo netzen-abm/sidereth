@@ -6,9 +6,7 @@
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
-use crate::persistence::{
-    IdempotencyClaim, IdempotencyLifecycleStore, PersistenceError,
-};
+use crate::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, PersistenceError};
 use crate::tool_registry::{
     InMemoryToolRegistry, ToolDataClass, ToolExecutionMode, ToolRegistryEntry, ToolRegistryError,
     ToolVersionRequirement,
