@@ -792,11 +792,13 @@ mod tests {
         assert!(matches!(
             gateway.execute(
                 &invocation(),
-                &request(),
-                &authorization(),
-                None,
-                None,
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::Registry(
@@ -859,12 +861,32 @@ mod tests {
         let i = invocation();
         let mut p = Provider::default();
         assert_eq!(
-            gateway.execute(&i, &q, &a, None, None, 1050, &mut p),
+            gateway.execute(
+                &i,
+                ToolGatewayExecutionContext {
+                    request: &q,
+                    authorization: &a,
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
+                &mut p
+            ),
             Ok("ok")
         );
         assert_eq!(p.calls, 1);
         assert_eq!(
-            gateway.execute(&i, &q, &a, None, None, 1050, &mut p),
+            gateway.execute(
+                &i,
+                ToolGatewayExecutionContext {
+                    request: &q,
+                    authorization: &a,
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
+                &mut p
+            ),
             Err(ToolGatewayError::IdempotencyAlreadyClaimed)
         );
         assert_eq!(p.calls, 1);
@@ -942,11 +964,13 @@ mod tests {
         assert_eq!(
             gateway.execute(
                 &invocation(),
-                &request(),
-                &authorization(),
-                None,
-                None,
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::ExecutionGate(
@@ -1025,11 +1049,13 @@ mod tests {
         assert_eq!(
             gateway.execute(
                 &invocation(),
-                &request(),
-                &authorization(),
-                Some(&action),
-                Some(&approval),
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: Some(&action),
+                    approval: Some(&approval),
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Ok("ok")
@@ -1098,11 +1124,13 @@ mod tests {
         assert_eq!(
             gateway.execute(
                 &invocation(),
-                &request(),
-                &authorization(),
-                Some(&action),
-                Some(&approval),
-                1050,
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: Some(&action),
+                    approval: Some(&approval),
+                    now_epoch_seconds: 1050,
+                },
                 &mut provider
             ),
             Err(ToolGatewayError::ExecutionGate(
