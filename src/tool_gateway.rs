@@ -94,6 +94,7 @@ pub trait ToolGatewayProvider {
         &mut self,
         invocation: &ToolGatewayInvocation,
         tool: &ToolRegistryEntry,
+        data_access: &ToolDataAccessGrant,
     ) -> Result<Self::Output, ToolGatewayError>;
 }
 
@@ -620,6 +621,7 @@ mod tests {
             &mut self,
             _: &ToolGatewayInvocation,
             _: &ToolRegistryEntry,
+            _: &ToolDataAccessGrant,
         ) -> Result<Self::Output, ToolGatewayError> {
             self.calls += 1;
             Ok("ok")
