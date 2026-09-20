@@ -91,6 +91,7 @@ The runtime performs the bounded implementation after gateway and execution cont
 A gateway invocation must carry sufficient context to bind the request to the registered tool and the authorization decision, including as applicable:
 
 - invocation identity;
+- invocation timestamp;
 - subject/actor reference;
 - tool identity and contract version;
 - capability/function reference;
@@ -103,7 +104,8 @@ A gateway invocation must carry sufficient context to bind the request to the re
 - input payload or canonical input reference;
 - requested execution mode;
 - correlation/operation identity;
-- provenance context.
+- provenance context;
+- canonical audit/provenance sink for the execution boundary.
 
 Transport-specific envelopes may contain additional metadata, but adapters must not silently widen any security-relevant field.
 
@@ -201,7 +203,9 @@ At minimum, operational audit should preserve, where applicable:
 - data/scope controls applied;
 - timestamps;
 - outcome/failure state;
-- provenance references.
+- provenance references;
+- input hash or canonical input reference;
+- output hash or canonical output reference where the provider contract makes the output hashable.
 
 Tool invocation audit is distinct from Tool Registry mutation audit.
 
@@ -307,7 +311,7 @@ It should initially provide:
 - explicit approval handling;
 - deterministic scope/data checks;
 - provider-neutral adapter invocation;
-- audit/provenance hooks;
+- mandatory audit/provenance recording at the execution boundary;
 - idempotency correlation;
 - adversarial conformance tests.
 
