@@ -4,14 +4,8 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::persistence::{
-    CaseStore,
-    EventStore,
-    IdempotencyClaim,
-    IdempotencyLifecycleStore,
-    IdempotencyState,
-    IdempotencyStore,
-    IncidentStore,
-    Persisted,
+    CaseStore, EventStore, IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState,
+    IdempotencyStore, IncidentStore, Persisted,
     PersistenceError, Revision,
 };
 use crate::{Case, EventEnvelope, Id, Incident};
@@ -220,7 +214,6 @@ impl IdempotencyStore for LocalFileStore {
         Ok(IdempotencyClaim::Claimed)
     }
 }
-
 
 impl IdempotencyLifecycleStore for LocalFileStore {
     fn state(&self, operation_id: &Id) -> Result<Option<IdempotencyState>, PersistenceError> {
