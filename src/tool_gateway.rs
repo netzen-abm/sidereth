@@ -6,6 +6,7 @@
 use crate::action::{
     Action, ApprovalRecord, ExecutionGate, ExecutionGateError, ExecutionGateInput,
 };
+use crate::audit::{AuditProvenanceSink, AuditRecord};
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
@@ -65,6 +66,7 @@ pub enum ToolGatewayError {
     ExecutionGate(ExecutionGateError),
     ProviderFailed,
     Unknown,
+    Audit(&'static str),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,13 +94,15 @@ pub trait ToolGatewayProvider {
     ) -> Result<Self::Output, ToolGatewayError>;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct ToolGatewayExecutionContext<'a> {
     pub request: &'a AuthorizationRequest,
     pub authorization: &'a AuthorizationResult,
     pub action: Option<&'a Action>,
     pub approval: Option<&'a ApprovalRecord>,
     pub now_epoch_seconds: u64,
+    /// Canonical audit/provenance sink. Tool execution cannot bypass invocation audit.
+    pub audit: &'a mut dyn AuditProvenanceSink,
 }
 
 pub struct ToolGateway<'a, I: IdempotencyLifecycleStore> {
@@ -227,15 +231,117 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                 self.idempotency
                     .mark_completed(&operation_id)
                     .map_err(ToolGatewayError::Idempotency)?;
+                record_invocation_audit(
+                    context.audit,
+                    invocation,
+                    context.request,
+                    context.action,
+                    context.approval,
+                    "completed",
+                    None,
+                )?;
                 Ok(output)
             }
             Err(error) => {
                 self.idempotency
                     .mark_failed(&operation_id)
                     .map_err(ToolGatewayError::Idempotency)?;
+                record_invocation_audit(
+                    context.audit,
+                    invocation,
+                    context.request,
+                    context.action,
+                    context.approval,
+                    "failed",
+                    Some("provider_failed"),
+                )?;
                 Err(error)
             }
         }
+    }
+}
+
+fn record_invocation_audit(
+    audit: &mut dyn AuditProvenanceSink,
+    invocation: &ToolGatewayInvocation,
+    request: &AuthorizationRequest,
+    action: Option<&Action>,
+    approval: Option<&ApprovalRecord>,
+    outcome: &str,
+    failure: Option<&str>,
+) -> Result<(), ToolGatewayError> {
+    let actor = invocation
+        .actor_ref
+        .as_ref()
+        .ok_or(ToolGatewayError::Audit("invocation actor is required for audit"))?;
+    let operation_id = operation_key(invocation)?;
+    let provenance_id = format!("provenance-tool-gateway-{}", operation_id);
+    let audit_id = format!("audit-tool-gateway-{}", operation_id);
+    let provenance_ref = ResourceRef::new(
+        crate::ResourceType::Provenance,
+        provenance_id.clone(),
+    )
+    .map_err(|_| ToolGatewayError::Audit("invalid invocation provenance reference"))?;
+
+    let record = AuditRecord {
+        audit_id,
+        actor_id: actor.id.clone(),
+        action: invocation.action.id.clone(),
+        aggregate_type: format!("{:?}", invocation.resource_ref.resource_type),
+        aggregate_id: invocation.resource_ref.id.clone(),
+        occurred_at: invocation.request_id.clone(),
+        correlation_id: Some(invocation.request_id.clone()),
+        causation_id: None,
+        provenance_ref: Some(provenance_ref),
+        invocation_id: Some(operation_id.clone()),
+        request_id: Some(request.request_id.clone()),
+        authorization_ref: Some(request.authorization_ref.clone()),
+        action_ref: Some(invocation.action.clone()),
+        approval_ref: approval.map(|value| value.approval_ref.clone()),
+        tool_id: Some(invocation.tool_id.clone()),
+        tool_version: Some(format_tool_version(&invocation.tool_version)),
+        capability_ref: Some(invocation.capability_ref.clone()),
+        function_ref: invocation.function_ref.clone(),
+        provider_id: Some(invocation.provider_id.clone()),
+        implementation_id: Some(invocation.implementation_id.clone()),
+        implementation_version: Some(invocation.implementation_version.clone()),
+        resource_ref: Some(invocation.resource_ref.clone()),
+        purpose: Some(invocation.purpose.clone()),
+        jurisdiction_ref: invocation.jurisdiction_ref.clone(),
+        data_class: invocation.data_class.map(|value| format!("{value:?}").to_lowercase()),
+        requested_scope: Some(invocation.requested_scope.clone()),
+        execution_mode: Some(format!("{:?}", invocation.execution_mode).to_lowercase()),
+        idempotency_ref: Some(invocation.idempotency_ref.clone()),
+        outcome: Some(outcome.to_owned()),
+        failure: failure.map(str::to_owned),
+        input_hash: Some(sha256_hex(
+            &serde_json::to_vec(invocation)
+                .map_err(|_| ToolGatewayError::Audit("cannot hash invocation"))?,
+        )),
+        output_hash: None,
+    };
+    let provenance = crate::Provenance {
+        provenance_id,
+        actor_ref: Some(actor.clone()),
+        source_refs: vec![
+            request.authorization_ref.clone(),
+            invocation.capability_ref.clone(),
+        ],
+        input_refs: vec![invocation.resource_ref.clone()],
+        operation: format!("tool-gateway.{}", outcome),
+        occurred_at: invocation.request_id.clone(),
+    };
+    audit
+        .record_invocation(record, provenance)
+        .map_err(ToolGatewayError::Audit)
+}
+
+fn format_tool_version(value: &ToolVersionRequirement) -> String {
+    match value {
+        ToolVersionRequirement::Exact(version) => {
+            format!("{}.{}.{}", version.major, version.minor, version.patch)
+        }
+        ToolVersionRequirement::CompatibleMajor(major) => format!("^{}.x", major),
     }
 }
 
@@ -628,6 +734,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
         let mut i = invocation();
         i.capability_ref = r(crate::ResourceType::Other, "cap-forged");
         assert!(matches!(
@@ -639,6 +746,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -667,6 +775,7 @@ mod tests {
                     action: None,
                     approval: None,
                     now_epoch_seconds: 1050,
+                    audit: &mut audit,
                 },
                 &mut provider
             ),
@@ -789,6 +898,7 @@ mod tests {
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = WrongProvider;
+        let mut audit = crate::InMemoryAudit::default();
         assert!(matches!(
             gateway.execute(
                 &invocation(),
