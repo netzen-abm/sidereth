@@ -662,7 +662,7 @@ mod tests {
     fn request() -> AuthorizationRequest {
         AuthorizationRequest {
             request_id: "req-1".into(),
- r(crate::ResourceType::Other, "auth-1"),
+            authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             subject_ref: r(crate::ResourceType::Party, "party-1"),
             action: r(crate::ResourceType::Action, "read"),
             resource_ref: r(crate::ResourceType::Case, "case-1"),
