@@ -227,7 +227,6 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
             context.action,
             context.approval,
         )?;
-        self.claim(invocation)?;
         let operation_id = operation_key(invocation)?;
         let data_access = ToolDataAccessGrant::from_invocation(
             operation_id.clone(),
@@ -242,6 +241,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         .map_err(|_| {
             ToolGatewayError::Authorization(AuthorizationValidationError::ConstraintViolation)
         })?;
+        self.claim(invocation)?;
         self.idempotency
             .mark_in_progress(&operation_id)
             .map_err(ToolGatewayError::Idempotency)?;
