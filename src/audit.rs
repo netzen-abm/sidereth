@@ -13,6 +13,62 @@ pub struct AuditRecord {
     pub aggregate_type: String,
     pub aggregate_id: Id,
     pub occurred_at: String,
+    /// Optional correlation identifier for the operation that caused this audit record.
+    #[serde(default)]
+    pub correlation_id: Option<Id>,
+    /// Optional causation identifier linking this record to a preceding operation.
+    #[serde(default)]
+    pub causation_id: Option<Id>,
+    /// Canonical provenance reference for the observed operation.
+    #[serde(default)]
+    pub provenance_ref: Option<crate::ResourceRef>,
+    /// Optional invocation identity when this audit records Tool Gateway execution.
+    #[serde(default)]
+    pub invocation_id: Option<Id>,
+    #[serde(default)]
+    pub request_id: Option<Id>,
+    #[serde(default)]
+    pub authorization_ref: Option<crate::ResourceRef>,
+    #[serde(default)]
+    pub action_ref: Option<crate::ResourceRef>,
+    #[serde(default)]
+    pub approval_ref: Option<crate::ResourceRef>,
+    #[serde(default)]
+    pub tool_id: Option<Id>,
+    #[serde(default)]
+    pub tool_version: Option<String>,
+    #[serde(default)]
+    pub capability_ref: Option<crate::ResourceRef>,
+    #[serde(default)]
+    pub function_ref: Option<crate::ResourceRef>,
+    #[serde(default)]
+    pub provider_id: Option<Id>,
+    #[serde(default)]
+    pub implementation_id: Option<Id>,
+    #[serde(default)]
+    pub implementation_version: Option<String>,
+    #[serde(default)]
+    pub resource_ref: Option<crate::ResourceRef>,
+    #[serde(default)]
+    pub purpose: Option<String>,
+    #[serde(default)]
+    pub jurisdiction_ref: Option<crate::ResourceRef>,
+    #[serde(default)]
+    pub data_class: Option<String>,
+    #[serde(default)]
+    pub requested_scope: Option<String>,
+    #[serde(default)]
+    pub execution_mode: Option<String>,
+    #[serde(default)]
+    pub idempotency_ref: Option<Id>,
+    #[serde(default)]
+    pub outcome: Option<String>,
+    #[serde(default)]
+    pub failure: Option<String>,
+    #[serde(default)]
+    pub input_hash: Option<String>,
+    #[serde(default)]
+    pub output_hash: Option<String>,
 }
 
 impl AuditRecord {
@@ -78,6 +134,32 @@ mod tests {
             aggregate_type: "case".into(),
             aggregate_id: "case-1".into(),
             occurred_at: "2026-09-02T00:00:00Z".into(),
+            correlation_id: None,
+            causation_id: None,
+            provenance_ref: None,
+            invocation_id: None,
+            request_id: None,
+            authorization_ref: None,
+            action_ref: None,
+            approval_ref: None,
+            tool_id: None,
+            tool_version: None,
+            capability_ref: None,
+            function_ref: None,
+            provider_id: None,
+            implementation_id: None,
+            implementation_version: None,
+            resource_ref: None,
+            purpose: None,
+            jurisdiction_ref: None,
+            data_class: None,
+            requested_scope: None,
+            execution_mode: None,
+            idempotency_ref: None,
+            outcome: None,
+            failure: None,
+            input_hash: None,
+            output_hash: None,
         }
     }
 
