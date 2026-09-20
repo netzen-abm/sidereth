@@ -10,9 +10,9 @@ use std::sync::{Arc, Mutex};
 use postgres::{Client, NoTls};
 
 use crate::persistence::{
-    IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore, PersistenceError, ResourceLink, ResourceLinkClass,
-    ResourceRecord, ResourceWrite, ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext,
-    UnitOfWorkError, UnitOfWorkFactory,
+    IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
+    PersistenceError, ResourceLink, ResourceLinkClass, ResourceRecord, ResourceWrite,
+    ResourceWriteMode, Revision, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::{ResourceRef, ResourceType};
 
