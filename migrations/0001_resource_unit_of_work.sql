@@ -41,3 +41,14 @@ CREATE TABLE IF NOT EXISTS sidereth_resource_links (
 
 CREATE INDEX IF NOT EXISTS idx_sidereth_resource_links_target
     ON sidereth_resource_links (target_type, target_id);
+
+
+-- Durable Tool Gateway idempotency claims.
+-- The primary key is the concurrency boundary: exactly one durable claim
+-- can exist for a canonical operation key, including across process restarts.
+CREATE TABLE IF NOT EXISTS sidereth_tool_gateway_idempotency (
+    operation_id TEXT PRIMARY KEY,
+    state TEXT NOT NULL DEFAULT 'claimed' CHECK (state IN ('claimed', 'in_progress', 'completed', 'failed', 'unknown')),
+    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -44,6 +44,12 @@ fn prepare(factory: &mut PostgresUnitOfWorkFactory) {
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (resource_type, resource_id)
                 );
+                CREATE TABLE IF NOT EXISTS sidereth_tool_gateway_idempotency (
+                    operation_id TEXT PRIMARY KEY,
+                    state TEXT NOT NULL DEFAULT 'claimed' CHECK (state IN ('claimed', 'in_progress', 'completed', 'failed', 'unknown')),
+                    claimed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 CREATE TABLE IF NOT EXISTS sidereth_resource_links (
                     source_type TEXT NOT NULL,
                     source_id TEXT NOT NULL,
@@ -401,4 +407,89 @@ fn live_postgres_case_and_evidence_trust_rollback_is_atomic() {
     assert!(records.0.is_none(), "case must roll back");
     assert!(records.1.is_none(), "evidence trust state must roll back");
     assert!(records.2.is_none(), "provenance must roll back");
+}
+
+#[test]
+#[ignore = "requires live PostgreSQL"]
+fn live_postgres_tool_gateway_idempotency_claim_survives_restart() {
+    use sidereth_core::persistence::{
+        IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
+    };
+    use sidereth_core::postgres::PostgresIdempotencyStore;
+
+    let url = database_url();
+    let operation = format!("tool-gateway-restart-{}", std::process::id());
+
+    {
+        let mut store = PostgresIdempotencyStore::new(url.clone()).unwrap();
+        assert_eq!(
+            store.claim(operation.clone()).unwrap(),
+            IdempotencyClaim::Claimed
+        );
+        assert_eq!(
+            store.state(&operation).unwrap(),
+            Some(IdempotencyState::Claimed)
+        );
+        store.mark_in_progress(&operation).unwrap();
+        assert_eq!(
+            store.state(&operation).unwrap(),
+            Some(IdempotencyState::InProgress)
+        );
+        store.mark_completed(&operation).unwrap();
+    }
+
+    let mut restarted_store = PostgresIdempotencyStore::new(url).unwrap();
+    assert!(restarted_store.lookup(&operation).unwrap());
+    assert_eq!(
+        restarted_store.state(&operation).unwrap(),
+        Some(IdempotencyState::Completed)
+    );
+    assert_eq!(
+        restarted_store.claim(operation).unwrap(),
+        IdempotencyClaim::AlreadyClaimed
+    );
+}
+
+#[test]
+#[ignore = "requires live PostgreSQL"]
+fn live_postgres_tool_gateway_idempotency_concurrent_claim_has_one_winner() {
+    use sidereth_core::persistence::{IdempotencyClaim, IdempotencyStore};
+    use sidereth_core::postgres::PostgresIdempotencyStore;
+    use std::sync::{Arc, Barrier};
+    use std::thread;
+
+    let url = database_url();
+    let operation = format!("tool-gateway-concurrent-{}", std::process::id());
+    let barrier = Arc::new(Barrier::new(2));
+    let mut handles = Vec::new();
+
+    for _ in 0..2 {
+        let url = url.clone();
+        let operation = operation.clone();
+        let barrier = Arc::clone(&barrier);
+        handles.push(thread::spawn(move || {
+            let mut store = PostgresIdempotencyStore::new(url).unwrap();
+            barrier.wait();
+            store.claim(operation).unwrap()
+        }));
+    }
+
+    let results: Vec<_> = handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect();
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| **r == IdempotencyClaim::Claimed)
+            .count(),
+        1
+    );
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| **r == IdempotencyClaim::AlreadyClaimed)
+            .count(),
+        1
+    );
 }
