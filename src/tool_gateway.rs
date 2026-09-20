@@ -96,7 +96,6 @@ pub trait ToolGatewayProvider {
     ) -> Result<Self::Output, ToolGatewayError>;
 }
 
-#[derive(Debug)]
 pub struct ToolGatewayExecutionContext<'a> {
     pub request: &'a AuthorizationRequest,
     pub authorization: &'a AuthorizationResult,
@@ -305,7 +304,7 @@ fn record_invocation_audit(
         request_id: Some(request.request_id.clone()),
         authorization_ref: Some(request.authorization_ref.clone()),
         action_ref: Some(invocation.action.clone()),
-        approval_ref: approval.map(|value| value.approval_id.clone()),
+        approval_ref: approval.map(|value| value.action_ref.clone()),
         tool_id: Some(invocation.tool_id.clone()),
         tool_version: Some(format_tool_version(&invocation.tool_version)),
         capability_ref: Some(invocation.capability_ref.clone()),
@@ -663,8 +662,7 @@ mod tests {
     fn request() -> AuthorizationRequest {
         AuthorizationRequest {
             request_id: "req-1".into(),
-            occurred_at: "2026-09-20T10:00:00Z".into(),
-            authorization_ref: r(crate::ResourceType::Other, "auth-1"),
+ r(crate::ResourceType::Other, "auth-1"),
             subject_ref: r(crate::ResourceType::Party, "party-1"),
             action: r(crate::ResourceType::Action, "read"),
             resource_ref: r(crate::ResourceType::Case, "case-1"),
