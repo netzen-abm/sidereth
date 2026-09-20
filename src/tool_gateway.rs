@@ -3,6 +3,7 @@
 //! The gateway composes canonical authorization, Tool Registry resolution,
 //! capability leases and canonical idempotency. It does not grant authority.
 
+use crate::action::{Action, ApprovalRecord, ExecutionGate, ExecutionGateError, ExecutionGateInput};
 use crate::authorization::{AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
@@ -59,6 +60,7 @@ pub enum ToolGatewayError {
     JurisdictionNotSupported,
     ExecutionModeNotSupported,
     ApprovalRequired,
+    ExecutionGate(ExecutionGateError),
     ProviderFailed,
     Unknown,
 }
@@ -185,20 +187,23 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         invocation: &ToolGatewayInvocation,
         request: &AuthorizationRequest,
         authorization: &AuthorizationResult,
+        action: Option<&Action>,
+        approval: Option<&ApprovalRecord>,
         now_epoch_seconds: u64,
         provider: &mut P,
     ) -> Result<P::Output, ToolGatewayError> {
         self.validate(invocation, request, authorization, now_epoch_seconds)?;
-        self.claim(invocation)?;
-        let operation_id = operation_key(invocation)?;
-        self.idempotency
-            .mark_in_progress(&operation_id)
-            .map_err(ToolGatewayError::Idempotency)?;
         let tool = self
             .registry
             .resolve(&invocation.tool_id, &invocation.tool_version)
             .map_err(ToolGatewayError::Registry)?;
         validate_provider_binding(invocation, tool, provider)?;
+        validate_execution_gate(invocation, tool, authorization, action, approval)?;
+        self.claim(invocation)?;
+        let operation_id = operation_key(invocation)?;
+        self.idempotency
+            .mark_in_progress(&operation_id)
+            .map_err(ToolGatewayError::Idempotency)?;
         match provider.execute(invocation, tool) {
             Ok(output) => {
                 self.idempotency
@@ -269,6 +274,37 @@ fn validate_registry_context(
         ));
     }
     Ok(())
+}
+
+fn validate_execution_gate(
+    invocation: &ToolGatewayInvocation,
+    tool: &ToolRegistryEntry,
+    authorization: &AuthorizationResult,
+    action: Option<&Action>,
+    approval: Option<&ApprovalRecord>,
+) -> Result<(), ToolGatewayError> {
+    if !tool.approval_required {
+        return Ok(());
+    }
+
+    let action = action.ok_or(ToolGatewayError::ExecutionGate(
+        ExecutionGateError::ApprovalRequired,
+    ))?;
+
+    if action.action_id != invocation.action.id {
+        return Err(ToolGatewayError::ExecutionGate(
+            ExecutionGateError::ApprovalMismatch,
+        ));
+    }
+
+    ExecutionGate::permit(
+        action,
+        ExecutionGateInput {
+            authorization: Some(authorization),
+            approval,
+        },
+    )
+    .map_err(ToolGatewayError::ExecutionGate)
 }
 
 fn validate_registry_implementation_binding(
@@ -580,7 +616,7 @@ mod tests {
         let mut i = invocation();
         i.capability_ref = r(crate::ResourceType::Other, "cap-forged");
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
+            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -598,7 +634,7 @@ mod tests {
         let mut i = invocation();
         i.function_ref = Some(r(crate::ResourceType::Other, "fn-forged"));
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
+            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -616,7 +652,7 @@ mod tests {
         let mut i = invocation();
         i.implementation_id = "impl-forged".into();
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
+            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -634,7 +670,7 @@ mod tests {
         let mut i = invocation();
         i.provider_id = "provider-forged".into();
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
+            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
@@ -652,12 +688,50 @@ mod tests {
         let mut i = invocation();
         i.implementation_version = "forged".into();
         assert!(matches!(
-            gateway.execute(&i, &request(), &authorization(), 1050, &mut provider),
+            gateway.execute(&i, &request(), &authorization(), None, None, 1050, &mut provider),
             Err(ToolGatewayError::Registry(
                 ToolRegistryError::UnsupportedVersion,
             ))
         ));
         assert_eq!(provider.calls, 0);
+        assert!(idempotency.claimed.is_empty());
+    }
+
+    #[test]
+    fn provider_object_mismatch_fails_before_claim_and_execution() {
+        struct WrongProvider;
+        impl ToolGatewayProvider for WrongProvider {
+            type Output = &'static str;
+            fn provider_id(&self) -> &str { "provider-forged" }
+            fn implementation_id(&self) -> &str { "impl-1" }
+            fn implementation_version(&self) -> &str { "1" }
+            fn execute(
+                &mut self,
+                _: &ToolGatewayInvocation,
+                _: &ToolRegistryEntry,
+            ) -> Result<Self::Output, ToolGatewayError> {
+                panic!("wrong provider must never execute");
+            }
+        }
+
+        let registry = registry();
+        let mut idempotency = Idempotency::default();
+        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+        let mut provider = WrongProvider;
+        assert!(matches!(
+            gateway.execute(
+                &invocation(),
+                &request(),
+                &authorization(),
+                None,
+                None,
+                1050,
+                &mut provider
+            ),
+            Err(ToolGatewayError::Registry(
+                ToolRegistryError::UnsupportedVersion,
+            ))
+        ));
         assert!(idempotency.claimed.is_empty());
     }
 
@@ -760,7 +834,7 @@ mod tests {
     }
 
     #[test]
-    fn approval_required_never_executes_or_claims() {
+    fn approval_required_fails_before_claim_without_canonical_action() {
         let mut registry = registry();
         let mut entry = registry
             .resolve(
@@ -775,18 +849,19 @@ mod tests {
             .register(
                 entry,
                 crate::tool_registry::ToolRegistryAuditRecord {
-                    change_id: "change-2".into(),
+                    change_id: "change-approval".into(),
                     tool_id: "tool-1".into(),
                     version: ToolVersion::new(1, 0, 0),
                     change_type: "register".into(),
                     actor_ref: "actor-1".into(),
                     authorization_ref: "auth-1".into(),
-                    timestamp: "1001".into(),
+                    timestamp: "1003".into(),
                     previous_lifecycle: None,
                     new_lifecycle: None,
                 },
             )
             .unwrap();
+
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
@@ -795,10 +870,165 @@ mod tests {
                 &invocation(),
                 &request(),
                 &authorization(),
+                None,
+                None,
                 1050,
                 &mut provider
             ),
-            Err(ToolGatewayError::ApprovalRequired)
+            Err(ToolGatewayError::ExecutionGate(
+                ExecutionGateError::ApprovalRequired
+            ))
+        );
+        assert_eq!(provider.calls, 0);
+        assert!(idempotency.claimed.is_empty());
+    }
+
+    #[test]
+    fn human_approval_allows_consequential_tool_execution() {
+        let mut registry = registry();
+        let mut entry = registry
+            .resolve(
+                &String::from("tool-1"),
+                &ToolVersionRequirement::Exact(ToolVersion::new(1, 0, 0)),
+            )
+            .unwrap()
+            .clone();
+        entry.approval_required = true;
+        registry = InMemoryToolRegistry::new();
+        registry
+            .register(
+                entry,
+                crate::tool_registry::ToolRegistryAuditRecord {
+                    change_id: "change-approval-valid".into(),
+                    tool_id: "tool-1".into(),
+                    version: ToolVersion::new(1, 0, 0),
+                    change_type: "register".into(),
+                    actor_ref: "actor-1".into(),
+                    authorization_ref: "auth-1".into(),
+                    timestamp: "1004".into(),
+                    previous_lifecycle: None,
+                    new_lifecycle: None,
+                },
+            )
+            .unwrap();
+
+        let mut action = Action::new(
+            "action-1".into(),
+            crate::action::ActionKind::ExternalOperation,
+            "party-1".into(),
+            "Execute protected tool".into(),
+            "prov-action-1".into(),
+            "2026-09-20T10:00:00Z".into(),
+        )
+        .unwrap();
+        action.requires_explicit_approval = true;
+        action.authorization_ref = Some("auth-1".into());
+
+        let approval = ApprovalRecord {
+            approval_id: "approval-1".into(),
+            action_ref: r(crate::ResourceType::Action, "action-1"),
+            approver_ref: r(crate::ResourceType::Party, "approver-1"),
+            authorization_ref: r(crate::ResourceType::Other, "auth-1"),
+            decision: crate::action::ApprovalDecision::Granted,
+            origin: crate::action::ApprovalOrigin::Human,
+            rationale: "Reviewed and approved".into(),
+            provenance_ref: r(crate::ResourceType::Provenance, "prov-approval-1"),
+            decided_at: "2026-09-20T10:01:00Z".into(),
+        };
+        action.bind_approval(&approval, "2026-09-20T10:01:00Z".into()).unwrap();
+        action.transition(
+            crate::action::ActionStatus::Approved,
+            "2026-09-20T10:02:00Z".into(),
+        ).unwrap();
+
+        let mut idempotency = Idempotency::default();
+        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+        let mut provider = Provider::default();
+        assert_eq!(
+            gateway.execute(
+                &invocation(),
+                &request(),
+                &authorization(),
+                Some(&action),
+                Some(&approval),
+                1050,
+                &mut provider
+            ),
+            Ok("ok")
+        );
+        assert_eq!(provider.calls, 1);
+    }
+
+    #[test]
+    fn non_human_approval_cannot_satisfy_consequential_tool_requirement() {
+        let mut registry = registry();
+        let mut entry = registry
+            .resolve(
+                &String::from("tool-1"),
+                &ToolVersionRequirement::Exact(ToolVersion::new(1, 0, 0)),
+            )
+            .unwrap()
+            .clone();
+        entry.approval_required = true;
+        registry = InMemoryToolRegistry::new();
+        registry
+            .register(
+                entry,
+                crate::tool_registry::ToolRegistryAuditRecord {
+                    change_id: "change-approval-system".into(),
+                    tool_id: "tool-1".into(),
+                    version: ToolVersion::new(1, 0, 0),
+                    change_type: "register".into(),
+                    actor_ref: "actor-1".into(),
+                    authorization_ref: "auth-1".into(),
+                    timestamp: "1005".into(),
+                    previous_lifecycle: None,
+                    new_lifecycle: None,
+                },
+            )
+            .unwrap();
+
+        let mut action = Action::new(
+            "action-1".into(),
+            crate::action::ActionKind::ExternalOperation,
+            "party-1".into(),
+            "Execute protected tool".into(),
+            "prov-action-1".into(),
+            "2026-09-20T10:00:00Z".into(),
+        ).unwrap();
+        action.requires_explicit_approval = true;
+        action.authorization_ref = Some("auth-1".into());
+        action.approval_ref = Some("approval-1".into());
+        action.status = crate::action::ActionStatus::Approved;
+
+        let approval = ApprovalRecord {
+            approval_id: "approval-1".into(),
+            action_ref: r(crate::ResourceType::Action, "action-1"),
+            approver_ref: r(crate::ResourceType::Party, "approver-1"),
+            authorization_ref: r(crate::ResourceType::Other, "auth-1"),
+            decision: crate::action::ApprovalDecision::Granted,
+            origin: crate::action::ApprovalOrigin::System,
+            rationale: "System approval must not satisfy human approval".into(),
+            provenance_ref: r(crate::ResourceType::Provenance, "prov-approval-system"),
+            decided_at: "2026-09-20T10:01:00Z".into(),
+        };
+
+        let mut idempotency = Idempotency::default();
+        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+        let mut provider = Provider::default();
+        assert_eq!(
+            gateway.execute(
+                &invocation(),
+                &request(),
+                &authorization(),
+                Some(&action),
+                Some(&approval),
+                1050,
+                &mut provider
+            ),
+            Err(ToolGatewayError::ExecutionGate(
+                ExecutionGateError::ApprovalNotHuman
+            ))
         );
         assert_eq!(provider.calls, 0);
         assert!(idempotency.claimed.is_empty());
