@@ -662,7 +662,6 @@ mod tests {
     fn request() -> AuthorizationRequest {
         AuthorizationRequest {
             request_id: "req-1".into(),
-            occurred_at: "2026-09-20T10:00:00Z".into(),
             authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             subject_ref: r(crate::ResourceType::Party, "party-1"),
             action: r(crate::ResourceType::Action, "read"),
@@ -701,6 +700,7 @@ mod tests {
     fn invocation() -> ToolGatewayInvocation {
         ToolGatewayInvocation {
             request_id: "req-1".into(),
+            occurred_at: "2026-09-20T10:00:00Z".into(),
             authorization_ref: r(crate::ResourceType::Other, "auth-1"),
             subject_ref: r(crate::ResourceType::Party, "party-1"),
             actor_ref: Some(r(crate::ResourceType::Party, "party-1")),
