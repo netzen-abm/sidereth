@@ -927,6 +927,7 @@ mod tests {
                 &mut self,
                 _: &ToolGatewayInvocation,
                 _: &ToolRegistryEntry,
+                _: &ToolDataAccessGrant,
             ) -> Result<Self::Output, ToolGatewayError> {
                 panic!("wrong provider must never execute");
             }
