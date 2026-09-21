@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests {
     use super::*;
     use crate::audit::AuditSink;
     use crate::authorization::AuthorizationValidationError;
@@ -981,4 +979,3 @@ mod tests {
             ))
         ));
     }
-}
