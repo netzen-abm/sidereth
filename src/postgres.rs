@@ -289,7 +289,8 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (source_type, source_id, relation, target_type, target_id)
              DO UPDATE SET semantic_class = EXCLUDED.semantic_class
-             WHERE sidereth_resource_links.semantic_class IS NULL
+             WHERE (sidereth_resource_links.semantic_class IS NULL
+                    AND EXCLUDED.semantic_class IS NULL)
                 OR sidereth_resource_links.semantic_class = EXCLUDED.semantic_class",
                 &[
                     &source_type,
