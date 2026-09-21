@@ -1384,10 +1384,8 @@ mod tests {
     #[test]
     fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
         let registry = registry();
-        let mut idempotency = Idempotency {
-            fail_mark_completed: true,
-            ..Default::default()
-        };
+        let mut idempotency = Idempotency::default();
+        idempotency.fail_mark_completed = true;
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider::default();
         let mut audit = crate::InMemoryAudit::default();
