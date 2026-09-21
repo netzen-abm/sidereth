@@ -573,6 +573,9 @@ mod tests {
     #[derive(Default)]
     struct Idempotency {
         claimed: BTreeSet<Id>,
+        fail_mark_completed: bool,
+        fail_mark_failed: bool,
+        states: std::collections::BTreeMap<Id, IdempotencyState>,
     }
 
     impl IdempotencyStore for Idempotency {
@@ -591,22 +594,33 @@ mod tests {
 
     impl IdempotencyLifecycleStore for Idempotency {
         fn state(&self, operation_id: &Id) -> Result<Option<IdempotencyState>, PersistenceError> {
-            Ok(self
-                .claimed
-                .contains(operation_id)
-                .then_some(IdempotencyState::Completed))
+            Ok(self.states.get(operation_id).copied())
         }
 
-        fn mark_in_progress(&mut self, _: &Id) -> Result<(), PersistenceError> {
+        fn mark_in_progress(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+            self.states
+                .insert(operation_id.clone(), IdempotencyState::InProgress);
             Ok(())
         }
-        fn mark_completed(&mut self, _: &Id) -> Result<(), PersistenceError> {
+        fn mark_completed(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+            if self.fail_mark_completed {
+                return Err(PersistenceError::Unavailable);
+            }
+            self.states
+                .insert(operation_id.clone(), IdempotencyState::Completed);
             Ok(())
         }
-        fn mark_failed(&mut self, _: &Id) -> Result<(), PersistenceError> {
+        fn mark_failed(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+            if self.fail_mark_failed {
+                return Err(PersistenceError::Unavailable);
+            }
+            self.states
+                .insert(operation_id.clone(), IdempotencyState::Failed);
             Ok(())
         }
-        fn mark_unknown(&mut self, _: &Id) -> Result<(), PersistenceError> {
+        fn mark_unknown(&mut self, operation_id: &Id) -> Result<(), PersistenceError> {
+            self.states
+                .insert(operation_id.clone(), IdempotencyState::Unknown);
             Ok(())
         }
     }
@@ -614,6 +628,7 @@ mod tests {
     #[derive(Default)]
     struct Provider {
         calls: usize,
+        fail: bool,
     }
 
     impl ToolGatewayProvider for Provider {
@@ -636,6 +651,9 @@ mod tests {
             _: &ToolDataAccessGrant,
         ) -> Result<Self::Output, ToolGatewayError> {
             self.calls += 1;
+            if self.fail {
+                return Err(ToolGatewayError::ProviderFailed);
+            }
             Ok("ok")
         }
     }
@@ -1349,6 +1367,152 @@ mod tests {
         );
         assert_eq!(provider.calls, 0);
         assert!(idempotency.claimed.is_empty());
+    }
+
+    struct FailingAudit;
+
+    impl AuditProvenanceSink for FailingAudit {
+        fn record_invocation(
+            &mut self,
+            _: AuditRecord,
+            _: crate::Provenance,
+        ) -> Result<(), &'static str> {
+            Err("injected audit failure")
+        }
+    }
+
+    #[test]
+    fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
+        let registry = registry();
+        let mut idempotency = Idempotency {
+            fail_mark_completed: true,
+            ..Default::default()
+        };
+        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+        let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
+        let mut action = Action::new(
+            "read".into(),
+            crate::action::ActionKind::Information,
+            "party-1".into(),
+            "Execute protected tool".into(),
+            "prov-action-lifecycle".into(),
+            "2026-09-20T10:00:00Z".into(),
+        )
+        .unwrap();
+        action.authorization_ref = Some("auth-1".into());
+
+        assert_eq!(
+            gateway.execute(
+                &invocation(),
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: Some(&action),
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                    audit: &mut audit,
+                },
+                &mut provider
+            ),
+            Err(ToolGatewayError::Unknown)
+        );
+        assert_eq!(provider.calls, 1);
+        assert_eq!(
+            idempotency.state(&"op-1".into()).unwrap(),
+            Some(IdempotencyState::Unknown)
+        );
+    }
+
+    #[test]
+    fn provider_failure_with_audit_failure_becomes_unknown() {
+        let registry = registry();
+        let mut idempotency = Idempotency {
+            fail_mark_failed: true,
+            ..Default::default()
+        };
+        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+        let mut provider = Provider {
+            fail: true,
+            ..Default::default()
+        };
+        let mut audit = FailingAudit;
+        let mut action = Action::new(
+            "read".into(),
+            crate::action::ActionKind::Information,
+            "party-1".into(),
+            "Execute protected tool".into(),
+            "prov-action-provider-failure".into(),
+            "2026-09-20T10:00:00Z".into(),
+        )
+        .unwrap();
+        action.authorization_ref = Some("auth-1".into());
+
+        assert_eq!(
+            gateway.execute(
+                &invocation(),
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: Some(&action),
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                    audit: &mut audit,
+                },
+                &mut provider
+            ),
+            Err(ToolGatewayError::Unknown)
+        );
+        assert_eq!(provider.calls, 1);
+        assert_eq!(
+            idempotency.state(&"op-1".into()).unwrap(),
+            Some(IdempotencyState::Unknown)
+        );
+    }
+
+    #[test]
+    fn provider_failure_with_durable_lifecycle_failure_is_unknown_not_failed() {
+        let registry = registry();
+        let mut idempotency = Idempotency {
+            fail_mark_failed: true,
+            ..Default::default()
+        };
+        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+        let mut provider = Provider {
+            fail: true,
+            ..Default::default()
+        };
+        let mut audit = crate::InMemoryAudit::default();
+        let mut action = Action::new(
+            "read".into(),
+            crate::action::ActionKind::Information,
+            "party-1".into(),
+            "Execute protected tool".into(),
+            "prov-action-provider-lifecycle".into(),
+            "2026-09-20T10:00:00Z".into(),
+        )
+        .unwrap();
+        action.authorization_ref = Some("auth-1".into());
+
+        assert_eq!(
+            gateway.execute(
+                &invocation(),
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: Some(&action),
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                    audit: &mut audit,
+                },
+                &mut provider
+            ),
+            Err(ToolGatewayError::Unknown)
+        );
+        assert_eq!(
+            idempotency.state(&"op-1".into()).unwrap(),
+            Some(IdempotencyState::Unknown)
+        );
     }
 
     #[test]
