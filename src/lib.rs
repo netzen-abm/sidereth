@@ -6,57 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
-pub type Id = String;
-
-/// Explicit cross-primitive reference contract for ecosystem boundaries.
-///
-/// Existing domain structs retain `Id = String` for source compatibility.
-/// New integrations should use this typed boundary instead of relying on an
-/// implicit target type for an identifier.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct ResourceRef {
-    pub resource_type: ResourceType,
-    pub id: Id,
-}
-
-impl ResourceRef {
-    pub fn new(resource_type: ResourceType, id: impl Into<Id>) -> Result<Self, &'static str> {
-        let id = id.into();
-        if id.is_empty() {
-            return Err("resource reference id is required");
-        }
-        Ok(Self { resource_type, id })
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum ResourceType {
-    Case,
-    Incident,
-    Event,
-    Observation,
-    Evidence,
-    Authority,
-    Jurisdiction,
-    Party,
-    PartyRelationship,
-    Document,
-    Action,
-    Deadline,
-    Response,
-    Escalation,
-    Remedy,
-    Resolution,
-    Procedure,
-    ComplianceRequirement,
-    LegalSource,
-    Timeline,
-    Audit,
-    Provenance,
-    Idempotency,
-    Other,
-}
+pub mod resource;
+pub mod case;
+pub mod incident;
 
 pub mod action;
 pub mod audit;
@@ -308,41 +260,7 @@ impl Incident {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn resource_ref_is_explicit_and_stable_on_wire() {
-        let reference = ResourceRef::new(ResourceType::Document, "doc-1").unwrap();
-        let json = serde_json::to_string(&reference).unwrap();
-        let expected = "{\"resource_type\":\"document\",\"id\":\"doc-1\"}".to_string();
-        assert_eq!(json, expected);
-        let decoded: ResourceRef = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded, reference);
-    }
-
-    #[test]
-    fn empty_resource_ref_is_rejected() {
-        assert_eq!(
-            ResourceRef::new(ResourceType::Case, ""),
-            Err("resource reference id is required")
-        );
-    }
-
-    #[test]
-    fn party_relationship_resource_type_has_canonical_wire_value() {
-        assert_eq!(
-            serde_json::to_string(&ResourceType::PartyRelationship).unwrap(),
-            "\"party_relationship\""
-        );
-    }
-
-    #[test]
-    fn observation_resource_type_has_canonical_wire_value() {
-        assert_eq!(
-            serde_json::to_string(&ResourceType::Observation).unwrap(),
-            "\"observation\""
-        );
-    }
-}
+pub use case::{Case, CaseState};
+pub use incident::{Incident, IncidentState};
+pub use resource::{ResourceRef, ResourceType};
