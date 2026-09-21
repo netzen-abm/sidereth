@@ -1055,7 +1055,7 @@ mod tests {
                 ToolGatewayExecutionContext {
                     request: &q,
                     authorization: &a,
-                    action: None,
+                    action: Some(&action),
                     approval: None,
                     now_epoch_seconds: 1050,
                     audit: &mut audit,
@@ -1180,7 +1180,7 @@ mod tests {
                 &mut provider
             ),
             Err(ToolGatewayError::ExecutionGate(
-                ExecutionGateError::ApprovalRequired
+                ExecutionGateError::AuthorizationRequired
             ))
         );
         assert_eq!(provider.calls, 0);
