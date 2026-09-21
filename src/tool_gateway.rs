@@ -1425,10 +1425,8 @@ mod tests {
     #[test]
     fn provider_failure_with_audit_failure_becomes_unknown() {
         let registry = registry();
-        let mut idempotency = Idempotency {
-            fail_mark_failed: true,
-            ..Default::default()
-        };
+        let mut idempotency = Idempotency::default();
+        idempotency.fail_mark_failed = true;
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let mut provider = Provider {
             fail: true,
