@@ -13,7 +13,7 @@ jobs:
   prune-superseded-branches:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete only fully superseded non-allowlisted branches
+      - name: Retire explicitly dispositioned branches
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -31,27 +31,47 @@ jobs:
             "sidereth-ecosystem-architecture"
             "sidereth-language-runtime-strategy"
           )
+          retire=(
+            "architecture/tool-gateway-kernel-v0-1-2026-09-17"
+            "decentralized-system"
+            "feat/case-service-authorization-convergence-2026-09-14"
+            "feat/observation-lifecycle-integrity-2026-09-12"
+            "refactor/canonical-authorization-binding-2026-09-14"
+            "sidereth-authorization-boundary"
+            "sidereth-canonical-resource-links"
+            "sidereth-capability-registry-conformance-hardening"
+            "sidereth-cas-hardening-v2"
+            "sidereth-evidence-persistence"
+            "sidereth-license-apache-2"
+            "sidereth-post-pr39-semantic-audit"
+            "sidereth-tool-gateway-implementation"
+            "sidereth-transactional-read-cas"
+            "sidereth-transactional-read-cas-current"
+            "sidereth-universal-contract-hardening"
+            "sidereth-universal-core-audit"
+          )
           is_kept() { local candidate="$1"; for item in "${keep[@]}"; do [[ "$candidate" == "$item" ]] && return 0; done; return 1; }
+          is_retired() { local candidate="$1"; for item in "${retire[@]}"; do [[ "$candidate" == "$item" ]] && return 0; done; return 1; }
+
           gh api --paginate -H "Accept: application/vnd.github+json" "/repos/$REPO/branches?per_page=100" --jq '.[].name' > /tmp/branches.txt
-          deleted=0
-          skipped=0
+
           while IFS= read -r branch; do
             is_kept "$branch" && continue
-            open_prs=$(gh api -H "Accept: application/vnd.github+json" "/repos/$REPO/pulls?state=open&head=$branch" --jq 'length')
-            if [[ "$open_prs" != "0" ]]; then echo "SKIP open PR: $branch"; skipped=$((skipped + 1)); continue; fi
-            encoded=$(python -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")
-            comparison=$(gh api -H "Accept: application/vnd.github+json" "/repos/$REPO/compare/main...$encoded")
-            ahead=$(jq -r '.ahead_by' <<<"$comparison")
-            status=$(jq -r '.status' <<<"$comparison")
-            if [[ "$ahead" == "0" && ( "$status" == "identical" || "$status" == "behind" ) ]]; then
-              echo "DELETE superseded branch: $branch"
-              gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/$REPO/git/refs/heads/$encoded"
-              deleted=$((deleted + 1))
-            else
-              echo "SKIP requires review: $branch (status=$status, ahead_by=$ahead)"
-              skipped=$((skipped + 1))
+            if ! is_retired "$branch"; then
+              echo "FAIL: unexpected non-allowlisted branch remains: $branch"
+              exit 1
             fi
+            open_prs=$(gh api -H "Accept: application/vnd.github+json" "/repos/$REPO/pulls?state=open&head=$branch" --jq 'length')
+            if [[ "$open_prs" != "0" ]]; then
+              echo "FAIL: retired branch has an open PR: $branch"
+              exit 1
+            fi
+            encoded=$(python -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")
+            echo "DELETE dispositioned branch: $branch"
+            gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/$REPO/git/refs/heads/$encoded"
           done < /tmp/branches.txt
-          echo "Deleted: $deleted"
-          echo "Skipped: $skipped"
-          echo "Allowlisted active branches: ${#keep[@]}"
+
+          remaining=$(gh api --paginate -H "Accept: application/vnd.github+json" "/repos/$REPO/branches?per_page=100" --jq '.[].name' | wc -l)
+          test "$remaining" -eq 9
+          echo "Active branch count: $remaining"
+          echo "Nine-branch invariant: PASS"
