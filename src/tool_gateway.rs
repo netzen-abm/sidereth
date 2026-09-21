@@ -440,17 +440,17 @@ fn validate_registry_context(
 
 fn validate_execution_gate(
     invocation: &ToolGatewayInvocation,
-    tool: &ToolRegistryEntry,
+    _tool: &ToolRegistryEntry,
     authorization: &AuthorizationResult,
     action: Option<&Action>,
     approval: Option<&ApprovalRecord>,
 ) -> Result<(), ToolGatewayError> {
-    if !tool.approval_required {
-        return Ok(());
-    }
-
+    // Every consequential provider execution must pass the canonical Execution
+    // Gate. The registry's approval_required flag is metadata about whether
+    // explicit human approval is expected; it is not permission to bypass the
+    // canonical gate.
     let action = action.ok_or(ToolGatewayError::ExecutionGate(
-        ExecutionGateError::ApprovalRequired,
+        ExecutionGateError::AuthorizationRequired,
     ))?;
 
     if action.action_id != invocation.action.id {
@@ -1016,6 +1016,16 @@ mod tests {
     #[test]
     fn duplicate_context_bound_operation_is_blocked() {
         let registry = registry();
+        let mut action = Action::new(
+            "read".into(),
+            crate::action::ActionKind::Information,
+            "party-1".into(),
+            "Execute protected tool".into(),
+            "prov-action-read".into(),
+            "2026-09-20T10:00:00Z".into(),
+        )
+        .unwrap();
+        action.authorization_ref = Some("auth-1".into());
         let mut idempotency = Idempotency::default();
         let mut gateway = ToolGateway::new(&registry, &mut idempotency);
         let q = request();
@@ -1029,7 +1039,7 @@ mod tests {
                 ToolGatewayExecutionContext {
                     request: &q,
                     authorization: &a,
-                    action: None,
+                    action: Some(&action),
                     approval: None,
                     now_epoch_seconds: 1050,
                     audit: &mut audit,
