@@ -1424,7 +1424,7 @@ mod tests {
         );
         assert_eq!(provider.calls, 1);
         assert_eq!(
-            idempotency.state(&"op-1".into()).unwrap(),
+            idempotency.state(&operation_key(&invocation()).unwrap()).unwrap(),
             Some(IdempotencyState::Unknown)
         );
     }
@@ -1468,7 +1468,7 @@ mod tests {
         );
         assert_eq!(provider.calls, 1);
         assert_eq!(
-            idempotency.state(&"op-1".into()).unwrap(),
+            idempotency.state(&operation_key(&invocation()).unwrap()).unwrap(),
             Some(IdempotencyState::Unknown)
         );
     }
@@ -1513,7 +1513,7 @@ mod tests {
             Err(ToolGatewayError::Unknown)
         );
         assert_eq!(
-            idempotency.state(&"op-1".into()).unwrap(),
+            idempotency.state(&operation_key(&invocation()).unwrap()).unwrap(),
             Some(IdempotencyState::Unknown)
         );
     }
