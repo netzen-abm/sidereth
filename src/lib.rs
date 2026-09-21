@@ -6,9 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
-pub mod resource;
 pub mod case;
 pub mod incident;
+pub mod resource;
 
 pub mod action;
 pub mod audit;
