@@ -1105,6 +1105,35 @@ mod tests {
     }
 
     #[test]
+    fn nonapproval_tool_cannot_bypass_canonical_execution_gate() {
+        let registry = registry();
+        let mut idempotency = Idempotency::default();
+        let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+        let mut provider = Provider::default();
+        let mut audit = crate::InMemoryAudit::default();
+
+        assert_eq!(
+            gateway.execute(
+                &invocation(),
+                ToolGatewayExecutionContext {
+                    request: &request(),
+                    authorization: &authorization(),
+                    action: None,
+                    approval: None,
+                    now_epoch_seconds: 1050,
+                    audit: &mut audit,
+                },
+                &mut provider
+            ),
+            Err(ToolGatewayError::ExecutionGate(
+                ExecutionGateError::AuthorizationRequired
+            ))
+        );
+        assert_eq!(provider.calls, 0);
+        assert!(idempotency.claimed.is_empty());
+    }
+
+    #[test]
     fn approval_required_fails_before_claim_without_canonical_action() {
         let mut registry = registry();
         let mut entry = registry
