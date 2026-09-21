@@ -10,34 +10,6 @@ pub enum AccessAction {
     AppendEvent,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct AccessRequest {
-    pub actor_id: Id,
-    pub case_id: Id,
-    pub action: AccessAction,
-}
-
-pub trait AuthorizationPolicy {
-    fn authorize(&self, request: &AccessRequest) -> Result<(), &'static str>;
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CaseAccessPolicy {
-    pub owner_id: Id,
-}
-
-impl AuthorizationPolicy for CaseAccessPolicy {
-    fn authorize(&self, request: &AccessRequest) -> Result<(), &'static str> {
-        if request.actor_id != self.owner_id {
-            return Err("case access denied");
-        }
-        if request.case_id.is_empty() {
-            return Err("case id is required");
-        }
-        Ok(())
-    }
-}
-
 /// Canonical authorization decision. This is not human approval, legal
 /// authority, evidence authenticity, or execution permission by itself.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -273,32 +245,6 @@ mod tests {
                 value: "read_only".into(),
             }],
         }
-    }
-
-    #[test]
-    fn owner_is_authorized() {
-        let policy = CaseAccessPolicy {
-            owner_id: "user-1".into(),
-        };
-        let request = AccessRequest {
-            actor_id: "user-1".into(),
-            case_id: "case-1".into(),
-            action: AccessAction::Read,
-        };
-        assert!(policy.authorize(&request).is_ok());
-    }
-
-    #[test]
-    fn other_actor_is_denied() {
-        let policy = CaseAccessPolicy {
-            owner_id: "user-1".into(),
-        };
-        let request = AccessRequest {
-            actor_id: "user-2".into(),
-            case_id: "case-1".into(),
-            action: AccessAction::Read,
-        };
-        assert_eq!(policy.authorize(&request), Err("case access denied"));
     }
 
     #[test]
