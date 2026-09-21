@@ -154,6 +154,62 @@ fn live_postgres_resource_link_semantic_classes_are_atomic_and_non_escalating() 
     );
     escalation_uow.rollback().unwrap();
 
+    // Strong links to a missing endpoint must fail, and the surrounding
+    // authoritative Unit-of-Work write set must roll back as one transaction.
+    let rollback_source = ResourceRef::new(ResourceType::Other, unique_id("rl-rollback-source")).unwrap();
+    let missing_target = ResourceRef::new(ResourceType::Other, unique_id("rl-missing-target")).unwrap();
+    let rollback_marker = ResourceRef::new(ResourceType::Other, unique_id("rl-rollback-marker")).unwrap();
+
+    let mut rollback_factory = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut rollback_uow = rollback_factory.begin().unwrap();
+    let result = rollback_uow.execute(|ctx| {
+        ctx.write_resource(ResourceWrite::new(
+            rollback_source.clone(),
+            1,
+            json!({"kind": "rollback-source"}),
+            ResourceWriteMode::Insert,
+        )?)?;
+        ctx.write_resource(ResourceWrite::new(
+            rollback_marker.clone(),
+            1,
+            json!({"kind": "rollback-marker"}),
+            ResourceWriteMode::Insert,
+        )?)?;
+        ctx.link_resources(sidereth_core::persistence::ResourceLink::new_with_class(
+            rollback_source.clone(),
+            "requires_target",
+            missing_target.clone(),
+            sidereth_core::persistence::ResourceLinkClass::Strong,
+        )?)
+    });
+    assert_eq!(
+        result,
+        Err(sidereth_core::persistence::UnitOfWorkError::Persistence(
+            PersistenceError::IntegrityFailure
+        ))
+    );
+    rollback_uow.rollback().unwrap();
+
+    let mut rollback_verify = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut rollback_read = rollback_verify.begin().unwrap();
+    let records = rollback_read
+        .execute(|ctx| {
+            Ok::<_, sidereth_core::persistence::UnitOfWorkError>((
+                ctx.read_resource(&rollback_source)?,
+                ctx.read_resource(&rollback_marker)?,
+            ))
+        })
+        .unwrap();
+    rollback_read.commit().unwrap();
+    assert!(
+        records.0.is_none(),
+        "missing-endpoint Strong link must roll back the source write"
+    );
+    assert!(
+        records.1.is_none(),
+        "missing-endpoint Strong link must roll back the complete write set"
+    );
+
     // Forward and External links can be written without local target existence.
     let unresolved = ResourceRef::new(ResourceType::Other, unique_id("rl-unresolved")).unwrap();
     let mut non_strong = PostgresUnitOfWorkFactory::new(url);
