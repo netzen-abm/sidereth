@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 pub type Id = String;
 
 /// Explicit cross-primitive reference contract for ecosystem boundaries.
