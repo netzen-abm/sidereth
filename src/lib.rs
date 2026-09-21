@@ -112,8 +112,7 @@ pub use action::{
 pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{
-    AccessAction, AccessRequest, AuthorizationDecision, AuthorizationEvaluator,
-    AuthorizationPolicy, AuthorizationRequest, AuthorizationResult, CaseAccessPolicy,
+    AuthorizationDecision, AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult,
 };
 pub use authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 pub use capability_lease::{CapabilityLease, CapabilityLeaseError, CapabilityLeaseState};
