@@ -56,6 +56,7 @@ fn prepare(factory: &mut PostgresUnitOfWorkFactory) {
                     relation TEXT NOT NULL CHECK (btrim(relation) <> ''),
                     target_type TEXT NOT NULL,
                     target_id TEXT NOT NULL,
+                    semantic_class TEXT CHECK (semantic_class IS NULL OR semantic_class IN ('strong', 'forward', 'external')),
                     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (source_type, source_id, relation, target_type, target_id)
                 );
@@ -71,6 +72,198 @@ fn prepare(factory: &mut PostgresUnitOfWorkFactory) {
 
 fn unique_id(prefix: &str) -> String {
     format!("{}-{}", prefix, std::process::id())
+}
+
+#[test]
+#[ignore = "requires live PostgreSQL"]
+fn live_postgres_resource_link_semantic_classes_are_atomic_and_non_escalating() {
+    let url = database_url();
+    let mut setup = PostgresUnitOfWorkFactory::new(url.clone());
+    prepare(&mut setup);
+
+    let source = ResourceRef::new(ResourceType::Other, unique_id("rl-source")).unwrap();
+    let target = ResourceRef::new(ResourceType::Other, unique_id("rl-target")).unwrap();
+
+    let mut seed = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut uow = seed.begin().unwrap();
+    uow.execute(|ctx| {
+        ctx.write_resource(ResourceWrite::new(
+            source.clone(),
+            1,
+            json!({"kind": "source"}),
+            ResourceWriteMode::Insert,
+        )?)?;
+        ctx.write_resource(ResourceWrite::new(
+            target.clone(),
+            1,
+            json!({"kind": "target"}),
+            ResourceWriteMode::Insert,
+        )?)?;
+        Ok(())
+    })
+    .unwrap();
+    uow.commit().unwrap();
+
+    // Strong links require both authoritative endpoints and persist their class.
+    let mut strong = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut strong_uow = strong.begin().unwrap();
+    strong_uow
+        .execute(|ctx| {
+            ctx.link_resources(sidereth_core::persistence::ResourceLink::new_with_class(
+                source.clone(),
+                "rel",
+                target.clone(),
+                sidereth_core::persistence::ResourceLinkClass::Strong,
+            )?)
+        })
+        .unwrap();
+    strong_uow.commit().unwrap();
+
+    // Repeating the same explicit class is idempotent.
+    let mut duplicate = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut duplicate_uow = duplicate.begin().unwrap();
+    duplicate_uow
+        .execute(|ctx| {
+            ctx.link_resources(sidereth_core::persistence::ResourceLink::new_with_class(
+                source.clone(),
+                "rel",
+                target.clone(),
+                sidereth_core::persistence::ResourceLinkClass::Strong,
+            )?)
+        })
+        .unwrap();
+    duplicate_uow.commit().unwrap();
+
+    // A legacy class-less duplicate must not escalate to Strong/Forward/External.
+    let legacy_source =
+        ResourceRef::new(ResourceType::Other, unique_id("rl-legacy-source")).unwrap();
+    let legacy_target =
+        ResourceRef::new(ResourceType::Other, unique_id("rl-legacy-target")).unwrap();
+    let mut legacy = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut legacy_uow = legacy.begin().unwrap();
+    legacy_uow
+        .execute(|ctx| {
+            ctx.write_resource(ResourceWrite::new(
+                legacy_source.clone(),
+                1,
+                json!({}),
+                ResourceWriteMode::Insert,
+            )?)?;
+            ctx.write_resource(ResourceWrite::new(
+                legacy_target.clone(),
+                1,
+                json!({}),
+                ResourceWriteMode::Insert,
+            )?)?;
+            ctx.link_resources(sidereth_core::persistence::ResourceLink::new(
+                legacy_source.clone(),
+                "rel",
+                legacy_target.clone(),
+            )?)?;
+            Ok(())
+        })
+        .unwrap();
+    legacy_uow.commit().unwrap();
+
+    let mut escalation = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut escalation_uow = escalation.begin().unwrap();
+    let result = escalation_uow.execute(|ctx| {
+        ctx.link_resources(sidereth_core::persistence::ResourceLink::new_with_class(
+            legacy_source.clone(),
+            "rel",
+            legacy_target.clone(),
+            sidereth_core::persistence::ResourceLinkClass::Strong,
+        )?)
+    });
+    assert_eq!(
+        result,
+        Err(sidereth_core::persistence::UnitOfWorkError::Persistence(
+            PersistenceError::Conflict
+        ))
+    );
+    escalation_uow.rollback().unwrap();
+
+    // Strong links to a missing endpoint must fail, and the surrounding
+    // authoritative Unit-of-Work write set must roll back as one transaction.
+    let rollback_source =
+        ResourceRef::new(ResourceType::Other, unique_id("rl-rollback-source")).unwrap();
+    let missing_target =
+        ResourceRef::new(ResourceType::Other, unique_id("rl-missing-target")).unwrap();
+    let rollback_marker =
+        ResourceRef::new(ResourceType::Other, unique_id("rl-rollback-marker")).unwrap();
+
+    let mut rollback_factory = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut rollback_uow = rollback_factory.begin().unwrap();
+    let result = rollback_uow.execute(|ctx| {
+        ctx.write_resource(ResourceWrite::new(
+            rollback_source.clone(),
+            1,
+            json!({"kind": "rollback-source"}),
+            ResourceWriteMode::Insert,
+        )?)?;
+        ctx.write_resource(ResourceWrite::new(
+            rollback_marker.clone(),
+            1,
+            json!({"kind": "rollback-marker"}),
+            ResourceWriteMode::Insert,
+        )?)?;
+        ctx.link_resources(sidereth_core::persistence::ResourceLink::new_with_class(
+            rollback_source.clone(),
+            "requires_target",
+            missing_target.clone(),
+            sidereth_core::persistence::ResourceLinkClass::Strong,
+        )?)
+    });
+    assert_eq!(
+        result,
+        Err(sidereth_core::persistence::UnitOfWorkError::Persistence(
+            PersistenceError::IntegrityFailure
+        ))
+    );
+    rollback_uow.rollback().unwrap();
+
+    let mut rollback_verify = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut rollback_read = rollback_verify.begin().unwrap();
+    let records = rollback_read
+        .execute(|ctx| {
+            Ok::<_, sidereth_core::persistence::UnitOfWorkError>((
+                ctx.read_resource(&rollback_source)?,
+                ctx.read_resource(&rollback_marker)?,
+            ))
+        })
+        .unwrap();
+    rollback_read.commit().unwrap();
+    assert!(
+        records.0.is_none(),
+        "missing-endpoint Strong link must roll back the source write"
+    );
+    assert!(
+        records.1.is_none(),
+        "missing-endpoint Strong link must roll back the complete write set"
+    );
+
+    // Forward and External links can be written without local target existence.
+    let unresolved = ResourceRef::new(ResourceType::Other, unique_id("rl-unresolved")).unwrap();
+    let mut non_strong = PostgresUnitOfWorkFactory::new(url);
+    let mut non_strong_uow = non_strong.begin().unwrap();
+    non_strong_uow
+        .execute(|ctx| {
+            ctx.link_resources(sidereth_core::persistence::ResourceLink::new_with_class(
+                source.clone(),
+                "forward_rel",
+                unresolved.clone(),
+                sidereth_core::persistence::ResourceLinkClass::Forward,
+            )?)?;
+            ctx.link_resources(sidereth_core::persistence::ResourceLink::new_with_class(
+                source,
+                "external_rel",
+                unresolved,
+                sidereth_core::persistence::ResourceLinkClass::External,
+            )?)?;
+            Ok(())
+        })
+        .unwrap();
+    non_strong_uow.commit().unwrap();
 }
 
 fn evidence_for(case_id: &str, evidence_id: &str) -> EvidenceOriginal {
