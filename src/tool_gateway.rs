@@ -1371,6 +1371,12 @@ mod tests {
 
     struct FailingAudit;
 
+    impl AuditSink for FailingAudit {
+        fn record(&mut self, _: AuditRecord) -> Result<(), &'static str> {
+            Err("injected audit failure")
+        }
+    }
+
     impl AuditProvenanceSink for FailingAudit {
         fn record_invocation(
             &mut self,
