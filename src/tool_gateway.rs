@@ -562,6 +562,7 @@ fn operation_key(invocation: &ToolGatewayInvocation) -> Result<Id, ToolGatewayEr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audit::AuditSink;
     use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::persistence::{
         IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
