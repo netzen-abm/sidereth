@@ -863,7 +863,9 @@ mod tests {
         );
         assert_eq!(provider.calls, 1);
         assert_eq!(
-            idempotency.state(&operation_key(&invocation()).unwrap()).unwrap(),
+            idempotency
+                .state(&operation_key(&invocation()).unwrap())
+                .unwrap(),
             Some(IdempotencyState::Unknown)
         );
     }
