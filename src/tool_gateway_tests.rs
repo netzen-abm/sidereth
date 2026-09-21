@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Id;
-    use crate::authorization::AuthorizationValidationError;
     use crate::audit::AuditSink;
+    use crate::authorization::AuthorizationValidationError;
     use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::persistence::{
         IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
