@@ -247,10 +247,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
             .map_err(ToolGatewayError::Idempotency)?;
         match provider.execute(invocation, tool, &data_access) {
             Ok(output) => {
-                self.idempotency
-                    .mark_completed(&operation_id)
-                    .map_err(ToolGatewayError::Idempotency)?;
-                record_invocation_audit(
+                if record_invocation_audit(
                     context.audit,
                     invocation,
                     ToolGatewayAuditContext {
@@ -260,14 +257,20 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                         outcome: "completed",
                         failure: None,
                     },
-                )?;
+                )
+                .is_err()
+                {
+                    let _ = self.idempotency.mark_unknown(&operation_id);
+                    return Err(ToolGatewayError::Unknown);
+                }
+                if self.idempotency.mark_completed(&operation_id).is_err() {
+                    let _ = self.idempotency.mark_unknown(&operation_id);
+                    return Err(ToolGatewayError::Unknown);
+                }
                 Ok(output)
             }
             Err(error) => {
-                self.idempotency
-                    .mark_failed(&operation_id)
-                    .map_err(ToolGatewayError::Idempotency)?;
-                record_invocation_audit(
+                if record_invocation_audit(
                     context.audit,
                     invocation,
                     ToolGatewayAuditContext {
@@ -277,7 +280,16 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                         outcome: "failed",
                         failure: Some("provider_failed"),
                     },
-                )?;
+                )
+                .is_err()
+                {
+                    let _ = self.idempotency.mark_unknown(&operation_id);
+                    return Err(ToolGatewayError::Unknown);
+                }
+                if self.idempotency.mark_failed(&operation_id).is_err() {
+                    let _ = self.idempotency.mark_unknown(&operation_id);
+                    return Err(ToolGatewayError::Unknown);
+                }
                 Err(error)
             }
         }
