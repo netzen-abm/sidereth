@@ -1,12 +1,13 @@
     use super::*;
     use crate::audit::AuditSink;
-    use crate::authorization::AuthorizationValidationError;
+    use crate::AuthorizationValidationError;
     use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::persistence::{
         IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
         PersistenceError,
     };
     use crate::tool_registry::{ToolImplementation, ToolLifecycle, ToolRiskClass, ToolVersion};
+    use crate::Id;
     use std::collections::BTreeSet;
 
     #[derive(Default)]
