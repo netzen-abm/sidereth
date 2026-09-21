@@ -1,4 +1,4 @@
-use super::*;
+use sidereth_core::{ResourceRef, ResourceType};
 
     #[test]
     fn resource_ref_is_explicit_and_stable_on_wire() {
