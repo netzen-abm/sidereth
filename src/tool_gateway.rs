@@ -185,7 +185,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
 
     /// Claim is intentionally a separate phase from validation. Callers should
     /// normally use execute(), which enforces validation before this claim.
-    pub fn claim(
+    fn claim_validated(
         &mut self,
         invocation: &ToolGatewayInvocation,
     ) -> Result<ToolGatewayPhase, ToolGatewayError> {
@@ -241,7 +241,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         .map_err(|_| {
             ToolGatewayError::Authorization(AuthorizationValidationError::ConstraintViolation)
         })?;
-        self.claim(invocation)?;
+        self.claim_validated(invocation)?;
         self.idempotency
             .mark_in_progress(&operation_id)
             .map_err(ToolGatewayError::Idempotency)?;
