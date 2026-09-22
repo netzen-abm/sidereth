@@ -4,8 +4,6 @@
 //! The core is deterministic and independent of AI, network transport,
 //! government submission, and autonomous legal decisions.
 
-use serde::{Deserialize, Serialize};
-
 pub mod case;
 pub mod incident;
 pub mod resource;
