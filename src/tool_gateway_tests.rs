@@ -830,8 +830,10 @@ impl AuditProvenanceSink for FailingAudit {
 #[test]
 fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
     let registry = registry();
-    let mut idempotency = Idempotency::default();
-    idempotency.fail_mark_completed = true;
+    let idempotency = Idempotency {
+        fail_mark_completed: true,
+        ..Default::default()
+    };
     let mut gateway = ToolGateway::new(&registry, &mut idempotency);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
@@ -873,8 +875,10 @@ fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
 #[test]
 fn provider_failure_with_audit_failure_becomes_unknown() {
     let registry = registry();
-    let mut idempotency = Idempotency::default();
-    idempotency.fail_mark_failed = true;
+    let idempotency = Idempotency {
+        fail_mark_failed: true,
+        ..Default::default()
+    };
     let mut gateway = ToolGateway::new(&registry, &mut idempotency);
     let mut provider = Provider {
         fail: true,
