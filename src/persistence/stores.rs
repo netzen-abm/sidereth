@@ -28,4 +28,3 @@ pub trait EventStore {
     fn get_event(&self, id: &Id) -> Result<Option<Persisted<EventEnvelope>>, PersistenceError>;
     fn append_event(&mut self, value: Persisted<EventEnvelope>) -> Result<(), PersistenceError>;
 }
-
