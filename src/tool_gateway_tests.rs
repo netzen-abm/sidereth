@@ -497,7 +497,8 @@ fn duplicate_context_bound_operation_is_blocked() {
             ToolGatewayExecutionContext {
                 request: &q,
                 authorization: &a,
-                action: Some(&action),                    approval: None,
+                action: Some(&action),
+                approval: None,
                 now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
