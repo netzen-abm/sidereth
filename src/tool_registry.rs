@@ -502,8 +502,6 @@ fn version_matches(version: ToolVersion, requirement: &ToolVersionRequirement) -
         ToolVersionRequirement::CompatibleMajor(major) => version.major == *major,
     }
 }
-
-
 #[cfg(test)]
 #[path = "tool_registry_tests.rs"]
 mod tests;
