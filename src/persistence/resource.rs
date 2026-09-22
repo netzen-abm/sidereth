@@ -157,4 +157,3 @@ impl<T> Persisted<T> {
         })
     }
 }
-
