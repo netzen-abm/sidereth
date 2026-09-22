@@ -1,4 +1,3 @@
-use crate::{Case, EventEnvelope, Id, Incident};
 use super::error::PersistenceError;
 use super::resource::Persisted;
 
