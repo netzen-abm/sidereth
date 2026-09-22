@@ -515,8 +515,6 @@ fn dependency_graph_has_cycle(
         &mut visited,
     )
 }
-
-
 #[cfg(test)]
 #[path = "capability_registry_tests.rs"]
 mod tests;
