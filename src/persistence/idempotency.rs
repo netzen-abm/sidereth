@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Id;
 use super::error::PersistenceError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,4 +26,3 @@ pub trait IdempotencyLifecycleStore: IdempotencyStore {
     fn mark_failed(&mut self, operation_id: &Id) -> Result<(), PersistenceError>;
     fn mark_unknown(&mut self, operation_id: &Id) -> Result<(), PersistenceError>;
 }
-
