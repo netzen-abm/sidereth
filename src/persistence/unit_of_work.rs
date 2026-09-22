@@ -29,4 +29,3 @@ pub trait UnitOfWorkFactory {
 
     fn begin(&mut self) -> Result<Self::Uow, PersistenceError>;
 }
-
