@@ -32,4 +32,3 @@ impl From<PersistenceError> for UnitOfWorkError {
         Self::Persistence(value)
     }
 }
-
