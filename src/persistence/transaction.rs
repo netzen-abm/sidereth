@@ -15,4 +15,3 @@ pub trait IdempotencyStore {
     fn lookup(&self, operation_id: &Id) -> Result<bool, PersistenceError>;
     fn claim(&mut self, operation_id: Id) -> Result<IdempotencyClaim, PersistenceError>;
 }
-
