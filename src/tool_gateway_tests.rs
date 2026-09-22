@@ -830,7 +830,7 @@ impl AuditProvenanceSink for FailingAudit {
 #[test]
 fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
     let registry = registry();
-    let idempotency = Idempotency {
+    let mut idempotency = Idempotency {
         fail_mark_completed: true,
         ..Default::default()
     };
@@ -875,7 +875,7 @@ fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
 #[test]
 fn provider_failure_with_audit_failure_becomes_unknown() {
     let registry = registry();
-    let idempotency = Idempotency {
+    let mut idempotency = Idempotency {
         fail_mark_failed: true,
         ..Default::default()
     };
