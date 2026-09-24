@@ -1,5 +1,6 @@
 use super::error::{PersistenceError, UnitOfWorkError};
 use super::resource::{ResourceLink, ResourceRecord, ResourceWrite};
+use crate::ResourceRef;
 
 /// Provider-neutral read/write context used inside a unit of work.
 /// Reads occur in the same transaction as subsequent CAS writes.
