@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests {
     use crate::tool_registry::*;
     use crate::{ResourceRef, ResourceType};
 
