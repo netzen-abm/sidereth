@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::tool_registry::*;
     use crate::{ResourceRef, ResourceType};
 
     fn ref_(id: &str) -> ResourceRef {
