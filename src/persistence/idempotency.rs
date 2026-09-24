@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::error::PersistenceError;
-use super::transaction::IdempotencyStore;
 use crate::Id;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,6 +17,11 @@ pub enum IdempotencyState {
 pub enum IdempotencyClaim {
     Claimed,
     AlreadyClaimed,
+}
+
+pub trait IdempotencyStore {
+    fn lookup(&self, operation_id: &Id) -> Result<bool, PersistenceError>;
+    fn claim(&mut self, operation_id: Id) -> Result<IdempotencyClaim, PersistenceError>;
 }
 
 /// Durable execution-state contract layered on top of idempotency claim semantics.
