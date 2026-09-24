@@ -118,7 +118,6 @@ impl ResourceLink {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Revision {
     pub value: u64,
