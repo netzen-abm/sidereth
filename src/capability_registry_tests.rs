@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::capability_registry::*;
 
     fn ref_(id: &str) -> ResourceRef {
         ResourceRef::new(crate::ResourceType::Other, id).unwrap()
