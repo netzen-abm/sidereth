@@ -210,4 +210,3 @@
         assert_eq!(a.tool_id, b.tool_id);
         assert_eq!(a.version, b.version);
     }
-}
