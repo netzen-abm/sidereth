@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::error::{PersistenceError, UnitOfWorkError};
-use crate::{ResourceRef, Revision};
+use crate::ResourceRef;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
