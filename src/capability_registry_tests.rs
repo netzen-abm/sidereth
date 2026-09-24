@@ -304,4 +304,3 @@
         assert_eq!(r.register(a, audit("a", v)), Ok(()));
         assert_eq!(r.discover(&RegistryCriteria::default()).len(), 2);
     }
-}
