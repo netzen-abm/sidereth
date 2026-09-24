@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests {
     use crate::capability_registry::*;
 
     fn ref_(id: &str) -> ResourceRef {
