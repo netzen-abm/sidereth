@@ -1,5 +1,6 @@
 use super::error::PersistenceError;
 use super::resource::Persisted;
+use crate::{Case, EventEnvelope, Id, Incident, Revision};
 
 pub trait CaseStore {
     fn get_case(&self, id: &Id) -> Result<Option<Persisted<Case>>, PersistenceError>;
