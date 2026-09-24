@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::error::PersistenceError;
+use super::transaction::IdempotencyStore;
+use crate::Id;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
