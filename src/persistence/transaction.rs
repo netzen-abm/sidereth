@@ -1,4 +1,6 @@
 use super::error::PersistenceError;
+use super::idempotency::IdempotencyClaim;
+use crate::Id;
 
 pub trait Transaction {
     fn commit(self) -> Result<(), PersistenceError>;
