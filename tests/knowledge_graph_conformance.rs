@@ -34,8 +34,19 @@ fn graph_contract_requires_authorized_resource_scope() {
     let doc = reference(ResourceType::Document, "doc-1");
     let other = reference(ResourceType::Document, "doc-2");
     let mut graph = KnowledgeGraph::default();
-    graph.insert_node(KnowledgeNode { resource: doc.clone(), labels: BTreeSet::new() }, &access(&doc)).unwrap();
-    assert_eq!(graph.get_node(&other, &access(&doc)), Err("knowledge graph read is unauthorized"));
+    graph
+        .insert_node(
+            KnowledgeNode {
+                resource: doc.clone(),
+                labels: BTreeSet::new(),
+            },
+            &access(&doc),
+        )
+        .unwrap();
+    assert_eq!(
+        graph.get_node(&other, &access(&doc)),
+        Err("knowledge graph read is unauthorized")
+    );
 }
 
 #[test]
@@ -44,13 +55,31 @@ fn graph_contract_preserves_external_federation_reference() {
     let external = reference(ResourceType::Other, "external-record");
     let provenance = reference(ResourceType::Provenance, "prov-1");
     let mut graph = KnowledgeGraph::default();
-    graph.insert_node(
-        KnowledgeNode { resource: source.clone(), labels: BTreeSet::new() },
-        &access(&source),
-    ).unwrap();
-    graph.insert_edge(
-        KnowledgeEdge::new("edge-1", source.clone(), "federates_to", external.clone(), KnowledgeLinkClass::External, provenance).unwrap(),
-        &access(&source),
-    ).unwrap();
-    assert_eq!(graph.traverse(&source, 1, &access(&source)).unwrap(), vec![source, external]);
+    graph
+        .insert_node(
+            KnowledgeNode {
+                resource: source.clone(),
+                labels: BTreeSet::new(),
+            },
+            &access(&source),
+        )
+        .unwrap();
+    graph
+        .insert_edge(
+            KnowledgeEdge::new(
+                "edge-1",
+                source.clone(),
+                "federates_to",
+                external.clone(),
+                KnowledgeLinkClass::External,
+                provenance,
+            )
+            .unwrap(),
+            &access(&source),
+        )
+        .unwrap();
+    assert_eq!(
+        graph.traverse(&source, 1, &access(&source)).unwrap(),
+        vec![source, external]
+    );
 }
