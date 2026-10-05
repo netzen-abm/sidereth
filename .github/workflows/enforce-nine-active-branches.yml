@@ -29,9 +29,11 @@ jobs:
             "docs/documentation-governance-2026-09-11"
             "docs/semantic-audit-domain-model-2026-09-11"
             "sidereth-ecosystem-architecture"
-            "sidereth-language-runtime-strategy"
+            "feat/knowledge-graph-next"
           )
           retire=(
+            "sidereth-language-runtime-strategy"
+            "governance/nine-branch-enforcement-2026-10-05"
             "architecture/tool-gateway-kernel-v0-1-2026-09-17"
             "decentralized-system"
             "feat/case-service-authorization-convergence-2026-09-14"
