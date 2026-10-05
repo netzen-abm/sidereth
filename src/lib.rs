@@ -27,6 +27,7 @@ pub mod evidence_store;
 pub mod evidence_trust;
 pub mod intelligence;
 pub mod jurisdiction;
+pub mod knowledge_graph;
 pub mod legal_source;
 pub mod legal_source_registry;
 pub mod lifecycle;
@@ -105,6 +106,7 @@ pub use intelligence::{
     IntelligenceToolProposal,
 };
 pub use jurisdiction::{Jurisdiction, JurisdictionRegistry, JurisdictionStatus, JurisdictionType};
+pub use knowledge_graph::{KnowledgeEdge, KnowledgeGraph, KnowledgeGraphAccessContext, KnowledgeLinkClass, KnowledgeNode};
 pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
