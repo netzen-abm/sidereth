@@ -1,4 +1,4 @@
-use sidereth::{
+use sidereth_core::{
     AuthorizationDecision, AuthorizationResult, KnowledgeEdge, KnowledgeGraph,
     KnowledgeGraphAccessContext, KnowledgeLinkClass, KnowledgeNode, ResourceRef, ResourceType,
 };
