@@ -106,7 +106,7 @@ pub use intelligence::{
     IntelligenceToolProposal,
 };
 pub use jurisdiction::{Jurisdiction, JurisdictionRegistry, JurisdictionStatus, JurisdictionType};
-pub use knowledge_graph::{KnowledgeEdge, KnowledgeGraph, KnowledgeGraphAccessContext, KnowledgeLinkClass, KnowledgeNode};
+pub use knowledge_graph::{\n    KnowledgeEdge, KnowledgeGraph, KnowledgeGraphAccessContext, KnowledgeLinkClass, KnowledgeNode,\n};
 pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
 };
