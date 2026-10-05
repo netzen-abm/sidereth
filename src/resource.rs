@@ -7,7 +7,7 @@ pub type Id = String;
 /// Existing domain structs retain `Id = String` for source compatibility.
 /// New integrations should use this typed boundary instead of relying on an
 /// implicit target type for an identifier.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ResourceRef {
     pub resource_type: ResourceType,
     pub id: Id,
@@ -23,7 +23,7 @@ impl ResourceRef {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
     Case,
