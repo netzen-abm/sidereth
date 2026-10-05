@@ -40,7 +40,14 @@ impl KnowledgeEdge {
         if edge_id.is_empty() || predicate.is_empty() {
             return Err("knowledge edge id and predicate are required");
         }
-        Ok(Self { edge_id, source, predicate, target, class, provenance })
+        Ok(Self {
+            edge_id,
+            source,
+            predicate,
+            target,
+            class,
+            provenance,
+        })
     }
 }
 
@@ -54,7 +61,9 @@ impl KnowledgeGraphAccessContext {
     pub fn permits(&self, resource: &ResourceRef) -> bool {
         self.authorization.decision == AuthorizationDecision::Allow
             && self.authorization.resource_ref == *resource
-            && self.authorization.expires_at_epoch_seconds
+            && self
+                .authorization
+                .expires_at_epoch_seconds
                 .map(|expires| self.now_epoch_seconds <= expires)
                 .unwrap_or(true)
     }
@@ -67,8 +76,12 @@ pub struct KnowledgeGraph {
 }
 
 impl KnowledgeGraph {
-    pub fn node_count(&self) -> usize { self.nodes.len() }
-    pub fn edge_count(&self) -> usize { self.edges.len() }
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
 
     pub fn insert_node(
         &mut self,
@@ -124,9 +137,13 @@ impl KnowledgeGraph {
         let mut queue = VecDeque::from([(start.clone(), 0usize)]);
         let mut result = Vec::new();
         while let Some((current, depth)) = queue.pop_front() {
-            if !visited.insert(current.clone()) { continue; }
+            if !visited.insert(current.clone()) {
+                continue;
+            }
             result.push(current.clone());
-            if depth >= max_depth { continue; }
+            if depth >= max_depth {
+                continue;
+            }
             for edge in self.edges.values().filter(|edge| edge.source == current) {
                 if !access.permits(&edge.source) {
                     return Err("knowledge graph traversal crossed an unauthorized source");
@@ -141,13 +158,15 @@ impl KnowledgeGraph {
 
     pub fn validate_conformance(&self) -> Result<(), &'static str> {
         for edge in self.edges.values() {
-            if edge.edge_id.is_empty() || edge.predicate.is_empty()
-                || edge.source.id.is_empty() || edge.target.id.is_empty()
-                || edge.provenance.id.is_empty() {
+            if edge.edge_id.is_empty()
+                || edge.predicate.is_empty()
+                || edge.source.id.is_empty()
+                || edge.target.id.is_empty()
+                || edge.provenance.id.is_empty()
+            {
                 return Err("knowledge edge contains an incomplete canonical field");
             }
-            if edge.class == KnowledgeLinkClass::Strong
-                && !self.nodes.contains_key(&edge.target) {
+            if edge.class == KnowledgeLinkClass::Strong && !self.nodes.contains_key(&edge.target) {
                 return Err("strong knowledge link target is unresolved");
             }
         }
