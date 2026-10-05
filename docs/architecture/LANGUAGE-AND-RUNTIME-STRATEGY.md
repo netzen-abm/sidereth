@@ -102,3 +102,6 @@ This keeps the architecture open to Dioxus, React/Next.js, vanilla web component
 ## Architectural rule
 
 **One canonical domain. One canonical contract system. Multiple implementation runtimes where justified. Independent surfaces. Shared capabilities.**
+## Adoption Status
+
+This document is the canonical language/runtime strategy for SIDERETH: Rust is the canonical deterministic domain runtime; other languages are integration or application boundaries justified by capability, platform, or provider requirements.
