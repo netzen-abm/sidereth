@@ -96,9 +96,9 @@ pub use evidence_repository::{
 };
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use evidence_trust::{
-    CaptureLocation, EvidenceIntegrityChain, EvidencePassport, EvidenceTransformation, EvidenceTrustMetadata,
-    HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus, LocationDisclosure,
-    MediaOrigin,
+    CaptureLocation, EvidenceIntegrityChain, EvidencePassport, EvidenceTransformation,
+    EvidenceTrustMetadata, HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus,
+    LocationDisclosure, MediaOrigin,
 };
 pub use intelligence::{
     EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
