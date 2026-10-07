@@ -150,7 +150,9 @@ mod tests {
 
     #[test]
     fn verification_binds_to_provenance_actor_and_source() {
-        assert!(verification().verify_against_provenance(&provenance()).is_ok());
+        assert!(verification()
+            .verify_against_provenance(&provenance())
+            .is_ok());
     }
 
     #[test]
