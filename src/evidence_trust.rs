@@ -420,13 +420,9 @@ mod provenance_binding_tests {
     fn provenance() -> Provenance {
         Provenance {
             provenance_id: "prov-1".into(),
-            actor_ref: Some(
-                ResourceRef::new(ResourceType::Party, "user-1").unwrap(),
-            ),
+            actor_ref: Some(ResourceRef::new(ResourceType::Party, "user-1").unwrap()),
             source_refs: Vec::new(),
-            input_refs: vec![
-                ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
-            ],
+            input_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
             operation: "ocr".into(),
             occurred_at: "2026-09-07T10:01:00Z".into(),
         }
@@ -442,9 +438,9 @@ mod provenance_binding_tests {
     fn transformation_rejects_provenance_for_another_evidence_item() {
         let mut value = provenance();
         value.input_refs.clear();
-        value.input_refs.push(
-            ResourceRef::new(ResourceType::Evidence, "evidence-2").unwrap(),
-        );
+        value
+            .input_refs
+            .push(ResourceRef::new(ResourceType::Evidence, "evidence-2").unwrap());
         assert_eq!(
             transformation().validate_provenance(&value),
             Err("provenance must reference source evidence")
@@ -454,8 +450,7 @@ mod provenance_binding_tests {
     #[test]
     fn transformation_rejects_actor_mismatch() {
         let mut value = provenance();
-        value.actor_ref =
-            Some(ResourceRef::new(ResourceType::Party, "other-user").unwrap());
+        value.actor_ref = Some(ResourceRef::new(ResourceType::Party, "other-user").unwrap());
         assert_eq!(
             transformation().validate_provenance(&value),
             Err("provenance actor does not match transformation creator")
