@@ -96,7 +96,7 @@ pub use evidence_repository::{
 };
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use evidence_trust::{
-    CaptureLocation, EvidencePassport, EvidenceTransformation, EvidenceTrustMetadata,
+    CaptureLocation, EvidenceIntegrityChain, EvidencePassport, EvidenceTransformation, EvidenceTrustMetadata,
     HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus, LocationDisclosure,
     MediaOrigin,
 };
