@@ -436,6 +436,7 @@ mod provenance_binding_tests {
     #[test]
     fn transformation_requires_matching_provenance() {
         assert!(transformation().validate_provenance(&provenance()).is_ok());
+        assert_eq!(provenance().operation, transformation().transformation_type);
     }
 
     #[test]
