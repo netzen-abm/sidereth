@@ -297,6 +297,88 @@ impl EvidenceIntegrityChain {
     }
 }
 
+    #[test]
+    fn integrity_chain_starts_at_original_hash() {
+        let original = crate::EvidenceOriginal::from_capture(crate::EvidenceCapture {
+            evidence_id: "evidence-1".into(),
+            schema_version: 1,
+            case_id: Some("case-1".into()),
+            incident_id: None,
+            captured_at: "2026-09-07T10:00:00Z".into(),
+            captured_by: "user-1".into(),
+            media_type: "text/plain".into(),
+            storage_ref: "object-1".into(),
+            content: b"original",
+        })
+        .unwrap();
+        let chain = EvidenceIntegrityChain::new(&original).unwrap();
+        assert_eq!(chain.current_hash(), original.content_hash);
+    }
+
+    #[test]
+    fn integrity_chain_requires_contiguous_hashes() {
+        let original = crate::EvidenceOriginal::from_capture(crate::EvidenceCapture {
+            evidence_id: "evidence-1".into(),
+            schema_version: 1,
+            case_id: Some("case-1".into()),
+            incident_id: None,
+            captured_at: "2026-09-07T10:00:00Z".into(),
+            captured_by: "user-1".into(),
+            media_type: "text/plain".into(),
+            storage_ref: "object-1".into(),
+            content: b"original",
+        })
+        .unwrap();
+        let chain = EvidenceIntegrityChain::new(&original).unwrap();
+        let broken = EvidenceTransformation {
+            transformation_id: "transform-1".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "system".into(),
+            tool_id: Some("ocr".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: Some("wrong-input".into()),
+            output_hash: Some("output-hash".into()),
+        };
+        assert_eq!(
+            chain.append(broken),
+            Err("transformation input hash does not match chain head")
+        );
+    }
+
+    #[test]
+    fn integrity_chain_accepts_contiguous_transformation() {
+        let original = crate::EvidenceOriginal::from_capture(crate::EvidenceCapture {
+            evidence_id: "evidence-1".into(),
+            schema_version: 1,
+            case_id: Some("case-1".into()),
+            incident_id: None,
+            captured_at: "2026-09-07T10:00:00Z".into(),
+            captured_by: "user-1".into(),
+            media_type: "text/plain".into(),
+            storage_ref: "object-1".into(),
+            content: b"original",
+        })
+        .unwrap();
+        let chain = EvidenceIntegrityChain::new(&original).unwrap();
+        let output_hash = crate::sha256_hex(b"ocr output");
+        let transformation = EvidenceTransformation {
+            transformation_id: "transform-1".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "system".into(),
+            tool_id: Some("ocr".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: Some(original.content_hash.clone()),
+            output_hash: Some(output_hash.clone()),
+        };
+        let chain = chain.append(transformation).unwrap();
+        assert_eq!(chain.current_hash(), output_hash);
+        assert!(chain.validate().is_ok());
+    }
+
 #[cfg(test)]
 mod tests {
     use super::*;
