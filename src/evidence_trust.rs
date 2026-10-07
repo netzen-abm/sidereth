@@ -190,6 +190,191 @@ impl EvidencePassport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvidenceIntegrityChain {
+    evidence_id: Id,
+    original_hash: String,
+    transformations: Vec<EvidenceTransformation>,
+}
+
+impl EvidenceIntegrityChain {
+    pub fn new(original: &crate::EvidenceOriginal) -> Result<Self, &'static str> {
+        original.validate()?;
+        if original.content_hash.is_empty() {
+            return Err("original content hash is required");
+        }
+        Ok(Self {
+            evidence_id: original.evidence_id.clone(),
+            original_hash: original.content_hash.clone(),
+            transformations: Vec::new(),
+        })
+    }
+
+    pub fn append(mut self, transformation: EvidenceTransformation) -> Result<Self, &'static str> {
+        transformation.validate()?;
+        if transformation.source_evidence_id != self.evidence_id {
+            return Err("transformation source does not match evidence chain");
+        }
+
+        let input_hash = transformation
+            .input_hash
+            .as_deref()
+            .ok_or("transformation input hash is required")?;
+        let output_hash = transformation
+            .output_hash
+            .as_deref()
+            .ok_or("transformation output hash is required")?;
+
+        if input_hash != self.current_hash() {
+            return Err("transformation input hash does not match chain head");
+        }
+        if output_hash.is_empty() {
+            return Err("transformation output hash is required");
+        }
+
+        self.transformations.push(transformation);
+        Ok(self)
+    }
+
+    pub fn evidence_id(&self) -> &Id {
+        &self.evidence_id
+    }
+
+    pub fn original_hash(&self) -> &str {
+        &self.original_hash
+    }
+
+    pub fn current_hash(&self) -> &str {
+        self.transformations
+            .last()
+            .and_then(|step| step.output_hash.as_deref())
+            .unwrap_or(&self.original_hash)
+    }
+
+    pub fn transformations(&self) -> &[EvidenceTransformation] {
+        &self.transformations
+    }
+
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.evidence_id.is_empty() {
+            return Err("evidence chain id is required");
+        }
+        if self.original_hash.is_empty() {
+            return Err("evidence chain original hash is required");
+        }
+
+        let mut current = self.original_hash.as_str();
+        let mut ids = std::collections::HashSet::new();
+        for transformation in &self.transformations {
+            transformation.validate()?;
+            if transformation.source_evidence_id != self.evidence_id {
+                return Err("transformation source does not match evidence chain");
+            }
+            if !ids.insert(&transformation.transformation_id) {
+                return Err("duplicate transformation in evidence chain");
+            }
+            let input_hash = transformation
+                .input_hash
+                .as_deref()
+                .ok_or("transformation input hash is required")?;
+            let output_hash = transformation
+                .output_hash
+                .as_deref()
+                .ok_or("transformation output hash is required")?;
+            if input_hash != current {
+                return Err("transformation input hash does not match chain head");
+            }
+            if output_hash.is_empty() {
+                return Err("transformation output hash is required");
+            }
+            current = output_hash;
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn integrity_chain_starts_at_original_hash() {
+    let original = crate::EvidenceOriginal::from_capture(crate::EvidenceCapture {
+        evidence_id: "evidence-1".into(),
+        schema_version: 1,
+        case_id: Some("case-1".into()),
+        incident_id: None,
+        captured_at: "2026-09-07T10:00:00Z".into(),
+        captured_by: "user-1".into(),
+        media_type: "text/plain".into(),
+        storage_ref: "object-1".into(),
+        content: b"original",
+    })
+    .unwrap();
+    let chain = EvidenceIntegrityChain::new(&original).unwrap();
+    assert_eq!(chain.current_hash(), original.content_hash);
+}
+
+#[test]
+fn integrity_chain_requires_contiguous_hashes() {
+    let original = crate::EvidenceOriginal::from_capture(crate::EvidenceCapture {
+        evidence_id: "evidence-1".into(),
+        schema_version: 1,
+        case_id: Some("case-1".into()),
+        incident_id: None,
+        captured_at: "2026-09-07T10:00:00Z".into(),
+        captured_by: "user-1".into(),
+        media_type: "text/plain".into(),
+        storage_ref: "object-1".into(),
+        content: b"original",
+    })
+    .unwrap();
+    let chain = EvidenceIntegrityChain::new(&original).unwrap();
+    let broken = EvidenceTransformation {
+        transformation_id: "transform-1".into(),
+        source_evidence_id: "evidence-1".into(),
+        transformation_type: "ocr".into(),
+        created_at: "2026-09-07T10:01:00Z".into(),
+        created_by: "system".into(),
+        tool_id: Some("ocr".into()),
+        tool_version: Some("1.0".into()),
+        input_hash: Some("wrong-input".into()),
+        output_hash: Some("output-hash".into()),
+    };
+    assert_eq!(
+        chain.append(broken),
+        Err("transformation input hash does not match chain head")
+    );
+}
+
+#[test]
+fn integrity_chain_accepts_contiguous_transformation() {
+    let original = crate::EvidenceOriginal::from_capture(crate::EvidenceCapture {
+        evidence_id: "evidence-1".into(),
+        schema_version: 1,
+        case_id: Some("case-1".into()),
+        incident_id: None,
+        captured_at: "2026-09-07T10:00:00Z".into(),
+        captured_by: "user-1".into(),
+        media_type: "text/plain".into(),
+        storage_ref: "object-1".into(),
+        content: b"original",
+    })
+    .unwrap();
+    let chain = EvidenceIntegrityChain::new(&original).unwrap();
+    let output_hash = crate::sha256_hex(b"ocr output");
+    let transformation = EvidenceTransformation {
+        transformation_id: "transform-1".into(),
+        source_evidence_id: "evidence-1".into(),
+        transformation_type: "ocr".into(),
+        created_at: "2026-09-07T10:01:00Z".into(),
+        created_by: "system".into(),
+        tool_id: Some("ocr".into()),
+        tool_version: Some("1.0".into()),
+        input_hash: Some(original.content_hash.clone()),
+        output_hash: Some(output_hash.clone()),
+    };
+    let chain = chain.append(transformation).unwrap();
+    assert_eq!(chain.current_hash(), output_hash);
+    assert!(chain.validate().is_ok());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
