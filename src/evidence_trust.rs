@@ -190,7 +190,6 @@ impl EvidencePassport {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceIntegrityChain {
     evidence_id: Id,
