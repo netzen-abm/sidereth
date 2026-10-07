@@ -33,6 +33,7 @@ jobs:
           )
           retire=(
             "sidereth-language-runtime-strategy"
+            "governance/nine-branch-enforcement-2026-10-05"
             "architecture/tool-gateway-kernel-v0-1-2026-09-17"
             "decentralized-system"
             "feat/case-service-authorization-convergence-2026-09-14"
@@ -62,7 +63,7 @@ jobs:
               echo "FAIL: unexpected non-allowlisted branch remains: $branch"
               exit 1
             fi
-            open_prs=$(gh api -H "Accept: application/vnd.github+json" "/repos/$REPO/pulls?state=open&head=$branch" --jq 'length')
+            open_prs=$(gh api --paginate -H "Accept: application/vnd.github+json" "/repos/$REPO/pulls?state=open&per_page=100" --jq '.[].head.ref' | grep -Fx "$branch" | wc -l || true)
             if [[ "$open_prs" != "0" ]]; then
               echo "FAIL: retired branch has an open PR: $branch"
               exit 1
