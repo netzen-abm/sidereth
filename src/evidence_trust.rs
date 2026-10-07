@@ -214,7 +214,6 @@ impl EvidencePassport {
         Ok(())
     }
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceIntegrityChain {
     evidence_id: Id,
