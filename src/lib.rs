@@ -96,11 +96,14 @@ pub use evidence_repository::{
     InMemoryEvidenceTrustRepository, PersistedEvidence,
 };
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
-pub use evidence_verification::{EvidenceVerification, EvidenceVerificationError, EvidenceVerificationMethod, EvidenceVerificationStatus};
 pub use evidence_trust::{
     CaptureLocation, EvidenceIntegrityChain, EvidencePassport, EvidenceTransformation,
     EvidenceTrustMetadata, HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus,
     LocationDisclosure, MediaOrigin,
+};
+pub use evidence_verification::{
+    EvidenceVerification, EvidenceVerificationError, EvidenceVerificationMethod,
+    EvidenceVerificationStatus,
 };
 pub use intelligence::{
     EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
