@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Id;
+use crate::{Id, Provenance, ResourceRef, ResourceType};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -82,6 +82,31 @@ pub struct EvidenceTransformation {
 }
 
 impl EvidenceTransformation {
+    pub fn validate_provenance(&self, provenance: &Provenance) -> Result<(), &'static str> {
+        self.validate()?;
+        provenance.validate()?;
+
+        let expected_evidence_ref =
+            ResourceRef::new(ResourceType::Evidence, self.source_evidence_id.clone())
+                .map_err(|_| "evidence provenance reference is invalid")?;
+
+        if !provenance.input_refs.contains(&expected_evidence_ref) {
+            return Err("provenance must reference source evidence");
+        }
+        if provenance.operation != self.transformation_type {
+            return Err("provenance operation does not match transformation");
+        }
+
+        let actor = provenance
+            .actor_ref
+            .as_ref()
+            .ok_or("provenance actor is required for transformation")?;
+        if actor.resource_type != ResourceType::Party || actor.id != self.created_by {
+            return Err("provenance actor does not match transformation creator");
+        }
+
+        Ok(())
+    }
     pub fn validate(&self) -> Result<(), &'static str> {
         if self.transformation_id.is_empty() {
             return Err("transformation id is required");
@@ -373,6 +398,79 @@ fn integrity_chain_accepts_contiguous_transformation() {
     let chain = chain.append(transformation).unwrap();
     assert_eq!(chain.current_hash(), output_hash);
     assert!(chain.validate().is_ok());
+}
+
+#[cfg(test)]
+mod provenance_binding_tests {
+    use super::*;
+
+    fn transformation() -> EvidenceTransformation {
+        EvidenceTransformation {
+            transformation_id: "transform-1".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "user-1".into(),
+            tool_id: Some("ocr".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: Some("input-hash".into()),
+            output_hash: Some("output-hash".into()),
+        }
+    }
+
+    fn provenance() -> Provenance {
+        Provenance {
+            provenance_id: "prov-1".into(),
+            actor_ref: Some(
+                ResourceRef::new(ResourceType::Party, "user-1").unwrap(),
+            ),
+            source_refs: Vec::new(),
+            input_refs: vec![
+                ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
+            ],
+            operation: "ocr".into(),
+            occurred_at: "2026-09-07T10:01:00Z".into(),
+        }
+    }
+
+    #[test]
+    fn transformation_requires_matching_provenance() {
+        assert!(transformation().validate_provenance(&provenance()).is_ok());
+    }
+
+    #[test]
+    fn transformation_rejects_provenance_for_another_evidence_item() {
+        let mut value = provenance();
+        value.input_refs.clear();
+        value.input_refs.push(
+            ResourceRef::new(ResourceType::Evidence, "evidence-2").unwrap(),
+        );
+        assert_eq!(
+            transformation().validate_provenance(&value),
+            Err("provenance must reference source evidence")
+        );
+    }
+
+    #[test]
+    fn transformation_rejects_actor_mismatch() {
+        let mut value = provenance();
+        value.actor_ref =
+            Some(ResourceRef::new(ResourceType::Party, "other-user").unwrap());
+        assert_eq!(
+            transformation().validate_provenance(&value),
+            Err("provenance actor does not match transformation creator")
+        );
+    }
+
+    #[test]
+    fn transformation_rejects_operation_mismatch() {
+        let mut value = provenance();
+        value.operation = "manual_review".into();
+        assert_eq!(
+            transformation().validate_provenance(&value),
+            Err("provenance operation does not match transformation")
+        );
+    }
 }
 
 #[cfg(test)]
