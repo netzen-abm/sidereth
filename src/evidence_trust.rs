@@ -211,10 +211,7 @@ impl EvidenceIntegrityChain {
         })
     }
 
-    pub fn append(
-        mut self,
-        transformation: EvidenceTransformation,
-    ) -> Result<Self, &'static str> {
+    pub fn append(mut self, transformation: EvidenceTransformation) -> Result<Self, &'static str> {
         transformation.validate()?;
         if transformation.source_evidence_id != self.evidence_id {
             return Err("transformation source does not match evidence chain");
