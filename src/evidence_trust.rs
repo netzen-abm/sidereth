@@ -190,6 +190,113 @@ impl EvidencePassport {
     }
 }
 
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvidenceIntegrityChain {
+    evidence_id: Id,
+    original_hash: String,
+    transformations: Vec<EvidenceTransformation>,
+}
+
+impl EvidenceIntegrityChain {
+    pub fn new(original: &crate::EvidenceOriginal) -> Result<Self, &'static str> {
+        original.validate()?;
+        if original.content_hash.is_empty() {
+            return Err("original content hash is required");
+        }
+        Ok(Self {
+            evidence_id: original.evidence_id.clone(),
+            original_hash: original.content_hash.clone(),
+            transformations: Vec::new(),
+        })
+    }
+
+    pub fn append(
+        mut self,
+        transformation: EvidenceTransformation,
+    ) -> Result<Self, &'static str> {
+        transformation.validate()?;
+        if transformation.source_evidence_id != self.evidence_id {
+            return Err("transformation source does not match evidence chain");
+        }
+
+        let input_hash = transformation
+            .input_hash
+            .as_deref()
+            .ok_or("transformation input hash is required")?;
+        let output_hash = transformation
+            .output_hash
+            .as_deref()
+            .ok_or("transformation output hash is required")?;
+
+        if input_hash != self.current_hash() {
+            return Err("transformation input hash does not match chain head");
+        }
+        if output_hash.is_empty() {
+            return Err("transformation output hash is required");
+        }
+
+        self.transformations.push(transformation);
+        Ok(self)
+    }
+
+    pub fn evidence_id(&self) -> &Id {
+        &self.evidence_id
+    }
+
+    pub fn original_hash(&self) -> &str {
+        &self.original_hash
+    }
+
+    pub fn current_hash(&self) -> &str {
+        self.transformations
+            .last()
+            .and_then(|step| step.output_hash.as_deref())
+            .unwrap_or(&self.original_hash)
+    }
+
+    pub fn transformations(&self) -> &[EvidenceTransformation] {
+        &self.transformations
+    }
+
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.evidence_id.is_empty() {
+            return Err("evidence chain id is required");
+        }
+        if self.original_hash.is_empty() {
+            return Err("evidence chain original hash is required");
+        }
+
+        let mut current = self.original_hash.as_str();
+        let mut ids = std::collections::HashSet::new();
+        for transformation in &self.transformations {
+            transformation.validate()?;
+            if transformation.source_evidence_id != self.evidence_id {
+                return Err("transformation source does not match evidence chain");
+            }
+            if !ids.insert(&transformation.transformation_id) {
+                return Err("duplicate transformation in evidence chain");
+            }
+            let input_hash = transformation
+                .input_hash
+                .as_deref()
+                .ok_or("transformation input hash is required")?;
+            let output_hash = transformation
+                .output_hash
+                .as_deref()
+                .ok_or("transformation output hash is required")?;
+            if input_hash != current {
+                return Err("transformation input hash does not match chain head");
+            }
+            if output_hash.is_empty() {
+                return Err("transformation output hash is required");
+            }
+            current = output_hash;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
