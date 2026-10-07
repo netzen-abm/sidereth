@@ -25,6 +25,7 @@ pub mod evidence_query;
 pub mod evidence_repository;
 pub mod evidence_store;
 pub mod evidence_trust;
+pub mod evidence_verification;
 pub mod intelligence;
 pub mod jurisdiction;
 pub mod knowledge_graph;
@@ -99,6 +100,10 @@ pub use evidence_trust::{
     CaptureLocation, EvidenceIntegrityChain, EvidencePassport, EvidenceTransformation,
     EvidenceTrustMetadata, HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus,
     LocationDisclosure, MediaOrigin,
+};
+pub use evidence_verification::{
+    EvidenceVerification, EvidenceVerificationError, EvidenceVerificationMethod,
+    EvidenceVerificationStatus,
 };
 pub use intelligence::{
     EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
