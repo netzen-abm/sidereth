@@ -503,6 +503,20 @@ mod tests {
     }
 
     #[test]
+    fn restart_reconstructed_runtime_does_not_claim_provider_ownership() {
+        let mut persisted = lease();
+        persisted.state = CapabilityLeaseState::Active;
+
+        let runtime = ExecutionLeaseRuntime::new(persisted, TestAdapter::default()).unwrap();
+
+        assert_eq!(runtime.lease().state, CapabilityLeaseState::Active);
+        assert_eq!(
+            runtime.release(160),
+            Err(ExecutionLeaseRuntimeError::NotActive)
+        );
+    }
+
+    #[test]
     fn activation_and_release_form_one_runtime_boundary() {
         let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
         activate(&mut runtime);
