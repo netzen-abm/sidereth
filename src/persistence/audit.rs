@@ -268,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn_plain_audit_record_is_rejected_to_preserve_atomic_pair_semantics() {
+    fn plain_audit_record_is_rejected_to_preserve_atomic_pair_semantics() {
         let mut sink = UnitOfWorkAuditProvenanceSink::new(TestFactory::default());
         assert_eq!(
             sink.record(record()),
