@@ -414,6 +414,51 @@ mod tests {
     }
 
     #[test]
+    fn lifecycle_event_uses_runtime_truth_and_explicit_external_identity() {
+        let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
+        activate(&mut runtime);
+
+        let event = runtime
+            .lifecycle_event(ExecutionLeaseEvidenceContext {
+                event_id: "event-release-1",
+                operation: "execution_lease.release",
+                from_state: Some(CapabilityLeaseState::Active),
+                occurred_at: "2026-09-02T10:01:00Z",
+                correlation_id: "corr-1",
+                causation_id: Some("event-activate-1"),
+                provider_id: Some("provider-1"),
+                outcome: "released",
+                failure: None,
+            })
+            .unwrap();
+
+        assert_eq!(event.lease_ref.id, "lease-1");
+        assert_eq!(event.authorization_ref.id, "auth-1");
+        assert_eq!(event.from_state, Some(CapabilityLeaseState::Active));
+        assert_eq!(event.to_state, CapabilityLeaseState::Active);
+        assert_eq!(event.correlation_id, "corr-1");
+        assert_eq!(event.provider_id.as_deref(), Some("provider-1"));
+    }
+
+    #[test]
+    fn lifecycle_event_rejects_missing_external_identity() {
+        let runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
+        let result = runtime.lifecycle_event(ExecutionLeaseEvidenceContext {
+            event_id: "",
+            operation: "execution_lease.activate",
+            from_state: Some(CapabilityLeaseState::Authorized),
+            occurred_at: "2026-09-02T10:00:00Z",
+            correlation_id: "corr-1",
+            causation_id: None,
+            provider_id: None,
+            outcome: "activated",
+            failure: None,
+        });
+
+        assert_eq!(result, Err("execution lease event id is required"));
+    }
+
+    #[test]
     fn activation_and_release_form_one_runtime_boundary() {
         let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
         activate(&mut runtime);
