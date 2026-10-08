@@ -123,11 +123,7 @@ mod tests {
         assert_eq!(audit.records().len(), 1);
         assert_eq!(audit.provenances().len(), 1);
         assert_eq!(
-            audit.records()[0]
-                .authorization_ref
-                .as_ref()
-                .unwrap()
-                .id,
+            audit.records()[0].authorization_ref.as_ref().unwrap().id,
             "auth-1"
         );
         assert_eq!(audit.records()[0].correlation_id.as_deref(), Some("corr-1"));
