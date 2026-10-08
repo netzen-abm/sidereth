@@ -21,6 +21,23 @@ impl<S> AuditProvenanceLifecycleSink<S> {
     }
 }
 
+/// Construct and record one completed runtime lifecycle fact.
+///
+/// Runtime state remains authoritative; this function only composes the
+/// existing runtime evidence contract with the existing audit/provenance sink.
+pub fn record_runtime_lifecycle_event<A, S>(
+    runtime: &crate::ExecutionLeaseRuntime<A>,
+    context: crate::ExecutionLeaseEvidenceContext<'_>,
+    sink: &mut S,
+) -> Result<(), &'static str>
+where
+    A: crate::ExecutionLeaseAdapter,
+    S: AuditProvenanceSink,
+{
+    let event = runtime.lifecycle_event(context)?;
+    sink.record(event)
+}
+
 impl<S: AuditProvenanceSink> AuditProvenanceLifecycleSink<S> {
     pub fn record(&mut self, event: ExecutionLeaseLifecycleEvent) -> Result<(), &'static str> {
         event.validate()?;
