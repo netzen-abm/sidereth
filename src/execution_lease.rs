@@ -38,6 +38,21 @@ pub enum ExecutionLeaseRuntimeOutcome {
     ReleasedWithPlatformLimitation,
 }
 
+/// Exact authorization context required to activate a lease.
+#[derive(Debug, Clone)]
+pub struct ExecutionLeaseActivationContext<'a> {
+    pub now_epoch_seconds: u64,
+    pub capability_ref: &'a ResourceRef,
+    pub resource_ref: Option<&'a ResourceRef>,
+    pub subject_ref: &'a ResourceRef,
+    pub actor_ref: Option<&'a ResourceRef>,
+    pub purpose: &'a str,
+    pub purpose_version: Option<&'a str>,
+    pub scope: &'a str,
+    pub incident_ref: Option<&'a ResourceRef>,
+    pub session_ref: Option<&'a ResourceRef>,
+}
+
 impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
     pub fn new(lease: CapabilityLease, adapter: A) -> Result<Self, CapabilityLeaseError> {
         lease.validate()?;
@@ -58,16 +73,7 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
 
     pub fn activate(
         &mut self,
-        now_epoch_seconds: u64,
-        capability_ref: &ResourceRef,
-        resource_ref: Option<&ResourceRef>,
-        subject_ref: &ResourceRef,
-        actor_ref: Option<&ResourceRef>,
-        purpose: &str,
-        purpose_version: Option<&str>,
-        scope: &str,
-        incident_ref: Option<&ResourceRef>,
-        session_ref: Option<&ResourceRef>,
+        context: ExecutionLeaseActivationContext<'_>,
     ) -> Result<ExecutionLeaseRuntimeOutcome, ExecutionLeaseRuntimeError<A::Error>> {
         if self.active_handle.is_some() || self.lease.state == CapabilityLeaseState::Active {
             return Err(ExecutionLeaseRuntimeError::AlreadyActive);
@@ -75,16 +81,16 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
 
         self.lease
             .validate_activation(
-                now_epoch_seconds,
-                capability_ref,
-                resource_ref,
-                subject_ref,
-                actor_ref,
-                purpose,
-                purpose_version,
-                scope,
-                incident_ref,
-                session_ref,
+                context.now_epoch_seconds,
+                context.capability_ref,
+                context.resource_ref,
+                context.subject_ref,
+                context.actor_ref,
+                context.purpose,
+                context.purpose_version,
+                context.scope,
+                context.incident_ref,
+                context.session_ref,
             )
             .map_err(ExecutionLeaseRuntimeError::Lease)?;
 
@@ -94,7 +100,7 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
             .map_err(ExecutionLeaseRuntimeError::Adapter)?;
 
         self.lease
-            .transition(CapabilityLeaseState::Active, now_epoch_seconds)
+            .transition(CapabilityLeaseState::Active, context.now_epoch_seconds)
             .map_err(ExecutionLeaseRuntimeError::Lease)?;
         self.active_handle = Some(handle);
         Ok(ExecutionLeaseRuntimeOutcome::Activated)
@@ -277,18 +283,18 @@ mod tests {
         let session_ref = runtime.lease().session_ref.clone();
 
         runtime
-            .activate(
-                150,
-                &capability_ref,
-                resource_ref.as_ref(),
-                &subject_ref,
-                actor_ref.as_ref(),
-                &purpose,
-                purpose_version.as_deref(),
-                &scope,
-                incident_ref.as_ref(),
-                session_ref.as_ref(),
-            )
+            .activate(ExecutionLeaseActivationContext {
+                now_epoch_seconds: 150,
+                capability_ref: &capability_ref,
+                resource_ref: resource_ref.as_ref(),
+                subject_ref: &subject_ref,
+                actor_ref: actor_ref.as_ref(),
+                purpose: &purpose,
+                purpose_version: purpose_version.as_deref(),
+                scope: &scope,
+                incident_ref: incident_ref.as_ref(),
+                session_ref: session_ref.as_ref(),
+            })
             .unwrap();
     }
 
