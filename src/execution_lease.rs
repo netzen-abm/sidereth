@@ -238,6 +238,53 @@ pub struct ExecutionLeaseLifecycleEvent {
     pub failure: Option<String>,
 }
 
+impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
+    /// Build canonical lifecycle evidence from the runtime's current lease truth.
+    ///
+    /// This constructs evidence only; it does not persist it or mutate runtime state.
+    pub fn lifecycle_event(
+        &self,
+        context: ExecutionLeaseEvidenceContext<'_>,
+    ) -> Result<ExecutionLeaseLifecycleEvent, &'static str> {
+        let event = ExecutionLeaseLifecycleEvent {
+            event_id: context.event_id.to_owned(),
+            lease_ref: self.lease.lease_id.clone(),
+            authorization_ref: self.lease.authorization_ref.clone(),
+            capability_ref: self.lease.capability_ref.clone(),
+            resource_ref: self.lease.resource_ref.clone(),
+            subject_ref: self.lease.subject_ref.clone(),
+            actor_ref: self.lease.actor_ref.clone(),
+            operation: context.operation.to_owned(),
+            from_state: context.from_state,
+            to_state: self.lease.state,
+            occurred_at: context.occurred_at.to_owned(),
+            correlation_id: context.correlation_id.to_owned(),
+            causation_id: context.causation_id.map(str::to_owned),
+            provider_id: context.provider_id.map(str::to_owned),
+            purpose: self.lease.purpose.clone(),
+            scope: self.lease.scope.clone(),
+            outcome: context.outcome.to_owned(),
+            failure: context.failure.map(str::to_owned),
+        };
+        event.validate()?;
+        Ok(event)
+    }
+}
+
+/// Exact external context required to construct lifecycle evidence.
+#[derive(Debug, Clone, Copy)]
+pub struct ExecutionLeaseEvidenceContext<'a> {
+    pub event_id: &'a str,
+    pub operation: &'a str,
+    pub from_state: Option<CapabilityLeaseState>,
+    pub occurred_at: &'a str,
+    pub correlation_id: &'a str,
+    pub causation_id: Option<&'a str>,
+    pub provider_id: Option<&'a str>,
+    pub outcome: &'a str,
+    pub failure: Option<&'a str>,
+}
+
 impl ExecutionLeaseLifecycleEvent {
     pub fn validate(&self) -> Result<(), &'static str> {
         if self.event_id.is_empty() {
