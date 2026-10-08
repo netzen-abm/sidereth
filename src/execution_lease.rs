@@ -238,6 +238,53 @@ pub struct ExecutionLeaseLifecycleEvent {
     pub failure: Option<String>,
 }
 
+impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
+    /// Build canonical lifecycle evidence from the runtime's current lease truth.
+    ///
+    /// This constructs evidence only; it does not persist it or mutate runtime state.
+    pub fn lifecycle_event(
+        &self,
+        context: ExecutionLeaseEvidenceContext<'_>,
+    ) -> Result<ExecutionLeaseLifecycleEvent, &'static str> {
+        let event = ExecutionLeaseLifecycleEvent {
+            event_id: context.event_id.to_owned(),
+            lease_ref: self.lease.lease_id.clone(),
+            authorization_ref: self.lease.authorization_ref.clone(),
+            capability_ref: self.lease.capability_ref.clone(),
+            resource_ref: self.lease.resource_ref.clone(),
+            subject_ref: self.lease.subject_ref.clone(),
+            actor_ref: self.lease.actor_ref.clone(),
+            operation: context.operation.to_owned(),
+            from_state: context.from_state,
+            to_state: self.lease.state,
+            occurred_at: context.occurred_at.to_owned(),
+            correlation_id: context.correlation_id.to_owned(),
+            causation_id: context.causation_id.map(str::to_owned),
+            provider_id: context.provider_id.map(str::to_owned),
+            purpose: self.lease.purpose.clone(),
+            scope: self.lease.scope.clone(),
+            outcome: context.outcome.to_owned(),
+            failure: context.failure.map(str::to_owned),
+        };
+        event.validate()?;
+        Ok(event)
+    }
+}
+
+/// Exact external context required to construct lifecycle evidence.
+#[derive(Debug, Clone, Copy)]
+pub struct ExecutionLeaseEvidenceContext<'a> {
+    pub event_id: &'a str,
+    pub operation: &'a str,
+    pub from_state: Option<CapabilityLeaseState>,
+    pub occurred_at: &'a str,
+    pub correlation_id: &'a str,
+    pub causation_id: Option<&'a str>,
+    pub provider_id: Option<&'a str>,
+    pub outcome: &'a str,
+    pub failure: Option<&'a str>,
+}
+
 impl ExecutionLeaseLifecycleEvent {
     pub fn validate(&self) -> Result<(), &'static str> {
         if self.event_id.is_empty() {
@@ -364,6 +411,51 @@ mod tests {
                 session_ref: session_ref.as_ref(),
             })
             .unwrap();
+    }
+
+    #[test]
+    fn lifecycle_event_uses_runtime_truth_and_explicit_external_identity() {
+        let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
+        activate(&mut runtime);
+
+        let event = runtime
+            .lifecycle_event(ExecutionLeaseEvidenceContext {
+                event_id: "event-release-1",
+                operation: "execution_lease.release",
+                from_state: Some(CapabilityLeaseState::Active),
+                occurred_at: "2026-09-02T10:01:00Z",
+                correlation_id: "corr-1",
+                causation_id: Some("event-activate-1"),
+                provider_id: Some("provider-1"),
+                outcome: "released",
+                failure: None,
+            })
+            .unwrap();
+
+        assert_eq!(event.lease_ref.id, "lease-1");
+        assert_eq!(event.authorization_ref.id, "auth-1");
+        assert_eq!(event.from_state, Some(CapabilityLeaseState::Active));
+        assert_eq!(event.to_state, CapabilityLeaseState::Active);
+        assert_eq!(event.correlation_id, "corr-1");
+        assert_eq!(event.provider_id.as_deref(), Some("provider-1"));
+    }
+
+    #[test]
+    fn lifecycle_event_rejects_missing_external_identity() {
+        let runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
+        let result = runtime.lifecycle_event(ExecutionLeaseEvidenceContext {
+            event_id: "",
+            operation: "execution_lease.activate",
+            from_state: Some(CapabilityLeaseState::Authorized),
+            occurred_at: "2026-09-02T10:00:00Z",
+            correlation_id: "corr-1",
+            causation_id: None,
+            provider_id: None,
+            outcome: "activated",
+            failure: None,
+        });
+
+        assert_eq!(result, Err("execution lease event id is required"));
     }
 
     #[test]

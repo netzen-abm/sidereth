@@ -108,8 +108,9 @@ pub use evidence_verification::{
     EvidenceVerificationStatus,
 };
 pub use execution_lease::{
-    ExecutionLeaseActivationContext, ExecutionLeaseAdapter, ExecutionLeaseLifecycleEvent,
-    ExecutionLeaseRuntime, ExecutionLeaseRuntimeError, ExecutionLeaseRuntimeOutcome,
+    ExecutionLeaseActivationContext, ExecutionLeaseAdapter, ExecutionLeaseEvidenceContext,
+    ExecutionLeaseLifecycleEvent, ExecutionLeaseRuntime, ExecutionLeaseRuntimeError,
+    ExecutionLeaseRuntimeOutcome,
 };
 pub use execution_lease_evidence::AuditProvenanceLifecycleSink;
 pub use intelligence::{
