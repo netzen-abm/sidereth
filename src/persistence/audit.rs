@@ -2,7 +2,9 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::audit::{AuditProvenanceSink, AuditRecord, AuditSink};
-use crate::persistence::{ResourceWrite, ResourceWriteMode, UnitOfWork, UnitOfWorkError, UnitOfWorkFactory};
+use crate::persistence::{
+    ResourceWrite, ResourceWriteMode, UnitOfWork, UnitOfWorkError, UnitOfWorkFactory,
+};
 use crate::Provenance;
 
 /// Persistence adapter that atomically stores an audit record and its provenance
