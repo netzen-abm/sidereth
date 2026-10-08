@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::audit::{AuditProvenanceSink, AuditRecord, AuditSink};
 use crate::persistence::{
-    ResourceWrite, ResourceWriteMode, UnitOfWork, UnitOfWorkError, UnitOfWorkFactory,
+    ResourceWrite, ResourceWriteMode, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
 };
 use crate::Provenance;
 
