@@ -28,7 +28,7 @@ impl<S> AuditProvenanceLifecycleSink<S> {
 pub fn record_runtime_lifecycle_event<A, S>(
     runtime: &crate::ExecutionLeaseRuntime<A>,
     context: crate::ExecutionLeaseEvidenceContext<'_>,
-    sink: &mut S,
+    sink: &mut AuditProvenanceLifecycleSink<S>,
 ) -> Result<(), &'static str>
 where
     A: crate::ExecutionLeaseAdapter,
