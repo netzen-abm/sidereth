@@ -507,7 +507,7 @@ mod tests {
         let mut persisted = lease();
         persisted.state = CapabilityLeaseState::Active;
 
-        let runtime = ExecutionLeaseRuntime::new(persisted, TestAdapter::default()).unwrap();
+        let mut runtime = ExecutionLeaseRuntime::new(persisted, TestAdapter::default()).unwrap();
 
         assert_eq!(runtime.lease().state, CapabilityLeaseState::Active);
         assert_eq!(
