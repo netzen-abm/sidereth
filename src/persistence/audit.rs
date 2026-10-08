@@ -29,7 +29,7 @@ impl<F: UnitOfWorkFactory> UnitOfWorkAuditProvenanceSink<F> {
         provenance: Provenance,
     ) -> Result<(), &'static str> {
         record.validate()?;
-        provenance.validate()?
+        provenance.validate()?;
 
         let audit_ref =
             crate::ResourceRef::new(crate::ResourceType::Audit, record.audit_id.clone())
