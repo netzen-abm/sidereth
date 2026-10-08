@@ -210,10 +210,9 @@ mod tests {
             occurred_at: "2026-10-08T00:00:00Z".into(),
             correlation_id: None,
             causation_id: None,
-            provenance_ref: Some(ResourceRef::new(
-                crate::ResourceType::Provenance,
-                "prov-1",
-            ).unwrap()),
+            provenance_ref: Some(
+                ResourceRef::new(crate::ResourceType::Provenance, "prov-1").unwrap(),
+            ),
             invocation_id: None,
             request_id: None,
             authorization_ref: None,
