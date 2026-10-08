@@ -16,7 +16,7 @@ pub trait ExecutionLeaseAdapter {
     type Error;
 
     fn activate(&mut self, lease: &CapabilityLease) -> Result<Self::Handle, Self::Error>;
-    fn release(&mut self, handle: Self::Handle) -> Result<(), Self::Error>;
+    fn release(&mut self, handle: &mut Self::Handle) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -106,17 +106,14 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
     ) -> Result<ExecutionLeaseRuntimeOutcome, ExecutionLeaseRuntimeError<A::Error>> {
         let handle = self
             .active_handle
-            .take()
+            .as_mut()
             .ok_or(ExecutionLeaseRuntimeError::NotActive)?;
 
         self.adapter
             .release(handle)
-            .map_err(|error| {
-                // Keep the lease active when the provider did not confirm release.
-                self.active_handle = None;
-                ExecutionLeaseRuntimeError::Adapter(error)
-            })?;
+            .map_err(ExecutionLeaseRuntimeError::Adapter)?;
 
+        self.active_handle = None;
         if self.lease.state == CapabilityLeaseState::Active {
             self.lease
                 .transition(CapabilityLeaseState::Completed, now_epoch_seconds)
@@ -132,7 +129,6 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
         &mut self,
         now_epoch_seconds: u64,
     ) -> Result<ExecutionLeaseRuntimeOutcome, ExecutionLeaseRuntimeError<A::Error>> {
-        self.terminate_active_resource()?;
         if self.lease.state == CapabilityLeaseState::Authorized
             || self.lease.state == CapabilityLeaseState::Active
         {
@@ -140,6 +136,7 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
                 .transition(CapabilityLeaseState::Revoked, now_epoch_seconds)
                 .map_err(ExecutionLeaseRuntimeError::Lease)?;
         }
+        self.terminate_active_resource()?;
         Ok(ExecutionLeaseRuntimeOutcome::Revoked)
     }
 
@@ -147,12 +144,12 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
         &mut self,
         now_epoch_seconds: u64,
     ) -> Result<ExecutionLeaseRuntimeOutcome, ExecutionLeaseRuntimeError<A::Error>> {
-        self.terminate_active_resource()?;
         if self.lease.state == CapabilityLeaseState::Active {
             self.lease
                 .transition(CapabilityLeaseState::Cancelled, now_epoch_seconds)
                 .map_err(ExecutionLeaseRuntimeError::Lease)?;
         }
+        self.terminate_active_resource()?;
         Ok(ExecutionLeaseRuntimeOutcome::Cancelled)
     }
 
@@ -166,7 +163,6 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
             ));
         }
 
-        self.terminate_active_resource()?;
         if matches!(
             self.lease.state,
             CapabilityLeaseState::Authorized | CapabilityLeaseState::Active
@@ -175,6 +171,7 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
                 .transition(CapabilityLeaseState::Expired, now_epoch_seconds)
                 .map_err(ExecutionLeaseRuntimeError::Lease)?;
         }
+        self.terminate_active_resource()?;
         Ok(ExecutionLeaseRuntimeOutcome::Expired)
     }
 
@@ -202,11 +199,12 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
     fn terminate_active_resource(
         &mut self,
     ) -> Result<(), ExecutionLeaseRuntimeError<A::Error>> {
-        if let Some(handle) = self.active_handle.take() {
+        if let Some(handle) = self.active_handle.as_mut() {
             self.adapter
                 .release(handle)
                 .map_err(ExecutionLeaseRuntimeError::Adapter)?;
         }
+        self.active_handle = None;
         Ok(())
     }
 }
@@ -233,7 +231,7 @@ mod tests {
             Ok(self.activations)
         }
 
-        fn release(&mut self, _handle: Self::Handle) -> Result<(), Self::Error> {
+        fn release(&mut self, _handle: &mut Self::Handle) -> Result<(), Self::Error> {
             self.releases += 1;
             Ok(())
         }
