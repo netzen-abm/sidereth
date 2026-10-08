@@ -260,6 +260,46 @@ mod tests {
     }
 
     #[test]
+    fn persistence_failure_is_returned_without_claiming_durable_success() {
+        struct FailingFactory;
+        struct FailingUow;
+
+        impl UnitOfWorkFactory for FailingFactory {
+            type Uow = FailingUow;
+
+            fn begin(&mut self) -> Result<Self::Uow, crate::PersistenceError> {
+                Ok(FailingUow)
+            }
+        }
+
+        impl UnitOfWork for FailingUow {
+            type Context = TestContext;
+
+            fn execute<R, F>(&mut self, operation: F) -> Result<R, UnitOfWorkError>
+            where
+                F: FnOnce(&mut Self::Context) -> Result<R, UnitOfWorkError>,
+            {
+                let mut context = TestContext::default();
+                operation(&mut context)
+            }
+
+            fn commit(self) -> Result<(), crate::PersistenceError> {
+                Err(crate::PersistenceError::Unavailable)
+            }
+
+            fn rollback(self) -> Result<(), crate::PersistenceError> {
+                Ok(())
+            }
+        }
+
+        let mut sink = UnitOfWorkAuditProvenanceSink::new(FailingFactory);
+        assert_eq!(
+            sink.record_invocation(record(), provenance()),
+            Err("cannot commit audit persistence unit of work")
+        );
+    }
+
+    #[test]
     fn plain_audit_record_is_rejected_to_preserve_atomic_pair_semantics() {
         let mut sink = UnitOfWorkAuditProvenanceSink::new(TestFactory::default());
         assert_eq!(

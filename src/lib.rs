@@ -112,7 +112,7 @@ pub use execution_lease::{
     ExecutionLeaseLifecycleEvent, ExecutionLeaseRuntime, ExecutionLeaseRuntimeError,
     ExecutionLeaseRuntimeOutcome,
 };
-pub use execution_lease_evidence::AuditProvenanceLifecycleSink;
+pub use execution_lease_evidence::{record_runtime_lifecycle_event, AuditProvenanceLifecycleSink};
 pub use intelligence::{
     EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
     IntelligenceProvider, IntelligenceRequest, IntelligenceResponse, IntelligenceRiskClass,
