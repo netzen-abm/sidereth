@@ -139,10 +139,9 @@ pub use party::{Party, PartyKind, PartyRegistry, PartyRelationship, PartyStatus}
 pub use party_repository::PartyUnitOfWorkRepository;
 pub use persistence::{
     CaseStore, EventStore, IdempotencyClaim, IdempotencyStore, IncidentStore, Persisted,
-    UnitOfWorkAuditProvenanceSink,
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode, Revision,
-    Transaction, TransactionFactory, UnitOfWork, UnitOfWorkContext, UnitOfWorkError,
-    UnitOfWorkFactory,
+    Transaction, TransactionFactory, UnitOfWork, UnitOfWorkAuditProvenanceSink, UnitOfWorkContext,
+    UnitOfWorkError, UnitOfWorkFactory,
 };
 pub use procedure::{Procedure, ProcedureRegistry, ProcedureStatus, ProcedureStep};
 pub use provenance::{Provenance, ProvenanceRef};
