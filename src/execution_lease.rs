@@ -286,6 +286,20 @@ pub struct ExecutionLeaseEvidenceContext<'a> {
 }
 
 impl ExecutionLeaseLifecycleEvent {
+    /// Return the canonical outcome label for a runtime operation.
+    pub fn outcome_label(outcome: ExecutionLeaseRuntimeOutcome) -> &'static str {
+        match outcome {
+            ExecutionLeaseRuntimeOutcome::Activated => "activated",
+            ExecutionLeaseRuntimeOutcome::Released => "released",
+            ExecutionLeaseRuntimeOutcome::Revoked => "revoked",
+            ExecutionLeaseRuntimeOutcome::Cancelled => "cancelled",
+            ExecutionLeaseRuntimeOutcome::Expired => "expired",
+            ExecutionLeaseRuntimeOutcome::ReleasedWithPlatformLimitation => {
+                "released_with_platform_limitation"
+            }
+        }
+    }
+
     pub fn validate(&self) -> Result<(), &'static str> {
         if self.event_id.is_empty() {
             return Err("execution lease event id is required");
@@ -411,6 +425,36 @@ mod tests {
                 session_ref: session_ref.as_ref(),
             })
             .unwrap();
+    }
+
+    #[test]
+    fn lifecycle_outcome_labels_are_canonical() {
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Activated),
+            "activated"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Released),
+            "released"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Revoked),
+            "revoked"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Cancelled),
+            "cancelled"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Expired),
+            "expired"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(
+                ExecutionLeaseRuntimeOutcome::ReleasedWithPlatformLimitation
+            ),
+            "released_with_platform_limitation"
+        );
     }
 
     #[test]
