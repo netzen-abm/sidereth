@@ -196,9 +196,7 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
         Ok(())
     }
 
-    fn terminate_active_resource(
-        &mut self,
-    ) -> Result<(), ExecutionLeaseRuntimeError<A::Error>> {
+    fn terminate_active_resource(&mut self) -> Result<(), ExecutionLeaseRuntimeError<A::Error>> {
         if let Some(handle) = self.active_handle.as_mut() {
             self.adapter
                 .release(handle)
@@ -289,7 +287,10 @@ mod tests {
         let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
         activate(&mut runtime);
         assert_eq!(runtime.lease().state, CapabilityLeaseState::Active);
-        assert_eq!(runtime.release(160).unwrap(), ExecutionLeaseRuntimeOutcome::Released);
+        assert_eq!(
+            runtime.release(160).unwrap(),
+            ExecutionLeaseRuntimeOutcome::Released
+        );
         assert_eq!(runtime.lease().state, CapabilityLeaseState::Released);
     }
 
@@ -297,7 +298,10 @@ mod tests {
     fn expiry_is_fail_closed_and_terminal() {
         let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
         activate(&mut runtime);
-        assert_eq!(runtime.expire(200).unwrap(), ExecutionLeaseRuntimeOutcome::Expired);
+        assert_eq!(
+            runtime.expire(200).unwrap(),
+            ExecutionLeaseRuntimeOutcome::Expired
+        );
         assert_eq!(runtime.lease().state, CapabilityLeaseState::Expired);
     }
 
@@ -328,7 +332,9 @@ mod tests {
 
     #[test]
     fn shared_runtime_requires_explicit_synchronization_for_concurrent_callers() {
-        let runtime = Arc::new(Mutex::new(ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap()));
+        let runtime = Arc::new(Mutex::new(
+            ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap(),
+        ));
         let left = Arc::clone(&runtime);
         let right = Arc::clone(&runtime);
         let a = thread::spawn(move || left.lock().unwrap().lease().state);
