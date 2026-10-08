@@ -2,9 +2,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::audit::{AuditProvenanceSink, AuditRecord, AuditSink};
-use crate::persistence::{
-    ResourceWrite, ResourceWriteMode, UnitOfWorkError, UnitOfWorkFactory,
-};
+use crate::persistence::{ResourceWrite, ResourceWriteMode, UnitOfWorkError, UnitOfWorkFactory};
 use crate::Provenance;
 
 /// Persistence adapter that atomically stores an audit record and its provenance
@@ -31,31 +29,25 @@ impl<F: UnitOfWorkFactory> UnitOfWorkAuditProvenanceSink<F> {
         provenance: Provenance,
     ) -> Result<(), &'static str> {
         record.validate()?;
-        provenance.validate()?;
+        provenance.validate()?
 
-        let audit_ref = crate::ResourceRef::new(
-            crate::ResourceType::Audit,
-            record.audit_id.clone(),
-        )
-        .map_err(|_| "invalid audit resource reference")?;
+        let audit_ref =
+            crate::ResourceRef::new(crate::ResourceType::Audit, record.audit_id.clone())
+                .map_err(|_| "invalid audit resource reference")?;
         let provenance_ref = crate::ResourceRef::new(
             crate::ResourceType::Provenance,
             provenance.provenance_id.clone(),
         )
         .map_err(|_| "invalid provenance resource reference")?;
 
-        let audit_payload = serde_json::to_value(&record)
-            .map_err(|_| "cannot serialize audit record")?;
-        let provenance_payload = serde_json::to_value(&provenance)
-            .map_err(|_| "cannot serialize provenance")?;
+        let audit_payload =
+            serde_json::to_value(&record).map_err(|_| "cannot serialize audit record")?;
+        let provenance_payload =
+            serde_json::to_value(&provenance).map_err(|_| "cannot serialize provenance")?;
 
-        let audit_write = ResourceWrite::new(
-            audit_ref,
-            1,
-            audit_payload,
-            ResourceWriteMode::Insert,
-        )
-        .map_err(|_| "invalid audit resource write")?;
+        let audit_write =
+            ResourceWrite::new(audit_ref, 1, audit_payload, ResourceWriteMode::Insert)
+                .map_err(|_| "invalid audit resource write")?;
         let provenance_write = ResourceWrite::new(
             provenance_ref,
             1,
@@ -118,9 +110,7 @@ fn _serialization_boundary<T: Serialize>(value: &T) -> Result<Value, &'static st
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{
-        ResourceRecord, UnitOfWork, UnitOfWorkContext, UnitOfWorkFactory,
-    };
+    use crate::persistence::{ResourceRecord, UnitOfWork, UnitOfWorkContext, UnitOfWorkFactory};
     use crate::{Id, ResourceLink, ResourceRef};
     use std::cell::RefCell;
     use std::collections::HashMap;
@@ -138,11 +128,11 @@ mod tests {
             Ok(self.resources.get(&resource_ref.id).cloned())
         }
 
-        fn write_resource(
-            &mut self,
-            write: ResourceWrite,
-        ) -> Result<(), UnitOfWorkError> {
-            let key = format!("{:?}:{}", write.resource_ref.resource_type, write.resource_ref.id);
+        fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
+            let key = format!(
+                "{:?}:{}",
+                write.resource_ref.resource_type, write.resource_ref.id
+            );
             if write.mode == ResourceWriteMode::Insert && self.resources.contains_key(&key) {
                 return Err(UnitOfWorkError::Persistence(
                     crate::PersistenceError::Duplicate,
@@ -220,9 +210,10 @@ mod tests {
             occurred_at: "2026-10-08T00:00:00Z".into(),
             correlation_id: None,
             causation_id: None,
-            provenance_ref: Some(
-                ResourceRef::new(crate::ResourceType::Provenance, "prov-1").unwrap(),
-            ),
+            provenance_ref: Some(ResourceRef::new(
+                crate::ResourceType::Provenance,
+                "prov-1",
+            ).unwrap()),
             invocation_id: None,
             request_id: None,
             authorization_ref: None,
