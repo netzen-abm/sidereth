@@ -224,6 +224,7 @@ mod tests {
     struct TestAdapter {
         activations: usize,
         releases: usize,
+        fail_release: bool,
     }
 
     impl ExecutionLeaseAdapter for TestAdapter {
@@ -237,6 +238,9 @@ mod tests {
 
         fn release(&mut self, _handle: &mut Self::Handle) -> Result<(), Self::Error> {
             self.releases += 1;
+            if self.fail_release {
+                return Err("release failed");
+            }
             Ok(())
         }
     }
@@ -319,6 +323,30 @@ mod tests {
             ExecutionLeaseRuntimeOutcome::Expired
         );
         assert_eq!(runtime.lease().state, CapabilityLeaseState::Expired);
+    }
+
+    #[test]
+    fn failed_release_retains_runtime_handle_and_allows_retry() {
+        let mut adapter = TestAdapter {
+            fail_release: true,
+            ..TestAdapter::default()
+        };
+        let mut runtime = ExecutionLeaseRuntime::new(lease(), adapter.clone()).unwrap();
+        activate(&mut runtime);
+
+        assert_eq!(
+            runtime.release(160),
+            Err(ExecutionLeaseRuntimeError::Adapter("release failed"))
+        );
+        assert_eq!(runtime.lease().state, CapabilityLeaseState::Active);
+
+        runtime.adapter.fail_release = false;
+        assert_eq!(
+            runtime.release(161).unwrap(),
+            ExecutionLeaseRuntimeOutcome::Released
+        );
+        assert_eq!(runtime.lease().state, CapabilityLeaseState::Released);
+        assert_eq!(runtime.adapter.releases, 2);
     }
 
     #[test]
