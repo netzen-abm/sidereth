@@ -503,6 +503,17 @@ mod tests {
     }
 
     #[test]
+    fn restart_rehydration_rejects_orphaned_active_lease() {
+        let mut persisted = lease();
+        persisted.state = CapabilityLeaseState::Active;
+
+        assert!(matches!(
+            ExecutionLeaseRuntime::new(persisted, TestAdapter::default()),
+            Err(CapabilityLeaseError::InvalidLease)
+        ));
+    }
+
+    #[test]
     fn activation_and_release_form_one_runtime_boundary() {
         let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
         activate(&mut runtime);
