@@ -286,6 +286,20 @@ pub struct ExecutionLeaseEvidenceContext<'a> {
 }
 
 impl ExecutionLeaseLifecycleEvent {
+    /// Return the canonical outcome label for a runtime operation.
+    pub fn outcome_label(outcome: ExecutionLeaseRuntimeOutcome) -> &'static str {
+        match outcome {
+            ExecutionLeaseRuntimeOutcome::Activated => "activated",
+            ExecutionLeaseRuntimeOutcome::Released => "released",
+            ExecutionLeaseRuntimeOutcome::Revoked => "revoked",
+            ExecutionLeaseRuntimeOutcome::Cancelled => "cancelled",
+            ExecutionLeaseRuntimeOutcome::Expired => "expired",
+            ExecutionLeaseRuntimeOutcome::ReleasedWithPlatformLimitation => {
+                "released_with_platform_limitation"
+            }
+        }
+    }
+
     pub fn validate(&self) -> Result<(), &'static str> {
         if self.event_id.is_empty() {
             return Err("execution lease event id is required");
