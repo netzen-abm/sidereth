@@ -503,16 +503,13 @@ mod tests {
     }
 
     #[test]
-    fn restart_reconstructed_runtime_does_not_claim_provider_ownership() {
+    fn restart_rehydration_rejects_orphaned_active_lease() {
         let mut persisted = lease();
         persisted.state = CapabilityLeaseState::Active;
 
-        let mut runtime = ExecutionLeaseRuntime::new(persisted, TestAdapter::default()).unwrap();
-
-        assert_eq!(runtime.lease().state, CapabilityLeaseState::Active);
         assert_eq!(
-            runtime.release(160),
-            Err(ExecutionLeaseRuntimeError::NotActive)
+            ExecutionLeaseRuntime::new(persisted, TestAdapter::default()),
+            Err(CapabilityLeaseError::InvalidLease)
         );
     }
 
