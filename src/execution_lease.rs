@@ -213,6 +213,70 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
     }
 }
 
+/// Provider-neutral lifecycle fact emitted after a runtime state change or
+/// provider operation outcome. It is evidence, not an instruction to mutate
+/// runtime state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionLeaseLifecycleEvent {
+    pub event_id: crate::Id,
+    pub lease_ref: ResourceRef,
+    pub authorization_ref: ResourceRef,
+    pub capability_ref: ResourceRef,
+    pub resource_ref: Option<ResourceRef>,
+    pub subject_ref: ResourceRef,
+    pub actor_ref: Option<ResourceRef>,
+    pub operation: String,
+    pub from_state: Option<CapabilityLeaseState>,
+    pub to_state: CapabilityLeaseState,
+    pub occurred_at: String,
+    pub correlation_id: crate::Id,
+    pub causation_id: Option<crate::Id>,
+    pub provider_id: Option<crate::Id>,
+    pub purpose: String,
+    pub scope: String,
+    pub outcome: String,
+    pub failure: Option<String>,
+}
+
+impl ExecutionLeaseLifecycleEvent {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.event_id.is_empty() {
+            return Err("execution lease event id is required");
+        }
+        if self.lease_ref.id.is_empty() {
+            return Err("execution lease reference is required");
+        }
+        if self.authorization_ref.id.is_empty() {
+            return Err("execution lease authorization reference is required");
+        }
+        if self.capability_ref.id.is_empty() {
+            return Err("execution lease capability reference is required");
+        }
+        if self.subject_ref.id.is_empty() {
+            return Err("execution lease subject reference is required");
+        }
+        if self.operation.is_empty() {
+            return Err("execution lease operation is required");
+        }
+        if self.occurred_at.is_empty() {
+            return Err("execution lease event time is required");
+        }
+        if self.correlation_id.is_empty() {
+            return Err("execution lease correlation id is required");
+        }
+        if self.purpose.is_empty() {
+            return Err("execution lease purpose is required");
+        }
+        if self.scope.is_empty() {
+            return Err("execution lease scope is required");
+        }
+        if self.outcome.is_empty() {
+            return Err("execution lease outcome is required");
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
