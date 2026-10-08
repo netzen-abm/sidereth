@@ -213,7 +213,6 @@ impl<A: ExecutionLeaseAdapter> ExecutionLeaseRuntime<A> {
     }
 }
 
-
 /// Provider-neutral lifecycle fact emitted after a runtime state change or
 /// provider operation outcome. It is evidence, not an instruction to mutate
 /// runtime state.
@@ -241,17 +240,39 @@ pub struct ExecutionLeaseLifecycleEvent {
 
 impl ExecutionLeaseLifecycleEvent {
     pub fn validate(&self) -> Result<(), &'static str> {
-        if self.event_id.is_empty() { return Err("execution lease event id is required"); }
-        if self.lease_ref.id.is_empty() { return Err("execution lease reference is required"); }
-        if self.authorization_ref.id.is_empty() { return Err("execution lease authorization reference is required"); }
-        if self.capability_ref.id.is_empty() { return Err("execution lease capability reference is required"); }
-        if self.subject_ref.id.is_empty() { return Err("execution lease subject reference is required"); }
-        if self.operation.is_empty() { return Err("execution lease operation is required"); }
-        if self.occurred_at.is_empty() { return Err("execution lease event time is required"); }
-        if self.correlation_id.is_empty() { return Err("execution lease correlation id is required"); }
-        if self.purpose.is_empty() { return Err("execution lease purpose is required"); }
-        if self.scope.is_empty() { return Err("execution lease scope is required"); }
-        if self.outcome.is_empty() { return Err("execution lease outcome is required"); }
+        if self.event_id.is_empty() {
+            return Err("execution lease event id is required");
+        }
+        if self.lease_ref.id.is_empty() {
+            return Err("execution lease reference is required");
+        }
+        if self.authorization_ref.id.is_empty() {
+            return Err("execution lease authorization reference is required");
+        }
+        if self.capability_ref.id.is_empty() {
+            return Err("execution lease capability reference is required");
+        }
+        if self.subject_ref.id.is_empty() {
+            return Err("execution lease subject reference is required");
+        }
+        if self.operation.is_empty() {
+            return Err("execution lease operation is required");
+        }
+        if self.occurred_at.is_empty() {
+            return Err("execution lease event time is required");
+        }
+        if self.correlation_id.is_empty() {
+            return Err("execution lease correlation id is required");
+        }
+        if self.purpose.is_empty() {
+            return Err("execution lease purpose is required");
+        }
+        if self.scope.is_empty() {
+            return Err("execution lease scope is required");
+        }
+        if self.outcome.is_empty() {
+            return Err("execution lease outcome is required");
+        }
         Ok(())
     }
 }
@@ -433,4 +454,3 @@ mod tests {
         assert_eq!(b.join().unwrap(), CapabilityLeaseState::Authorized);
     }
 }
-
