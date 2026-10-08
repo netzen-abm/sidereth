@@ -1,3 +1,4 @@
+mod audit;
 mod error;
 mod idempotency;
 mod resource;
@@ -5,6 +6,7 @@ mod stores;
 mod transaction;
 mod unit_of_work;
 
+pub use audit::UnitOfWorkAuditProvenanceSink;
 pub use error::{PersistenceError, UnitOfWorkError};
 pub use idempotency::{
     IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
