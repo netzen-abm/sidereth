@@ -1,3 +1,4 @@
+mod audit;
 mod error;
 mod idempotency;
 mod resource;
@@ -5,6 +6,7 @@ mod stores;
 mod transaction;
 mod unit_of_work;
 
+pub use audit::UnitOfWorkAuditProvenanceSink;
 pub use error::{PersistenceError, UnitOfWorkError};
 pub use idempotency::{
     IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
@@ -117,7 +119,7 @@ mod tests {
 
     #[test]
     fn legacy_resource_link_decodes_without_class() {
-        let json = r#"{"source_ref":{"resource_type":"case","id":"case-1"},"relation":"has_event","target_ref":{"resource_type":"event","id":"event-1"}}"#;
+        let json = r#"{\"source_ref\":{\"resource_type\":\"case\",\"id\":\"case-1\"},\"relation\":\"has_event\",\"target_ref\":{\"resource_type\":\"event\",\"id\":\"event-1\"}}"#;
         let link: ResourceLink = serde_json::from_str(json).unwrap();
         assert_eq!(link.semantic_class(), None);
     }
