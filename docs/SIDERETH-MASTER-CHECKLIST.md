@@ -1,8 +1,8 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `0ac5cdb8e8da545e1e5276af510ba4e8677558b9`
-**Audit date:** 2026-09-16
+**Last audited baseline:** `main` at `5ea483a78afbe7e96ec4263117b1e9b533fe3091`
+**Audit date:** 2026-10-08
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
 
@@ -96,6 +96,7 @@
 - [x] access control foundation
 - [x] canonical consumer-side authorization enforcement foundation
 - [x] purpose-bound capability lease lifecycle contract/model/conformance foundation
+- [x] execution lease runtime boundary — provider-neutral activation/release/revocation/cancellation/expiry/reauthorization foundation
 - [ ] threat model
 - [ ] model/tool injection defenses
 - [ ] security audit
@@ -107,6 +108,7 @@
 - [x] Authorization Evaluator
 - [x] canonical consumer-side Authorization Enforcement
 - [x] Execution Gate
+- [x] Execution Lease Runtime boundary
 - [x] AuthorizationResult contextual binding
 - [x] typed AuthorizationConstraint semantics/conformance
 - [ ] Tool Gateway implementation — implementation exists, but production readiness remains deferred
@@ -118,6 +120,7 @@
 - [ ] human approval production checkpoints
 - [ ] asynchronous jobs
 - [ ] retries/resume
+- [ ] runtime lifecycle audit integration
 - [ ] durable audit/observability
 - [x] MCP adapter boundary
 
@@ -227,3 +230,17 @@
 ## Definition of Done
 
 A capability is not considered complete until its contract, implementation, tests, security controls, privacy controls, documentation and observability are present and verified.
+
+## Execution Lease Runtime Gate — current
+- [x] Provider-neutral runtime boundary
+- [x] Exact-context activation through canonical CapabilityLease validation
+- [x] Provider/OS adapter isolation
+- [x] Release after normal completion
+- [x] Fail-closed expiry
+- [x] Revocation and cancellation terminate future use before adapter release
+- [x] Fresh authorized lease required for reauthorization
+- [x] Explicit synchronization requirement for concurrent callers
+- [ ] Adapter failure / partial-release evidence matrix
+- [ ] Runtime audit/provenance integration
+- [ ] Durable runtime lease persistence
+- [ ] Production readiness decision
