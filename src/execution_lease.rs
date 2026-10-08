@@ -428,6 +428,36 @@ mod tests {
     }
 
     #[test]
+    fn lifecycle_outcome_labels_are_canonical() {
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Activated),
+            "activated"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Released),
+            "released"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Revoked),
+            "revoked"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Cancelled),
+            "cancelled"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(ExecutionLeaseRuntimeOutcome::Expired),
+            "expired"
+        );
+        assert_eq!(
+            ExecutionLeaseLifecycleEvent::outcome_label(
+                ExecutionLeaseRuntimeOutcome::ReleasedWithPlatformLimitation
+            ),
+            "released_with_platform_limitation"
+        );
+    }
+
+    #[test]
     fn lifecycle_event_uses_runtime_truth_and_explicit_external_identity() {
         let mut runtime = ExecutionLeaseRuntime::new(lease(), TestAdapter::default()).unwrap();
         activate(&mut runtime);
