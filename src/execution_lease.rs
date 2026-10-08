@@ -507,10 +507,10 @@ mod tests {
         let mut persisted = lease();
         persisted.state = CapabilityLeaseState::Active;
 
-        assert_eq!(
+        assert!(matches!(
             ExecutionLeaseRuntime::new(persisted, TestAdapter::default()),
             Err(CapabilityLeaseError::InvalidLease)
-        );
+        ));
     }
 
     #[test]
