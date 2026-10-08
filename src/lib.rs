@@ -107,7 +107,7 @@ pub use evidence_verification::{
     EvidenceVerificationStatus,
 };
 pub use execution_lease::{
-    ExecutionLeaseAdapter, ExecutionLeaseRuntime, ExecutionLeaseRuntimeError,
+    ExecutionLeaseActivationContext, ExecutionLeaseAdapter, ExecutionLeaseRuntime, ExecutionLeaseRuntimeError,
     ExecutionLeaseRuntimeOutcome,
 };
 pub use intelligence::{
