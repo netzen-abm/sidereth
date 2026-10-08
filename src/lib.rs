@@ -27,6 +27,7 @@ pub mod evidence_store;
 pub mod evidence_trust;
 pub mod evidence_verification;
 pub mod execution_lease;
+pub mod execution_lease_evidence;
 pub mod intelligence;
 pub mod jurisdiction;
 pub mod knowledge_graph;
@@ -62,7 +63,7 @@ pub use action::{
     Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
     ExecutionGate, ExecutionGateError, ExecutionGateInput,
 };
-pub use audit::{AuditRecord, AuditSink, InMemoryAudit};
+pub use audit::{AuditProvenanceSink, AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{
     AuthorizationDecision, AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult,
@@ -102,13 +103,14 @@ pub use evidence_trust::{
     EvidenceTrustMetadata, HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus,
     LocationDisclosure, MediaOrigin,
 };
+pub use execution_lease_evidence::AuditProvenanceLifecycleSink;
 pub use evidence_verification::{
     EvidenceVerification, EvidenceVerificationError, EvidenceVerificationMethod,
     EvidenceVerificationStatus,
 };
 pub use execution_lease::{
-    ExecutionLeaseActivationContext, ExecutionLeaseAdapter, ExecutionLeaseRuntime,
-    ExecutionLeaseRuntimeError, ExecutionLeaseRuntimeOutcome,
+    ExecutionLeaseActivationContext, ExecutionLeaseAdapter, ExecutionLeaseLifecycleEvent,
+    ExecutionLeaseRuntime, ExecutionLeaseRuntimeError, ExecutionLeaseRuntimeOutcome,
 };
 pub use intelligence::{
     EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
