@@ -1,7 +1,7 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `5ea483a78afbe7e96ec4263117b1e9b533fe3091`
+**Last audited baseline:** `main` at `2427f097f19660e5da062de7e8525326dc99e3b0`
 **Audit date:** 2026-10-08
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
@@ -121,6 +121,7 @@
 - [ ] asynchronous jobs
 - [ ] retries/resume
 - [ ] runtime lifecycle audit integration
+- [x] provider-neutral audit/provenance persistence adapter through UnitOfWork
 - [ ] durable audit/observability
 - [x] MCP adapter boundary
 
@@ -240,7 +241,7 @@ A capability is not considered complete until its contract, implementation, test
 - [x] Revocation and cancellation terminate future use before adapter release
 - [x] Fresh authorized lease required for reauthorization
 - [x] Explicit synchronization requirement for concurrent callers
-- [ ] Adapter failure / partial-release evidence matrix
+- [x] Adapter failure / partial-release evidence matrix defined
 - [ ] Runtime audit/provenance integration
 - [ ] Durable runtime lease persistence
 - [ ] Production readiness decision
