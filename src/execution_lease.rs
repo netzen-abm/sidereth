@@ -327,11 +327,14 @@ mod tests {
 
     #[test]
     fn failed_release_retains_runtime_handle_and_allows_retry() {
-        let mut adapter = TestAdapter {
-            fail_release: true,
-            ..TestAdapter::default()
-        };
-        let mut runtime = ExecutionLeaseRuntime::new(lease(), adapter.clone()).unwrap();
+        let mut runtime = ExecutionLeaseRuntime::new(
+            lease(),
+            TestAdapter {
+                fail_release: true,
+                ..TestAdapter::default()
+            },
+        )
+        .unwrap();
         activate(&mut runtime);
 
         assert_eq!(
