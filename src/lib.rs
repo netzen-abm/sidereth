@@ -103,7 +103,6 @@ pub use evidence_trust::{
     EvidenceTrustMetadata, HardwareAttestationStatus, IntegrityStatus as EvidenceIntegrityStatus,
     LocationDisclosure, MediaOrigin,
 };
-pub use execution_lease_evidence::AuditProvenanceLifecycleSink;
 pub use evidence_verification::{
     EvidenceVerification, EvidenceVerificationError, EvidenceVerificationMethod,
     EvidenceVerificationStatus,
@@ -112,6 +111,7 @@ pub use execution_lease::{
     ExecutionLeaseActivationContext, ExecutionLeaseAdapter, ExecutionLeaseLifecycleEvent,
     ExecutionLeaseRuntime, ExecutionLeaseRuntimeError, ExecutionLeaseRuntimeOutcome,
 };
+pub use execution_lease_evidence::AuditProvenanceLifecycleSink;
 pub use intelligence::{
     EpistemicStatus, IntelligenceClaim, IntelligenceDataClass, IntelligenceError,
     IntelligenceProvider, IntelligenceRequest, IntelligenceResponse, IntelligenceRiskClass,
