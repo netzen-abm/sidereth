@@ -266,18 +266,28 @@ mod tests {
     }
 
     fn activate(runtime: &mut ExecutionLeaseRuntime<TestAdapter>) {
+        let capability_ref = runtime.lease().capability_ref.clone();
+        let resource_ref = runtime.lease().resource_ref.clone();
+        let subject_ref = runtime.lease().subject_ref.clone();
+        let actor_ref = runtime.lease().actor_ref.clone();
+        let purpose = runtime.lease().purpose.clone();
+        let purpose_version = runtime.lease().purpose_version.clone();
+        let scope = runtime.lease().scope.clone();
+        let incident_ref = runtime.lease().incident_ref.clone();
+        let session_ref = runtime.lease().session_ref.clone();
+
         runtime
             .activate(
                 150,
-                &runtime.lease().capability_ref.clone(),
-                runtime.lease().resource_ref.as_ref(),
-                &runtime.lease().subject_ref.clone(),
-                runtime.lease().actor_ref.as_ref(),
-                &runtime.lease().purpose.clone(),
-                runtime.lease().purpose_version.as_deref(),
-                &runtime.lease().scope.clone(),
-                runtime.lease().incident_ref.as_ref(),
-                runtime.lease().session_ref.as_ref(),
+                &capability_ref,
+                resource_ref.as_ref(),
+                &subject_ref,
+                actor_ref.as_ref(),
+                &purpose,
+                purpose_version.as_deref(),
+                &scope,
+                incident_ref.as_ref(),
+                session_ref.as_ref(),
             )
             .unwrap();
     }
