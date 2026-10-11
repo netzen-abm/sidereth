@@ -1,4 +1,4 @@
-use crate::{AuthorizationDecision, AuthorizationResult, Id, ResourceRef};
+use crate::{validate_authorization, AuthorizationRequest, AuthorizationResult, Id, ResourceRef};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -51,21 +51,32 @@ impl KnowledgeEdge {
     }
 }
 
+/// One canonical authorization decision bound to one exact graph resource.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct KnowledgeGraphAccessContext {
-    pub authorization: AuthorizationResult,
+pub struct KnowledgeGraphResourceAuthorization {
+    pub request: AuthorizationRequest,
+    pub result: AuthorizationResult,
     pub now_epoch_seconds: u64,
+}
+
+impl KnowledgeGraphResourceAuthorization {
+    fn permits(&self, resource: &ResourceRef) -> bool {
+        self.request.resource_ref == *resource
+            && validate_authorization(&self.request, &self.result, self.now_epoch_seconds).is_ok()
+    }
+}
+
+/// Consumer-supplied canonical decisions for the exact resources a graph
+/// operation may reveal. Graph traversal never treats authorization of the
+/// starting node as authorization of every reachable node.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct KnowledgeGraphAccessContext {
+    pub authorizations: Vec<KnowledgeGraphResourceAuthorization>,
 }
 
 impl KnowledgeGraphAccessContext {
     pub fn permits(&self, resource: &ResourceRef) -> bool {
-        self.authorization.decision == AuthorizationDecision::Allow
-            && self.authorization.resource_ref == *resource
-            && self
-                .authorization
-                .expires_at_epoch_seconds
-                .map(|expires| self.now_epoch_seconds <= expires)
-                .unwrap_or(true)
+        self.authorizations.iter().any(|authorization| authorization.permits(resource))
     }
 }
 
@@ -147,6 +158,9 @@ impl KnowledgeGraph {
             for edge in self.edges.values().filter(|edge| edge.source == current) {
                 if !access.permits(&edge.source) {
                     return Err("knowledge graph traversal crossed an unauthorized source");
+                }
+                if !access.permits(&edge.target) {
+                    return Err("knowledge graph traversal crossed an unauthorized target");
                 }
                 if !visited.contains(&edge.target) {
                     queue.push_back((edge.target.clone(), depth + 1));
