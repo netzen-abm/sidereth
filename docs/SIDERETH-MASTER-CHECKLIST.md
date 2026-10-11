@@ -18,7 +18,7 @@
 | Branch | Comparison with `main` | Current disposition |
 |---|---:|---|
 | `main` | baseline | Protected integration target |
-| `architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19` | 6 ahead / 1 behind | Preserve: contains the execution-lease reconciliation contract and lifecycle changes; PR #156 must have current-head CI verified before merge |
+| `architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19` | 7 ahead / 1 behind | Preserve: contains the execution-lease reconciliation contract and lifecycle changes; PR #156 must have current-head CI verified before merge |
 | `feat/knowledge-graph-next` | 1 ahead / 10 behind; unique change in `src/evidence_trust.rs` | Preserve/archive the unique change and verify its tests before retirement or integration |
 | `architecture/repo-organization-privacy-runtime-licensing-2026-09-17` | 0 ahead / 37 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
 | `architecture/reticulum-inspired-cost-delay-sovereignty-research-2026-09-17` | 0 ahead / 32 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
