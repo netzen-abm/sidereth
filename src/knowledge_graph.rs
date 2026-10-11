@@ -76,7 +76,9 @@ pub struct KnowledgeGraphAccessContext {
 
 impl KnowledgeGraphAccessContext {
     pub fn permits(&self, resource: &ResourceRef) -> bool {
-        self.authorizations.iter().any(|authorization| authorization.permits(resource))
+        self.authorizations
+            .iter()
+            .any(|authorization| authorization.permits(resource))
     }
 }
 
