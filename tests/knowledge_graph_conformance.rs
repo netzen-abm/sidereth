@@ -102,7 +102,7 @@ fn graph_contract_preserves_external_federation_reference() {
                 provenance,
             )
             .unwrap(),
-            &access(&source),
+            &access_many(&[source.clone(), external.clone()]),
         )
         .unwrap();
     assert_eq!(
@@ -126,7 +126,7 @@ fn graph_traversal_rejects_an_unauthorized_target() {
             "edge-private", source.clone(), "references", target.clone(),
             KnowledgeLinkClass::Forward, provenance,
         ).unwrap(),
-        &access(&source),
+        &access_many(&[source.clone(), target.clone()]),
     ).unwrap();
 
     assert_eq!(
