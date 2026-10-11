@@ -111,7 +111,7 @@ impl KnowledgeGraph {
         edge: KnowledgeEdge,
         access: &KnowledgeGraphAccessContext,
     ) -> Result<(), &'static str> {
-        if !access.permits(&edge.source) {
+        if !access.permits(&edge.source) || !access.permits(&edge.target) {
             return Err("knowledge graph edge mutation is unauthorized");
         }
         if edge.class == KnowledgeLinkClass::Strong && !self.nodes.contains_key(&edge.target) {
