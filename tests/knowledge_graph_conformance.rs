@@ -230,10 +230,7 @@ fn write_authorization_cannot_read_graph() {
         .unwrap();
 
     assert_eq!(
-        graph.get_node(
-            &resource,
-            &write_access(std::slice::from_ref(&resource)),
-        ),
+        graph.get_node(&resource, &write_access(std::slice::from_ref(&resource)),),
         Err("knowledge graph read is unauthorized")
     );
 }
