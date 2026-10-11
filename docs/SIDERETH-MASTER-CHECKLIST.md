@@ -1,10 +1,51 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `2427f097f19660e5da062de7e8525326dc99e3b0`
-**Audit date:** 2026-10-08
+**Last audited baseline:** `main` at `ac1b19251099a848f1d1db731ec9afc55b8520a7`
+**Audit date:** 2026-10-11
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
+
+
+## Current repository and engineering-cycle audit — 2026-10-11
+
+**Verified main baseline:** `ac1b19251099a848f1d1db731ec9afc55b8520a7`  
+**Active branch count:** exactly 9 observed. No branch was created or deleted during this audit.  
+**Current implementation priority:** prove authorization, protected-data access, lease lifecycle, persistence semantics, and independent-consumer conformance; do not add new abstraction layers unless a demonstrated invariant or independent boundary requires them.
+
+### Branch disposition evidence
+
+| Branch | Comparison with `main` | Current disposition |
+|---|---:|---|
+| `main` | baseline | Protected integration target |
+| `architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19` | 7 ahead / 1 behind | Preserve: contains the execution-lease reconciliation contract and lifecycle changes; PR #156 must have current-head CI verified before merge |
+| `feat/knowledge-graph-next` | 1 ahead / 10 behind; unique change in `src/evidence_trust.rs` | Preserve/archive the unique change and verify its tests before retirement or integration |
+| `architecture/repo-organization-privacy-runtime-licensing-2026-09-17` | 0 ahead / 37 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
+| `architecture/reticulum-inspired-cost-delay-sovereignty-research-2026-09-17` | 0 ahead / 32 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
+| `docs/documentation-governance-2026-09-11` | 0 ahead / 235 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
+| `docs/semantic-audit-domain-model-2026-09-11` | 0 ahead / 231 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
+| `governance/ruleset-baseline-2026-09-16` | 0 ahead / 45 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
+| `sidereth-ecosystem-architecture` | 0 ahead / 542 behind | Retirement candidate after archive/disposition and workflow/PR dependency checks |
+
+**Branch-control rule:** maintain exactly nine active branches. Do not delete a candidate merely because it is behind; first preserve any unique material, verify open PRs/workflow dependencies and protection settings, record disposition, then retire it through the repository's approved branch-governance process. A branch-deletion operation was not available through the connected GitHub actions used for this audit, so no deletion is claimed.
+
+### Verified architecture and open proof gates
+
+- Canonical authorization enforcement exists in `src/authorization_enforcement.rs`; it binds request/result context, enforces freshness and expiry, requires `Allow`, and fails closed on unknown or conflicting constraints.
+- Protected evidence retrieval is routed through `AuthorizedEvidenceQuery` in `src/evidence_query.rs`, which validates authorization before metadata/object reads and verifies the content hash.
+- `src/tool_gateway.rs` composes canonical authorization, registry/provider binding, capability leases, execution-gate checks, idempotency, invocation-bound data access and audit/provenance. Production readiness is **not** established by module presence alone.
+- `src/execution_lease.rs` keeps provider-handle ownership in the runtime and lifecycle evidence at the separate persistence boundary. The current main commit adds a fail-closed restart test for orphaned persisted Active leases.
+- `ResourceLinkClass` exists in `src/persistence/resource.rs`; legacy links decode without being inferred as Strong. The remaining gate is end-to-end proof of Strong-link endpoint validation/atomicity, duplicate and class-conflict behavior, PostgreSQL behavior, backward compatibility and provider-neutral conformance.
+- The `AuthorizedAudit` helper in `src/security.rs` checks only that the supplied result is `Allow`; it does not itself validate request/result contextual binding or expiry. No production call site was found by the current code search. Keep it non-authoritative and ensure any future protected operation enters through the canonical validation boundary.
+- PR #156 has three changed files and its branch is 6 commits ahead and 1 behind `main`. The available workflow query returned no runs for the main SHA and did not establish PR-head checks; this is **unverified**, not a passing CI result. Do not merge until current PR-head required checks and mergeability are confirmed.
+
+### Next engineering cycle — evidence, not abstractions
+
+1. Verify PR #156's exact head, mergeability, required checks and current-head CI; integrate the latest main fail-closed restart change without losing unique work.
+2. Complete a line-referenced protected-data/consequential-execution bypass audit, including direct evidence-store access and every authorization/lease consumer.
+3. Close ResourceLink wire/PostgreSQL/conformance tests and durable idempotency/lifecycle failure tests.
+4. Run the independent-consumer conformance suite; only then decide whether any shared component is extraction-ready.
+
 
 ## Gate 0 — Repository safety
 - [x] Create isolated foundation branch
@@ -120,7 +161,7 @@
 - [ ] human approval production checkpoints
 - [ ] asynchronous jobs
 - [ ] retries/resume
-- [ ] runtime lifecycle audit integration
+- [x] runtime lifecycle audit integration
 - [x] provider-neutral audit/provenance persistence adapter through UnitOfWork
 - [ ] durable audit/observability
 - [x] MCP adapter boundary
@@ -242,6 +283,26 @@ A capability is not considered complete until its contract, implementation, test
 - [x] Fresh authorized lease required for reauthorization
 - [x] Explicit synchronization requirement for concurrent callers
 - [x] Adapter failure / partial-release evidence matrix defined
-- [ ] Runtime audit/provenance integration
+- [x] Runtime audit/provenance integration
 - [ ] Durable runtime lease persistence
 - [ ] Production readiness decision
+
+
+## Follow-up execution update — 2026-10-11
+
+### PR #157 — canonical graph authorization
+
+- Latest reviewed head: `b4353417bd668930f0b65738f39a1be69930dce2`.
+- PR diff is now focused on `src/knowledge_graph.rs`, `src/lib.rs`, and `tests/knowledge_graph_conformance.rs`. The unused evidence-provenance validator was removed from this PR rather than shipping a validator with no authoritative persistence caller.
+- Initial Foundation Validation failed at `cargo fmt --all -- --check`; the reported formatting differences were corrected in the latest file versions.
+- Security and Supply Chain passed on the earlier reviewed head; Foundation Validation failed before compile/tests because formatting stopped the job.
+- **Latest-head CI is still unverified.** The available workflow query returned no run for the latest content-API commit. Do not infer success from the earlier run, and do not merge until a normal PR-head workflow run passes.
+- GitHub currently reports PR #157 as open; mergeability is transient and not a substitute for required checks.
+
+### Immediate acceptance gate
+
+1. Trigger CI on the latest PR head through a normal Git push/PR synchronization or repository workflow mechanism.
+2. Require formatting, compile, unit/conformance tests, Clippy, security/supply-chain checks and relevant PostgreSQL proof gates to pass; investigate skipped jobs rather than counting them as passes.
+3. Keep the PR unmerged until the current head is verified. Keep the graph storage/traversal cohesive; do not add a separate graph authorization service.
+4. Continue with protected evidence access and provider/lease consumers only after the graph gate is resolved.
+
