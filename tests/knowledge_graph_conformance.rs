@@ -106,7 +106,9 @@ fn graph_contract_preserves_external_federation_reference() {
         )
         .unwrap();
     assert_eq!(
-        graph.traverse(&source, 1, &access_many(&[source.clone(), external.clone()])).unwrap(),
+        graph
+            .traverse(&source, 1, &access_many(&[source.clone(), external.clone()]))
+            .unwrap(),
         vec![source, external]
     );
 }
@@ -117,17 +119,29 @@ fn graph_traversal_rejects_an_unauthorized_target() {
     let target = reference(ResourceType::Document, "doc-private");
     let provenance = reference(ResourceType::Provenance, "prov-private");
     let mut graph = KnowledgeGraph::default();
-    graph.insert_node(
-        KnowledgeNode { resource: source.clone(), labels: BTreeSet::new() },
-        &access(&source),
-    ).unwrap();
-    graph.insert_edge(
-        KnowledgeEdge::new(
-            "edge-private", source.clone(), "references", target.clone(),
-            KnowledgeLinkClass::Forward, provenance,
-        ).unwrap(),
-        &access_many(&[source.clone(), target.clone()]),
-    ).unwrap();
+    graph
+        .insert_node(
+            KnowledgeNode {
+                resource: source.clone(),
+                labels: BTreeSet::new(),
+            },
+            &access(&source),
+        )
+        .unwrap();
+    graph
+        .insert_edge(
+            KnowledgeEdge::new(
+                "edge-private",
+                source.clone(),
+                "references",
+                target.clone(),
+                KnowledgeLinkClass::Forward,
+                provenance,
+            )
+            .unwrap(),
+            &access_many(&[source.clone(), target.clone()]),
+        )
+        .unwrap();
 
     assert_eq!(
         graph.traverse(&source, 1, &access(&source)),
@@ -141,4 +155,37 @@ fn graph_access_rejects_expired_canonical_authorization() {
     let mut context = access(&resource);
     context.authorizations[0].now_epoch_seconds = 200;
     assert!(!context.permits(&resource));
+}
+
+#[test]
+fn edge_mutation_rejects_an_unauthorized_target() {
+    let source = reference(ResourceType::Document, "doc-source");
+    let target = reference(ResourceType::Document, "doc-private");
+    let provenance = reference(ResourceType::Provenance, "prov-private");
+    let mut graph = KnowledgeGraph::default();
+    graph
+        .insert_node(
+            KnowledgeNode {
+                resource: source.clone(),
+                labels: BTreeSet::new(),
+            },
+            &access(&source),
+        )
+        .unwrap();
+
+    assert_eq!(
+        graph.insert_edge(
+            KnowledgeEdge::new(
+                "edge-private",
+                source.clone(),
+                "references",
+                target,
+                KnowledgeLinkClass::Forward,
+                provenance,
+            )
+            .unwrap(),
+            &access(&source),
+        ),
+        Err("knowledge graph edge mutation is unauthorized")
+    );
 }
