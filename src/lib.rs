@@ -107,8 +107,8 @@ pub use intelligence::{
 };
 pub use jurisdiction::{Jurisdiction, JurisdictionRegistry, JurisdictionStatus, JurisdictionType};
 pub use knowledge_graph::{
-    KnowledgeEdge, KnowledgeGraph, KnowledgeGraphAccessContext, KnowledgeGraphResourceAuthorization,
-    KnowledgeLinkClass, KnowledgeNode,
+    KnowledgeEdge, KnowledgeGraph, KnowledgeGraphAccessContext,
+    KnowledgeGraphResourceAuthorization, KnowledgeLinkClass, KnowledgeNode,
 };
 pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
