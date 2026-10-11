@@ -71,7 +71,7 @@ fn graph_contract_requires_authorized_resource_scope() {
                 resource: doc.clone(),
                 labels: BTreeSet::new(),
             },
-            &access(&doc),
+            &write_access(std::slice::from_ref(&doc)),
         )
         .unwrap();
     assert_eq!(
@@ -92,7 +92,7 @@ fn graph_contract_preserves_external_federation_reference() {
                 resource: source.clone(),
                 labels: BTreeSet::new(),
             },
-            &access(&source),
+            &write_access(std::slice::from_ref(&source)),
         )
         .unwrap();
     graph
@@ -114,7 +114,7 @@ fn graph_contract_preserves_external_federation_reference() {
             .traverse(
                 &source,
                 1,
-                &access_many(&[source.clone(), external.clone()])
+                &access_many(&[source.clone(), external.clone()], "graph.read")
             )
             .unwrap(),
         vec![source, external]
@@ -133,7 +133,7 @@ fn graph_traversal_rejects_an_unauthorized_target() {
                 resource: source.clone(),
                 labels: BTreeSet::new(),
             },
-            &access(&source),
+            &write_access(std::slice::from_ref(&source)),
         )
         .unwrap();
     graph
@@ -177,7 +177,7 @@ fn edge_mutation_rejects_an_unauthorized_target() {
                 resource: source.clone(),
                 labels: BTreeSet::new(),
             },
-            &access(&source),
+            &write_access(std::slice::from_ref(&source)),
         )
         .unwrap();
 
@@ -192,7 +192,7 @@ fn edge_mutation_rejects_an_unauthorized_target() {
                 provenance,
             )
             .unwrap(),
-            &access(&source),
+            &write_access(std::slice::from_ref(&source)),
         ),
         Err("knowledge graph edge mutation is unauthorized")
     );
