@@ -1,7 +1,7 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `25b09849b925b388f51389a5f408dae4302ab4b0`
+**Last audited baseline:** `main` at `236f1bd0bff7bcd44f9fb0a37642d61eab139c68`
 **Audit date:** 2026-10-11
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
@@ -313,7 +313,18 @@ A capability is not considered complete until its contract, implementation, test
 - PR #156 squash-merged successfully as `25b09849b925b388f51389a5f408dae4302ab4b0` after Foundation Validation and Security/RustSec passed at its exact head.
 - Exactly nine active branches remain. The merged source branch still exists; no branch deletion was performed.
 - PR #157 was hardened to bind authorization to action as well as exact resource: `graph.read` for reads/traversal and `graph.write` for mutations. A regression test verifies read authorization cannot mutate the graph.
-- Latest PR #157 head at this audit: `a65dee630ed4264c0866255b359c617723575edd`. Foundation Validation and Security workflows are still running; no merge decision until both complete and the PR is reconciled with current `main`.
-- PR #157 review findings: unauthorized traversal targets are now filtered; the prior evidence-provenance validator was removed from this PR because it had no authoritative persistence caller. Provenance binding remains a separate evidence-persistence acceptance gate.
-- Next: finish latest-head CI; resolve PR #157 base/mergeability; then continue line-referenced audit of protected evidence access, direct storage paths, and execution-lease consumers. Keep branch hygiene archive-first and do not create abstractions without a demonstrated independent boundary.
+- PR #157 was merged as `236f1bd0bff7bcd44f9fb0a37642d61eab139c68` after Foundation Validation and Security/Supply Chain passed on exact head `84fa6f2f17649b8946321b75fcc52cfcbc84cf3f`.
+- The P1 graph traversal finding was resolved after verifying unauthorized traversal targets are filtered in `src/knowledge_graph.rs` and CI passed. Evidence provenance findings were explicitly scoped out and tracked in issue #159; they remain open security work, not resolved controls.
+- Next: execute the evidence-provenance persistence audit under issue #159, then continue line-referenced protected-data and execution-lease consumer review. Keep branch hygiene archive-first and do not create abstractions without a demonstrated independent boundary.
+
+
+
+## Follow-up execution update — 2026-10-11 (graph authorization merged)
+
+- PR #157 merged to `main` as `236f1bd0bff7bcd44f9fb0a37642d61eab139c68`.
+- Exact reviewed head: `84fa6f2f17649b8946321b75fcc52cfcbc84cf3f`. Foundation Validation and Security/Supply Chain workflows passed on this head. OpenSSF Scorecard was skipped by workflow and is not counted as a pass.
+- Graph reads/traversal require `graph.read`; mutations require `graph.write`; exact-resource binding and dual endpoint authorization for edge creation remain in the cohesive graph boundary. Unauthorized traversal targets are filtered.
+- Exactly nine active branches were verified after merge.
+- Open issue #159 tracks the separate evidence trust/persistence findings: non-Party provenance actors and enforcing provenance binding before authoritative persistence. These are open and must not be marked done until integration tests prove them.
+- Next two steps: (1) trace `PersistedEvidence` through all mutation/persistence paths and bind provenance validation before commit; (2) run a full authorization/direct-protected-data access search with file/line/test evidence and refresh this checklist from verified results.
 
