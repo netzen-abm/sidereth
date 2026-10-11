@@ -214,3 +214,26 @@ fn read_authorization_cannot_mutate_graph() {
     );
     assert_eq!(graph.node_count(), 0);
 }
+
+#[test]
+fn write_authorization_cannot_read_graph() {
+    let resource = reference(ResourceType::Document, "doc-write-only");
+    let mut graph = KnowledgeGraph::default();
+    graph
+        .insert_node(
+            KnowledgeNode {
+                resource: resource.clone(),
+                labels: BTreeSet::new(),
+            },
+            &write_access(std::slice::from_ref(&resource)),
+        )
+        .unwrap();
+
+    assert_eq!(
+        graph.get_node(
+            &resource,
+            &write_access(std::slice::from_ref(&resource)),
+        ),
+        Err("knowledge graph read is unauthorized")
+    );
+}
