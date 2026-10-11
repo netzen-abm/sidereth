@@ -161,8 +161,10 @@ impl KnowledgeGraph {
                 if !access.permits(&edge.source) {
                     return Err("knowledge graph traversal crossed an unauthorized source");
                 }
+                // Filter unauthorized targets rather than returning a distinct error
+                // that would reveal the existence of a protected edge.
                 if !access.permits(&edge.target) {
-                    return Err("knowledge graph traversal crossed an unauthorized target");
+                    continue;
                 }
                 if !visited.contains(&edge.target) {
                     queue.push_back((edge.target.clone(), depth + 1));
