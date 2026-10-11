@@ -197,3 +197,20 @@ fn edge_mutation_rejects_an_unauthorized_target() {
         Err("knowledge graph edge mutation is unauthorized")
     );
 }
+
+#[test]
+fn read_authorization_cannot_mutate_graph() {
+    let resource = reference(ResourceType::Document, "doc-read-only");
+    let mut graph = KnowledgeGraph::default();
+    assert_eq!(
+        graph.insert_node(
+            KnowledgeNode {
+                resource: resource.clone(),
+                labels: BTreeSet::new(),
+            },
+            &access(&resource),
+        ),
+        Err("knowledge graph node mutation is unauthorized")
+    );
+    assert_eq!(graph.node_count(), 0);
+}
