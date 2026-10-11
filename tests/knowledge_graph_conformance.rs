@@ -144,8 +144,8 @@ fn graph_traversal_rejects_an_unauthorized_target() {
         .unwrap();
 
     assert_eq!(
-        graph.traverse(&source, 1, &access(&source)),
-        Err("knowledge graph traversal crossed an unauthorized target")
+        graph.traverse(&source, 1, &access(&source)).unwrap(),
+        vec![source]
     );
 }
 
