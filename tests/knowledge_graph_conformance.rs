@@ -9,7 +9,7 @@ fn reference(t: ResourceType, id: &str) -> ResourceRef {
     ResourceRef::new(t, id).unwrap()
 }
 
-fn access_many(resources: &[ResourceRef]) -> KnowledgeGraphAccessContext {
+fn access_many(resources: &[ResourceRef], action_id: &str) -> KnowledgeGraphAccessContext {
     KnowledgeGraphAccessContext {
         authorizations: resources
             .iter()
@@ -18,7 +18,7 @@ fn access_many(resources: &[ResourceRef]) -> KnowledgeGraphAccessContext {
                     request_id: format!("req-{}", resource.id),
                     authorization_ref: reference(ResourceType::Other, "auth"),
                     subject_ref: reference(ResourceType::Party, "researcher"),
-                    action: reference(ResourceType::Action, "graph.read"),
+                    action: reference(ResourceType::Action, action_id),
                     resource_ref: resource.clone(),
                     purpose: "knowledge graph".into(),
                     policy_refs: vec![reference(ResourceType::Other, "policy")],
@@ -53,7 +53,11 @@ fn access_many(resources: &[ResourceRef]) -> KnowledgeGraphAccessContext {
 }
 
 fn access(resource: &ResourceRef) -> KnowledgeGraphAccessContext {
-    access_many(std::slice::from_ref(resource))
+    access_many(std::slice::from_ref(resource), "graph.read")
+}
+
+fn write_access(resources: &[ResourceRef]) -> KnowledgeGraphAccessContext {
+    access_many(resources, "graph.write")
 }
 
 #[test]
@@ -102,7 +106,7 @@ fn graph_contract_preserves_external_federation_reference() {
                 provenance,
             )
             .unwrap(),
-            &access_many(&[source.clone(), external.clone()]),
+            &write_access(&[source.clone(), external.clone()]),
         )
         .unwrap();
     assert_eq!(
@@ -143,7 +147,7 @@ fn graph_traversal_rejects_an_unauthorized_target() {
                 provenance,
             )
             .unwrap(),
-            &access_many(&[source.clone(), target.clone()]),
+            &write_access(&[source.clone(), target.clone()]),
         )
         .unwrap();
 
@@ -158,7 +162,7 @@ fn graph_access_rejects_expired_canonical_authorization() {
     let resource = reference(ResourceType::Document, "doc-expired");
     let mut context = access(&resource);
     context.authorizations[0].now_epoch_seconds = 200;
-    assert!(!context.permits(&resource));
+    assert!(!context.permits(&resource, "graph.read"));
 }
 
 #[test]
