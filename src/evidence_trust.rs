@@ -101,7 +101,7 @@ impl EvidenceTransformation {
             .actor_ref
             .as_ref()
             .ok_or("provenance actor is required for transformation")?;
-        if actor.resource_type != ResourceType::Party || actor.id != self.created_by {
+        if actor.id != self.created_by {
             return Err("provenance actor does not match transformation creator");
         }
 
