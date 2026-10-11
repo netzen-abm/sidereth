@@ -1,7 +1,7 @@
 use sidereth_core::{
-    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, KnowledgeEdge, KnowledgeGraph,
-    KnowledgeGraphAccessContext, KnowledgeGraphResourceAuthorization, KnowledgeLinkClass,
-    KnowledgeNode, ResourceRef, ResourceType,
+    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, KnowledgeEdge,
+    KnowledgeGraph, KnowledgeGraphAccessContext, KnowledgeGraphResourceAuthorization,
+    KnowledgeLinkClass, KnowledgeNode, ResourceRef, ResourceType,
 };
 use std::collections::BTreeSet;
 
@@ -107,7 +107,11 @@ fn graph_contract_preserves_external_federation_reference() {
         .unwrap();
     assert_eq!(
         graph
-            .traverse(&source, 1, &access_many(&[source.clone(), external.clone()]))
+            .traverse(
+                &source,
+                1,
+                &access_many(&[source.clone(), external.clone()])
+            )
             .unwrap(),
         vec![source, external]
     );
