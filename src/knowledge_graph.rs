@@ -60,8 +60,9 @@ pub struct KnowledgeGraphResourceAuthorization {
 }
 
 impl KnowledgeGraphResourceAuthorization {
-    fn permits(&self, resource: &ResourceRef) -> bool {
+    fn permits(&self, resource: &ResourceRef, action_id: &str) -> bool {
         self.request.resource_ref == *resource
+            && self.request.action.id == action_id
             && validate_authorization(&self.request, &self.result, self.now_epoch_seconds).is_ok()
     }
 }
@@ -75,10 +76,10 @@ pub struct KnowledgeGraphAccessContext {
 }
 
 impl KnowledgeGraphAccessContext {
-    pub fn permits(&self, resource: &ResourceRef) -> bool {
+    pub fn permits(&self, resource: &ResourceRef, action_id: &str) -> bool {
         self.authorizations
             .iter()
-            .any(|authorization| authorization.permits(resource))
+            .any(|authorization| authorization.permits(resource, action_id))
     }
 }
 
@@ -101,7 +102,7 @@ impl KnowledgeGraph {
         node: KnowledgeNode,
         access: &KnowledgeGraphAccessContext,
     ) -> Result<(), &'static str> {
-        if !access.permits(&node.resource) {
+        if !access.permits(&node.resource, "graph.write") {
             return Err("knowledge graph node mutation is unauthorized");
         }
         self.nodes.insert(node.resource.clone(), node);
@@ -113,7 +114,9 @@ impl KnowledgeGraph {
         edge: KnowledgeEdge,
         access: &KnowledgeGraphAccessContext,
     ) -> Result<(), &'static str> {
-        if !access.permits(&edge.source) || !access.permits(&edge.target) {
+        if !access.permits(&edge.source, "graph.write")
+            || !access.permits(&edge.target, "graph.write")
+        {
             return Err("knowledge graph edge mutation is unauthorized");
         }
         if edge.class == KnowledgeLinkClass::Strong && !self.nodes.contains_key(&edge.target) {
@@ -131,7 +134,7 @@ impl KnowledgeGraph {
         resource: &ResourceRef,
         access: &KnowledgeGraphAccessContext,
     ) -> Result<Option<&KnowledgeNode>, &'static str> {
-        if !access.permits(resource) {
+        if !access.permits(resource, "graph.read") {
             return Err("knowledge graph read is unauthorized");
         }
         Ok(self.nodes.get(resource))
@@ -143,7 +146,7 @@ impl KnowledgeGraph {
         max_depth: usize,
         access: &KnowledgeGraphAccessContext,
     ) -> Result<Vec<ResourceRef>, &'static str> {
-        if !access.permits(start) {
+        if !access.permits(start, "graph.read") {
             return Err("knowledge graph traversal is unauthorized");
         }
         let mut visited = BTreeSet::new();
@@ -158,12 +161,12 @@ impl KnowledgeGraph {
                 continue;
             }
             for edge in self.edges.values().filter(|edge| edge.source == current) {
-                if !access.permits(&edge.source) {
+                if !access.permits(&edge.source, "graph.read") {
                     return Err("knowledge graph traversal crossed an unauthorized source");
                 }
                 // Filter unauthorized targets rather than returning a distinct error
                 // that would reveal the existence of a protected edge.
-                if !access.permits(&edge.target) {
+                if !access.permits(&edge.target, "graph.read") {
                     continue;
                 }
                 if !visited.contains(&edge.target) {
