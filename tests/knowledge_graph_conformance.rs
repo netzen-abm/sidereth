@@ -1,6 +1,7 @@
 use sidereth_core::{
-    AuthorizationDecision, AuthorizationResult, KnowledgeEdge, KnowledgeGraph,
-    KnowledgeGraphAccessContext, KnowledgeLinkClass, KnowledgeNode, ResourceRef, ResourceType,
+    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, KnowledgeEdge, KnowledgeGraph,
+    KnowledgeGraphAccessContext, KnowledgeGraphResourceAuthorization, KnowledgeLinkClass,
+    KnowledgeNode, ResourceRef, ResourceType,
 };
 use std::collections::BTreeSet;
 
@@ -8,25 +9,51 @@ fn reference(t: ResourceType, id: &str) -> ResourceRef {
     ResourceRef::new(t, id).unwrap()
 }
 
-fn access(resource: &ResourceRef) -> KnowledgeGraphAccessContext {
+fn access_many(resources: &[ResourceRef]) -> KnowledgeGraphAccessContext {
     KnowledgeGraphAccessContext {
-        authorization: AuthorizationResult {
-            request_id: "req-conformance".into(),
-            authorization_ref: reference(ResourceType::Other, "auth"),
-            subject_ref: reference(ResourceType::Party, "researcher"),
-            action: reference(ResourceType::Action, "graph"),
-            resource_ref: resource.clone(),
-            purpose: "knowledge graph".into(),
-            jurisdiction_ref: None,
-            data_class: Some("research".into()),
-            decision: AuthorizationDecision::Allow,
-            constraints: vec![],
-            policy_refs: vec![reference(ResourceType::Other, "policy")],
-            evaluated_at_epoch_seconds: 100,
-            expires_at_epoch_seconds: Some(200),
-        },
-        now_epoch_seconds: 100,
+        authorizations: resources
+            .iter()
+            .map(|resource| {
+                let request = AuthorizationRequest {
+                    request_id: format!("req-{}", resource.id),
+                    authorization_ref: reference(ResourceType::Other, "auth"),
+                    subject_ref: reference(ResourceType::Party, "researcher"),
+                    action: reference(ResourceType::Action, "graph.read"),
+                    resource_ref: resource.clone(),
+                    purpose: "knowledge graph".into(),
+                    policy_refs: vec![reference(ResourceType::Other, "policy")],
+                    jurisdiction_ref: None,
+                    data_class: Some("research".into()),
+                    requested_at_epoch_seconds: 100,
+                    freshness_seconds: Some(100),
+                };
+                let result = AuthorizationResult {
+                    request_id: request.request_id.clone(),
+                    authorization_ref: request.authorization_ref.clone(),
+                    subject_ref: request.subject_ref.clone(),
+                    action: request.action.clone(),
+                    resource_ref: request.resource_ref.clone(),
+                    purpose: request.purpose.clone(),
+                    jurisdiction_ref: request.jurisdiction_ref.clone(),
+                    data_class: request.data_class.clone(),
+                    decision: AuthorizationDecision::Allow,
+                    constraints: vec![],
+                    policy_refs: request.policy_refs.clone(),
+                    evaluated_at_epoch_seconds: 100,
+                    expires_at_epoch_seconds: Some(200),
+                };
+                KnowledgeGraphResourceAuthorization {
+                    request,
+                    result,
+                    now_epoch_seconds: 100,
+                }
+            })
+            .collect(),
     }
+}
+
+fn access(resource: &ResourceRef) -> KnowledgeGraphAccessContext {
+    access_many(std::slice::from_ref(resource))
 }
 
 #[test]
@@ -79,7 +106,39 @@ fn graph_contract_preserves_external_federation_reference() {
         )
         .unwrap();
     assert_eq!(
-        graph.traverse(&source, 1, &access(&source)).unwrap(),
+        graph.traverse(&source, 1, &access_many(&[source.clone(), external.clone()])).unwrap(),
         vec![source, external]
     );
+}
+
+#[test]
+fn graph_traversal_rejects_an_unauthorized_target() {
+    let source = reference(ResourceType::Document, "doc-source");
+    let target = reference(ResourceType::Document, "doc-private");
+    let provenance = reference(ResourceType::Provenance, "prov-private");
+    let mut graph = KnowledgeGraph::default();
+    graph.insert_node(
+        KnowledgeNode { resource: source.clone(), labels: BTreeSet::new() },
+        &access(&source),
+    ).unwrap();
+    graph.insert_edge(
+        KnowledgeEdge::new(
+            "edge-private", source.clone(), "references", target.clone(),
+            KnowledgeLinkClass::Forward, provenance,
+        ).unwrap(),
+        &access(&source),
+    ).unwrap();
+
+    assert_eq!(
+        graph.traverse(&source, 1, &access(&source)),
+        Err("knowledge graph traversal crossed an unauthorized target")
+    );
+}
+
+#[test]
+fn graph_access_rejects_expired_canonical_authorization() {
+    let resource = reference(ResourceType::Document, "doc-expired");
+    let mut context = access(&resource);
+    context.authorizations[0].now_epoch_seconds = 200;
+    assert!(!context.permits(&resource));
 }
