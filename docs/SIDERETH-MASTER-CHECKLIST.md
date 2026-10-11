@@ -286,3 +286,23 @@ A capability is not considered complete until its contract, implementation, test
 - [x] Runtime audit/provenance integration
 - [ ] Durable runtime lease persistence
 - [ ] Production readiness decision
+
+
+## Follow-up execution update — 2026-10-11
+
+### PR #157 — canonical graph authorization
+
+- Latest reviewed head: `b4353417bd668930f0b65738f39a1be69930dce2`.
+- PR diff is now focused on `src/knowledge_graph.rs`, `src/lib.rs`, and `tests/knowledge_graph_conformance.rs`. The unused evidence-provenance validator was removed from this PR rather than shipping a validator with no authoritative persistence caller.
+- Initial Foundation Validation failed at `cargo fmt --all -- --check`; the reported formatting differences were corrected in the latest file versions.
+- Security and Supply Chain passed on the earlier reviewed head; Foundation Validation failed before compile/tests because formatting stopped the job.
+- **Latest-head CI is still unverified.** The available workflow query returned no run for the latest content-API commit. Do not infer success from the earlier run, and do not merge until a normal PR-head workflow run passes.
+- GitHub currently reports PR #157 as open; mergeability is transient and not a substitute for required checks.
+
+### Immediate acceptance gate
+
+1. Trigger CI on the latest PR head through a normal Git push/PR synchronization or repository workflow mechanism.
+2. Require formatting, compile, unit/conformance tests, Clippy, security/supply-chain checks and relevant PostgreSQL proof gates to pass; investigate skipped jobs rather than counting them as passes.
+3. Keep the PR unmerged until the current head is verified. Keep the graph storage/traversal cohesive; do not add a separate graph authorization service.
+4. Continue with protected evidence access and provider/lease consumers only after the graph gate is resolved.
+
