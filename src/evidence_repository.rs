@@ -75,7 +75,7 @@ impl PersistedEvidence {
         self.trust
             .validate()
             .map_err(|_| EvidencePersistenceError::ValidationFailure)?;
-        let mut transformation_ids = std::collections::HashSet::new();
+        let mut transformation_ids = std::collections::HashSet::<Id>::new();
         for transformation in &self.transformations {
             transformation
                 .validate()
@@ -83,7 +83,7 @@ impl PersistedEvidence {
             if transformation.source_evidence_id != self.original.evidence_id {
                 return Err(EvidencePersistenceError::IntegrityFailure);
             }
-            if !transformation_ids.insert(&transformation.transformation_id) {
+            if !transformation_ids.insert(transformation.transformation_id.clone()) {
                 return Err(EvidencePersistenceError::Duplicate);
             }
             let matching = self
