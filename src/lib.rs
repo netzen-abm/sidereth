@@ -95,7 +95,7 @@ pub use evidence_query::{
 };
 pub use evidence_repository::{
     EvidencePersistenceError, EvidenceTrustRepository, EvidenceTrustUnitOfWorkRepository,
-    InMemoryEvidenceTrustRepository, PersistedEvidence,
+    InMemoryEvidenceTrustRepository, PersistedEvidence, TransformationProvenance,
 };
 pub use evidence_store::{EvidenceObjectStore, EvidenceRepository, InMemoryEvidenceVault};
 pub use evidence_trust::{
