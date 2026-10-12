@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::persistence::{PersistenceError, ResourceWrite, ResourceWriteMode, UnitOfWorkContext};
 use crate::{
-    EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id, ResourceRef, ResourceType,
+    EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id, Provenance, ResourceRef, ResourceType,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +30,15 @@ pub struct PersistedEvidence {
     pub original: EvidenceOriginal,
     pub trust: EvidenceTrustMetadata,
     pub transformations: Vec<EvidenceTransformation>,
+    /// Provenance records bound one-to-one to transformation IDs.
+    #[serde(default)]
+    pub transformation_provenance: Vec<TransformationProvenance>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TransformationProvenance {
+    pub transformation_id: Id,
+    pub provenance: Provenance,
 }
 
 impl PersistedEvidence {
@@ -52,6 +61,7 @@ impl PersistedEvidence {
             original,
             trust,
             transformations: Vec::new(),
+            transformation_provenance: Vec::new(),
         })
     }
 
@@ -76,6 +86,25 @@ impl PersistedEvidence {
             if !transformation_ids.insert(&transformation.transformation_id) {
                 return Err(EvidencePersistenceError::Duplicate);
             }
+            let matching = self
+                .transformation_provenance
+                .iter()
+                .filter(|binding| binding.transformation_id == transformation.transformation_id)
+                .collect::<Vec<_>>();
+            if matching.len() != 1 {
+                return Err(EvidencePersistenceError::IntegrityFailure);
+            }
+            transformation
+                .validate_provenance(&matching[0].provenance)
+                .map_err(|_| EvidencePersistenceError::IntegrityFailure)?;
+        }
+        let mut bound_ids = std::collections::HashSet::new();
+        for binding in &self.transformation_provenance {
+            if !transformation_ids.contains(&binding.transformation_id)
+                || !bound_ids.insert(&binding.transformation_id)
+            {
+                return Err(EvidencePersistenceError::IntegrityFailure);
+            }
         }
         Ok(())
     }
@@ -83,6 +112,7 @@ impl PersistedEvidence {
     pub fn with_transformation(
         mut self,
         transformation: EvidenceTransformation,
+        provenance: Provenance,
     ) -> Result<Self, EvidencePersistenceError> {
         transformation
             .validate()
@@ -90,13 +120,23 @@ impl PersistedEvidence {
         if transformation.source_evidence_id != self.original.evidence_id {
             return Err(EvidencePersistenceError::IntegrityFailure);
         }
+        transformation
+            .validate_provenance(&provenance)
+            .map_err(|_| EvidencePersistenceError::IntegrityFailure)?;
         if self
             .transformations
             .iter()
             .any(|item| item.transformation_id == transformation.transformation_id)
+            || self.transformation_provenance.iter().any(|binding| {
+                binding.transformation_id == transformation.transformation_id
+            })
         {
             return Err(EvidencePersistenceError::Duplicate);
         }
+        self.transformation_provenance.push(TransformationProvenance {
+            transformation_id: transformation.transformation_id.clone(),
+            provenance,
+        });
         self.transformations.push(transformation);
         Ok(self)
     }
@@ -313,7 +353,39 @@ mod tests {
         let evidence =
             PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
         assert_eq!(
-            evidence.with_transformation(transformation),
+            evidence.with_transformation(
+                transformation,
+                Provenance {
+                    provenance_id: "prov-mismatch".into(),
+                    actor_ref: Some(ResourceRef::new(ResourceType::Tool, "system").unwrap()),
+                    source_refs: vec![],
+                    input_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
+                    operation: "ocr".into(),
+                    occurred_at: "2026-09-07T10:01:00Z".into(),
+                },
+            ),
+            Err(EvidencePersistenceError::IntegrityFailure)
+        );
+    }
+
+    #[test]
+    fn persisted_transformation_without_provenance_is_rejected() {
+        let mut repository = InMemoryEvidenceTrustRepository::default();
+        let mut evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        evidence.transformations.push(EvidenceTransformation {
+            transformation_id: "transform-without-provenance".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "ocr-service".into(),
+            tool_id: Some("ocr-service".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        });
+        assert_eq!(
+            repository.create(evidence),
             Err(EvidencePersistenceError::IntegrityFailure)
         );
     }
@@ -332,9 +404,17 @@ mod tests {
             input_hash: None,
             output_hash: None,
         };
+        let provenance = Provenance {
+            provenance_id: "prov-transform-1".into(),
+            actor_ref: Some(ResourceRef::new(ResourceType::Tool, "system").unwrap()),
+            source_refs: vec![],
+            input_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
+            operation: "ocr".into(),
+            occurred_at: "2026-09-07T10:01:00Z".into(),
+        };
         let evidence = PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default())
             .unwrap()
-            .with_transformation(transformation.clone())
+            .with_transformation(transformation.clone(), provenance)
             .unwrap();
         repository.create(evidence).unwrap();
         assert_eq!(

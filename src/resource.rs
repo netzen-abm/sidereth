@@ -34,6 +34,8 @@ pub enum ResourceType {
     Authority,
     Jurisdiction,
     Party,
+    Tool,
+    Service,
     PartyRelationship,
     Document,
     Action,
