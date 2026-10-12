@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::persistence::{PersistenceError, ResourceWrite, ResourceWriteMode, UnitOfWorkContext};
 use crate::{
-    EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id, Provenance, ResourceRef, ResourceType,
+    EvidenceOriginal, EvidenceTransformation, EvidenceTrustMetadata, Id, Provenance, ResourceRef,
+    ResourceType,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,16 +128,18 @@ impl PersistedEvidence {
             .transformations
             .iter()
             .any(|item| item.transformation_id == transformation.transformation_id)
-            || self.transformation_provenance.iter().any(|binding| {
-                binding.transformation_id == transformation.transformation_id
-            })
+            || self
+                .transformation_provenance
+                .iter()
+                .any(|binding| binding.transformation_id == transformation.transformation_id)
         {
             return Err(EvidencePersistenceError::Duplicate);
         }
-        self.transformation_provenance.push(TransformationProvenance {
-            transformation_id: transformation.transformation_id.clone(),
-            provenance,
-        });
+        self.transformation_provenance
+            .push(TransformationProvenance {
+                transformation_id: transformation.transformation_id.clone(),
+                provenance,
+            });
         self.transformations.push(transformation);
         Ok(self)
     }
@@ -359,7 +362,9 @@ mod tests {
                     provenance_id: "prov-mismatch".into(),
                     actor_ref: Some(ResourceRef::new(ResourceType::Tool, "system").unwrap()),
                     source_refs: vec![],
-                    input_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
+                    input_refs: vec![
+                        ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()
+                    ],
                     operation: "ocr".into(),
                     occurred_at: "2026-09-07T10:01:00Z".into(),
                 },
