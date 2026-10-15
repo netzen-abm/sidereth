@@ -207,7 +207,7 @@ mod tests {
     }
 
     fn authorization_request(evidence_ref: &ResourceRef) -> AuthorizationRequest {
-        let now = current_epoch_seconds().unwrap();
+        let now = crate::authorization_enforcement::current_epoch_seconds().unwrap();
         AuthorizationRequest {
             request_id: "request-1".into(),
             authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
@@ -341,7 +341,7 @@ mod tests {
         let vault = vault();
         let mut request = request();
         request.authorization_request.requested_at_epoch_seconds =
-            current_epoch_seconds().unwrap().saturating_sub(1_000);
+            crate::authorization_enforcement::current_epoch_seconds().unwrap().saturating_sub(1_000);
         request.authorization_request.freshness_seconds = Some(100);
         let evaluator = TestEvaluator::default();
         let query = AuthorizedEvidenceQuery::new(&vault, &vault, &evaluator);
