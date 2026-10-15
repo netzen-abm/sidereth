@@ -1,13 +1,46 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `236f1bd0bff7bcd44f9fb0a37642d61eab139c68`
-**Audit date:** 2026-10-11
+**Last audited baseline:** `main` at `230e97a504a07cbb60dfbff9c089a166b39ba4ef`
+**Audit date:** 2026-10-15
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
 
 
-## Current repository and engineering-cycle audit — 2026-10-11
+## Current repository and engineering-cycle audit — 2026-10-15
+
+**Verified main baseline:** `230e97a504a07cbb60dfbff9c089a166b39ba4ef`  
+**Active branch count:** exactly 9 observed. No branches were created or deleted in this cycle.  
+**Current implementation priority:** prove provenance integrity, authorization, protected-data access, lease lifecycle, persistence semantics, and independent-consumer conformance. Avoid new abstraction layers unless a demonstrated invariant or independent boundary requires them.
+
+### Verified changes and CI evidence
+
+- PR #161, `fix: enforce evidence transformation provenance binding`, was squash-merged to `main` as `230e97a504a07cbb60dfbff9c089a166b39ba4ef`.
+- Latest PR head: `c625baaf7f7041a8b6402cee9cc6f8a3f6c6b1e6`.
+- Foundation Validation passed on the exact final PR head, including format check, compile check, test suite, live PostgreSQL proof matrix, and Clippy.
+- Security and Supply Chain passed on the exact final PR head; RustSec Audit and GitHub Actions Security passed.
+- OpenSSF Scorecard was skipped by the workflow and is not counted as a pass.
+- The persisted evidence model now binds each transformation ID to exactly one provenance record. Validation checks source-evidence binding, input reference, operation, actor identity consistency, and missing/duplicate/orphaned bindings before persistence.
+- PostgreSQL resource-type serialization/deserialization now maps `Tool` and `Service` explicitly.
+- Backward-compatibility risk remains: legacy records containing transformations without verifiable provenance bindings fail closed. Historical-record inventory and a trustworthy migration/quarantine plan remain open.
+
+### Current branch governance
+
+The live branch listing contains exactly nine branches. No branch was deleted in this cycle. Do not remove stale branches merely because they are behind: verify branch protection, open PRs, workflow/deployment references, and unique material first. Preserve the exact-nine invariant when an authorized branch-retirement mechanism is available.
+
+### Next engineering cycle — evidence, not abstractions
+
+1. Inventory legacy persisted transformations and design a fail-closed migration/quarantine path that never fabricates provenance.
+2. Complete the line-referenced protected-data and consequential-execution bypass audit, including direct evidence-store access and every authorization/lease consumer.
+3. Close ResourceLink endpoint/atomicity, duplicate/class-conflict, PostgreSQL, backward-compatibility, and provider-neutral conformance tests.
+4. Continue durable idempotency and execution-lease lifecycle failure testing; investigate skipped security jobs rather than counting them as passes.
+5. Retire stale branches only after the required governance and archival checks; keep exactly nine active branches.
+
+---
+
+**Historical snapshot:** the 2026-10-11 audit below is retained as history. Its branch comparisons and PR statuses are not current and are superseded by the 2026-10-15 baseline above.
+
+## Historical repository and engineering-cycle audit — 2026-10-11
 
 **Verified main baseline:** `25b09849b925b388f51389a5f408dae4302ab4b0`  
 **Active branch count:** exactly 9 observed. No branch was created or deleted during this audit.  
