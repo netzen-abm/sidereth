@@ -50,7 +50,7 @@ impl EvidenceQueryRequest {
         .map_err(|error| match error {
             crate::AuthorizationValidationError::InvalidRequest => {
                 EvidenceQueryError::InvalidRequest
-            },
+            }
             crate::AuthorizationValidationError::RequestResultMismatch => {
                 EvidenceQueryError::AuthorizationMismatch
             }
@@ -60,7 +60,7 @@ impl EvidenceQueryRequest {
             }
             crate::AuthorizationValidationError::Expired => {
                 EvidenceQueryError::AuthorizationExpired
-            },
+            }
             crate::AuthorizationValidationError::Denied => EvidenceQueryError::AuthorizationDenied,
         })
     }
