@@ -453,32 +453,33 @@ fn live_postgres_case_and_evidence_trust_commit_atomically() {
     let case_ref = ResourceRef::new(ResourceType::Case, case_id.clone()).unwrap();
     let evidence_ref = ResourceRef::new(ResourceType::Evidence, evidence_id.clone()).unwrap();
     let provenance_ref = ResourceRef::new(ResourceType::Provenance, provenance_id.clone()).unwrap();
+    let transformation = EvidenceTransformation {
+        transformation_id: unique_id("evidence-transform"),
+        source_evidence_id: evidence_id.clone(),
+        transformation_type: "proof-normalization".into(),
+        created_at: "2026-09-07T10:01:00Z".into(),
+        created_by: "proof-runner".into(),
+        tool_id: Some("proof-runner".into()),
+        tool_version: Some("1.0".into()),
+        input_hash: None,
+        output_hash: None,
+    };
+    let provenance = Provenance {
+        provenance_id,
+        actor_ref: Some(ResourceRef::new(ResourceType::Tool, "proof-runner").unwrap()),
+        source_refs: vec![evidence_ref.clone()],
+        input_refs: vec![evidence_ref.clone()],
+        operation: "proof-normalization".into(),
+        occurred_at: "2026-09-07T10:01:00Z".into(),
+    };
     let evidence = sidereth_core::PersistedEvidence::new(
         1,
         evidence_for(&case_id, &evidence_id),
         trust_metadata(),
     )
     .unwrap()
-    .with_transformation(EvidenceTransformation {
-        transformation_id: unique_id("evidence-transform"),
-        source_evidence_id: evidence_id.clone(),
-        transformation_type: "proof-normalization".into(),
-        created_at: "2026-09-07T10:01:00Z".into(),
-        created_by: "proof-runner".into(),
-        tool_id: Some("tool-proof".into()),
-        tool_version: Some("1.0".into()),
-        input_hash: None,
-        output_hash: None,
-    })
+    .with_transformation(transformation, provenance.clone())
     .unwrap();
-    let provenance = Provenance {
-        provenance_id,
-        actor_ref: None,
-        source_refs: vec![evidence_ref.clone()],
-        input_refs: vec![case_ref.clone()],
-        operation: "case.evidence.capture".into(),
-        occurred_at: "2026-09-07T10:01:00Z".into(),
-    };
 
     let mut factory = PostgresUnitOfWorkFactory::new(url.clone());
     let mut uow = factory.begin().unwrap();
