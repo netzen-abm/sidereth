@@ -36,6 +36,8 @@ impl EvidenceQueryRequest {
         let request = &self.authorization_request;
         if request.resource_ref != self.evidence_ref
             || request.resource_ref.resource_type != ResourceType::Evidence
+            || request.action.resource_type != ResourceType::Action
+            || request.action.id != "evidence.read"
         {
             return Err(EvidenceQueryError::AuthorizationMismatch);
         }
@@ -244,6 +246,20 @@ mod tests {
         let vault = vault();
         let mut request = request();
         request.authorization.purpose = "different purpose".into();
+        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        assert_eq!(
+            query.get(request),
+            Err(EvidenceQueryError::AuthorizationMismatch)
+        );
+    }
+
+    #[test]
+    fn authorization_for_a_different_action_cannot_read_evidence() {
+        let vault = vault();
+        let mut request = request();
+        let other_action = ResourceRef::new(ResourceType::Action, "evidence.delete").unwrap();
+        request.authorization_request.action = other_action.clone();
+        request.authorization.action = other_action;
         let query = AuthorizedEvidenceQuery::new(&vault, &vault);
         assert_eq!(
             query.get(request),
