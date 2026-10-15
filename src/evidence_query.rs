@@ -48,7 +48,9 @@ impl EvidenceQueryRequest {
             now_epoch_seconds,
         )
         .map_err(|error| match error {
-            crate::AuthorizationValidationError::InvalidRequest => EvidenceQueryError::InvalidRequest,
+            crate::AuthorizationValidationError::InvalidRequest => {
+                EvidenceQueryError::InvalidRequest
+            },
             crate::AuthorizationValidationError::RequestResultMismatch => {
                 EvidenceQueryError::AuthorizationMismatch
             }
@@ -56,7 +58,9 @@ impl EvidenceQueryRequest {
             | crate::AuthorizationValidationError::ConstraintViolation => {
                 EvidenceQueryError::AuthorizationInvalid
             }
-            crate::AuthorizationValidationError::Expired => EvidenceQueryError::AuthorizationExpired,
+            crate::AuthorizationValidationError::Expired => {
+                EvidenceQueryError::AuthorizationExpired
+            },
             crate::AuthorizationValidationError::Denied => EvidenceQueryError::AuthorizationDenied,
         })
     }
@@ -255,10 +259,7 @@ mod tests {
 
     fn request() -> EvidenceQueryRequest {
         let evidence_ref = ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap();
-        EvidenceQueryRequest::new(
-            evidence_ref.clone(),
-            authorization_request(&evidence_ref),
-        )
+        EvidenceQueryRequest::new(evidence_ref.clone(), authorization_request(&evidence_ref))
     }
 
     #[test]
@@ -279,7 +280,10 @@ mod tests {
             ..TestEvaluator::default()
         };
         let query = AuthorizedEvidenceQuery::new(&vault, &vault, &evaluator);
-        assert_eq!(query.get(request()), Err(EvidenceQueryError::AuthorizationDenied));
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::AuthorizationDenied)
+        );
     }
 
     #[test]
