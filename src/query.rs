@@ -311,7 +311,9 @@ mod tests {
             },
         };
         let evaluator = TestEvaluator::default();
-        let record = query(factory, &evaluator).get(request(resource_ref)).unwrap();
+        let record = query(factory, &evaluator)
+            .get(request(resource_ref))
+            .unwrap();
         assert_eq!(record.revision, Revision { value: 3 });
         assert_eq!(record.payload, Value::String("canonical".into()));
     }

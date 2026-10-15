@@ -176,7 +176,8 @@ mod tests {
 
     impl AuthorizationEvaluator for TestEvaluator {
         fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
-            let now = crate::authorization_enforcement::current_epoch_seconds().expect("system clock must be available");
+            let now = crate::authorization_enforcement::current_epoch_seconds()
+                .expect("system clock must be available");
             let mut result = AuthorizationResult {
                 request_id: request.request_id.clone(),
                 authorization_ref: request.authorization_ref.clone(),
