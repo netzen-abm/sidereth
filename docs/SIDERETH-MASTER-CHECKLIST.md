@@ -1,13 +1,43 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `bcaeda9329990982cade7d29bb726790e0a5fefc`
+**Last audited baseline:** `main` at `c09c7f3742b5a767f89629baf34b362fcfb2f42b`
 **Audit date:** 2026-10-15
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
 
 
-## Post-merge security audit — 2026-10-15
+## Current verified baseline — 2026-10-15
+
+**Verified main baseline:** `c09c7f3742b5a767f89629baf34b362fcfb2f42b`  
+**Active branch count:** exactly 9 observed after merge.  
+**Current engineering posture:** continue the protected-operation audit. Do not add orchestration layers; close demonstrated trust-boundary gaps and test them.
+
+### Verified implementation changes
+
+- PR #165, `fix: evaluate authorization inside protected evidence query`, merged as `d27303de209a44db59e7491145467ba654d8cc94`.
+- PR #166, `fix: evaluate canonical authorization at protected read boundaries`, merged as `c09c7f3742b5a767f89629baf34b362fcfb2f42b`.
+- `EvidenceQueryRequest` no longer accepts a caller-supplied `AuthorizationResult` or timestamp. `AuthorizedEvidenceQuery` invokes the configured `AuthorizationEvaluator`, binds the operation to `Action/evidence.read`, validates the result, and verifies the content hash before returning bytes.
+- `ResourceQueryRequest` likewise no longer accepts a caller-supplied result or timestamp. `UnitOfWorkResourceQuery` evaluates authorization itself, binds the operation to `Action/resource.read`, validates the decision before opening a Unit of Work, and preserves the existing transaction boundary.
+- Current-time acquisition is centralized in `src/authorization_enforcement.rs`; expiry and freshness are checked against the query boundary's current time.
+- Regression coverage includes denied decisions, mismatched evaluator context, wrong actions, expiry/freshness, data-class mismatch, missing resources, unknown constraints, and tampered evidence.
+- Exact-head Foundation Validation passed on PR #166, including format, compile, tests, live PostgreSQL proof matrix, and Clippy. Security and Supply Chain passed; RustSec Audit and GitHub Actions Security passed. OpenSSF Scorecard was skipped and is not counted as a pass.
+- The latest post-merge Foundation Validation, Security and Supply Chain, and nine-branch workflow were still queued/in progress at the time of this update; verify their final conclusions before treating the merge baseline as fully green.
+
+### Remaining security and portability gates
+
+1. Audit every remaining consumer that accepts an authorization result or timestamp from its caller, including Knowledge Graph, Observation Command/Lifecycle, and Tool Gateway. Confirm that the result originates from the configured trusted evaluator and that the operation binds the exact action/resource/purpose/data class.
+2. Verify the trusted-time implementation on every intended runtime, especially WASM. `SystemTime::now()` may not be a usable clock on every WASM target; do not claim browser/WASM readiness until the host clock behavior is proven. If unsupported, inject a trusted platform clock at the provider boundary.
+3. Keep raw `EvidenceObjectStore` and `EvidenceRepository` handles inside trusted adapter scope. The interfaces are intentionally authorization-neutral; production surfaces and AI/agent runtimes must not receive unrestricted store access.
+4. Inventory legacy transformations without trustworthy provenance and define fail-closed migration/quarantine without fabricating history.
+5. Complete ResourceLink endpoint/atomicity, duplicate/class-conflict, PostgreSQL, backward-compatibility, and provider-neutral conformance tests.
+6. Retire stale branches only after unique material, protections, PRs, workflow references, and deployment dependencies are checked. Preserve exactly nine active branches.
+
+---
+
+**Historical note:** the prior same-day audits below are retained as history. This section is authoritative for the `c09c7f3742b5a767f89629baf34b362fcfb2f42b` baseline.
+
+## Historical post-merge security audit — 2026-10-15
 
 **Verified main baseline:** `bcaeda9329990982cade7d29bb726790e0a5fefc`  
 **Active branches:** exactly 9 observed after merge.  
@@ -33,7 +63,7 @@
 
 ---
 
-**Historical note:** the earlier 2026-10-15 audit section below reflects the baseline before PR #163 and is retained as history; the post-merge audit above is authoritative for the latest implementation.
+**Historical note:** this section records the baseline immediately after PR #163 and before PRs #165–#166. The current verified baseline above supersedes it.
 
 ## Historical repository and engineering-cycle audit — 2026-10-15
 
