@@ -1,6 +1,7 @@
 use crate::authorization::{
     AuthorizationConstraint, AuthorizationDecision, AuthorizationRequest, AuthorizationResult,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthorizationValidationError {
@@ -10,6 +11,15 @@ pub enum AuthorizationValidationError {
     Expired,
     Denied,
     ConstraintViolation,
+}
+
+/// Reads wall-clock epoch seconds at the trusted core boundary.
+/// Returns None rather than inventing a timestamp if the system clock is invalid.
+pub(crate) fn current_epoch_seconds() -> Option<u64> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs())
 }
 
 /// Canonical consumer-side enforcement of an already evaluated authorization

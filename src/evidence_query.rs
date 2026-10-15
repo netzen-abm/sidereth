@@ -3,7 +3,6 @@ use crate::{
     validate_authorization, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal, Id,
     ResourceRef, ResourceType,
 };
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Provider-neutral request for retrieval of evidence content.
 ///
@@ -117,7 +116,8 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore, E: AuthorizationE
     ) -> Result<EvidenceQueryResult, EvidenceQueryError> {
         request.validate_context()?;
         let authorization = self.evaluator.evaluate(&request.authorization_request);
-        let now_epoch_seconds = current_epoch_seconds()?;
+        let now_epoch_seconds = crate::authorization_enforcement::current_epoch_seconds()
+            .ok_or(EvidenceQueryError::AuthorizationInvalid)?;
         request.validate_result(&authorization, now_epoch_seconds)?;
 
         let evidence_id: Id = request.evidence_ref.id.clone();
@@ -142,13 +142,6 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore, E: AuthorizationE
         }
         Ok(EvidenceQueryResult { original, content })
     }
-}
-
-fn current_epoch_seconds() -> Result<u64, EvidenceQueryError> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .map_err(|_| EvidenceQueryError::AuthorizationInvalid)
 }
 
 #[cfg(test)]
@@ -183,7 +176,7 @@ mod tests {
 
     impl AuthorizationEvaluator for TestEvaluator {
         fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
-            let now = current_epoch_seconds().expect("system clock must be available");
+            let now = crate::authorization_enforcement::current_epoch_seconds().expect("system clock must be available");
             let mut result = AuthorizationResult {
                 request_id: request.request_id.clone(),
                 authorization_ref: request.authorization_ref.clone(),

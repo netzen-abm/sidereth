@@ -1,41 +1,38 @@
-use crate::authorization::AuthorizationRequest;
+use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest};
 use crate::persistence::ResourceRecord;
 use crate::{
-    validate_authorization, AuthorizationResult, PersistenceError, ResourceRef, UnitOfWork,
-    UnitOfWorkContext, UnitOfWorkFactory,
+    validate_authorization, AuthorizationResult, PersistenceError, ResourceRef, ResourceType,
+    UnitOfWork, UnitOfWorkContext, UnitOfWorkFactory,
 };
 
 /// Provider-neutral request for a direct canonical resource read.
+/// The caller supplies intent, not a pre-fabricated authorization decision or clock value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceQueryRequest {
     pub resource_ref: ResourceRef,
     pub authorization_request: AuthorizationRequest,
-    pub authorization: AuthorizationResult,
     pub requested_data_class: Option<String>,
-    pub now_epoch_seconds: u64,
 }
 
 impl ResourceQueryRequest {
     pub fn new(
         resource_ref: ResourceRef,
         authorization_request: AuthorizationRequest,
-        authorization: AuthorizationResult,
         requested_data_class: Option<String>,
-        now_epoch_seconds: u64,
     ) -> Self {
         Self {
             resource_ref,
             authorization_request,
-            authorization,
             requested_data_class,
-            now_epoch_seconds,
         }
     }
 
-    fn validate(&self) -> Result<(), QueryError> {
+    fn validate_context(&self) -> Result<(), QueryError> {
         let request = &self.authorization_request;
         if request.resource_ref != self.resource_ref
             || request.data_class != self.requested_data_class
+            || request.action.resource_type != ResourceType::Action
+            || request.action.id != "resource.read"
         {
             return Err(QueryError::AuthorizationMismatch);
         }
@@ -47,21 +44,31 @@ impl ResourceQueryRequest {
         {
             return Err(QueryError::InvalidRequest);
         }
+        Ok(())
+    }
 
-        validate_authorization(request, &self.authorization, self.now_epoch_seconds).map_err(
-            |error| match error {
-                crate::AuthorizationValidationError::Denied => QueryError::AuthorizationDenied,
-                crate::AuthorizationValidationError::Expired => QueryError::AuthorizationExpired,
-                crate::AuthorizationValidationError::RequestResultMismatch => {
-                    QueryError::AuthorizationMismatch
-                }
-                crate::AuthorizationValidationError::NotYetEvaluated
-                | crate::AuthorizationValidationError::InvalidRequest
-                | crate::AuthorizationValidationError::ConstraintViolation => {
-                    QueryError::AuthorizationInvalid
-                }
-            },
+    fn validate_result(
+        &self,
+        authorization: &AuthorizationResult,
+        now_epoch_seconds: u64,
+    ) -> Result<(), QueryError> {
+        validate_authorization(
+            &self.authorization_request,
+            authorization,
+            now_epoch_seconds,
         )
+        .map_err(|error| match error {
+            crate::AuthorizationValidationError::Denied => QueryError::AuthorizationDenied,
+            crate::AuthorizationValidationError::Expired => QueryError::AuthorizationExpired,
+            crate::AuthorizationValidationError::RequestResultMismatch => {
+                QueryError::AuthorizationMismatch
+            }
+            crate::AuthorizationValidationError::NotYetEvaluated
+            | crate::AuthorizationValidationError::InvalidRequest
+            | crate::AuthorizationValidationError::ConstraintViolation => {
+                QueryError::AuthorizationInvalid
+            }
+        })
     }
 }
 
@@ -78,26 +85,22 @@ pub enum QueryError {
 }
 
 /// Canonical provider-neutral direct read boundary.
-///
-/// Implementations return canonical `ResourceRecord` values and must not
-/// reinterpret payloads into stronger legal, evidentiary, epistemic, or
-/// responsibility claims.
+/// Implementations return canonical ResourceRecord values and must not reinterpret
+/// payloads into stronger legal, evidentiary, epistemic, or responsibility claims.
 pub trait ResourceQuery {
     fn get(&mut self, request: ResourceQueryRequest) -> Result<ResourceRecord, QueryError>;
 }
 
 /// Query adapter backed by the existing transactional persistence boundary.
-///
-/// This intentionally does not introduce another repository or persistence
-/// abstraction. The same provider-neutral UnitOfWorkContext used by mutation
-/// workflows remains the source of canonical resource reads.
-pub struct UnitOfWorkResourceQuery<F: UnitOfWorkFactory> {
+/// This deliberately reuses the existing Unit-of-Work context.
+pub struct UnitOfWorkResourceQuery<'a, F: UnitOfWorkFactory, E: AuthorizationEvaluator> {
     factory: F,
+    evaluator: &'a E,
 }
 
-impl<F: UnitOfWorkFactory> UnitOfWorkResourceQuery<F> {
-    pub fn new(factory: F) -> Self {
-        Self { factory }
+impl<'a, F: UnitOfWorkFactory, E: AuthorizationEvaluator> UnitOfWorkResourceQuery<'a, F, E> {
+    pub fn new(factory: F, evaluator: &'a E) -> Self {
+        Self { factory, evaluator }
     }
 
     pub fn into_inner(self) -> F {
@@ -105,9 +108,16 @@ impl<F: UnitOfWorkFactory> UnitOfWorkResourceQuery<F> {
     }
 }
 
-impl<F: UnitOfWorkFactory> ResourceQuery for UnitOfWorkResourceQuery<F> {
+impl<F: UnitOfWorkFactory, E: AuthorizationEvaluator> ResourceQuery
+    for UnitOfWorkResourceQuery<'_, F, E>
+{
     fn get(&mut self, request: ResourceQueryRequest) -> Result<ResourceRecord, QueryError> {
-        request.validate()?;
+        request.validate_context()?;
+        let authorization = self.evaluator.evaluate(&request.authorization_request);
+        let now_epoch_seconds = crate::authorization_enforcement::current_epoch_seconds()
+            .ok_or(QueryError::AuthorizationInvalid)?;
+        request.validate_result(&authorization, now_epoch_seconds)?;
+
         let resource_ref = request.resource_ref;
         let mut uow = self.factory.begin().map_err(QueryError::Persistence)?;
         let result = match uow.execute(|context| context.read_resource(&resource_ref)) {
@@ -135,7 +145,7 @@ mod tests {
     use super::*;
     use crate::{
         authorization::{AuthorizationConstraint, AuthorizationDecision},
-        ResourceType, Revision, UnitOfWorkError,
+        ResourceRef, Revision, UnitOfWorkError,
     };
     use serde_json::Value;
 
@@ -205,10 +215,59 @@ mod tests {
         }
     }
 
-    fn authorization_context(
-        resource_ref: &ResourceRef,
-    ) -> (AuthorizationRequest, AuthorizationResult) {
-        let request = AuthorizationRequest {
+    struct TestEvaluator {
+        decision: AuthorizationDecision,
+        expires_in_seconds: u64,
+        expired: bool,
+        mismatched_purpose: bool,
+    }
+
+    impl Default for TestEvaluator {
+        fn default() -> Self {
+            Self {
+                decision: AuthorizationDecision::Allow,
+                expires_in_seconds: 3_600,
+                expired: false,
+                mismatched_purpose: false,
+            }
+        }
+    }
+
+    impl AuthorizationEvaluator for TestEvaluator {
+        fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
+            let now = crate::authorization_enforcement::current_epoch_seconds().unwrap();
+            let mut result = AuthorizationResult {
+                request_id: request.request_id.clone(),
+                authorization_ref: request.authorization_ref.clone(),
+                subject_ref: request.subject_ref.clone(),
+                action: request.action.clone(),
+                resource_ref: request.resource_ref.clone(),
+                purpose: request.purpose.clone(),
+                jurisdiction_ref: request.jurisdiction_ref.clone(),
+                data_class: request.data_class.clone(),
+                decision: self.decision,
+                constraints: vec![AuthorizationConstraint {
+                    key: "scope".into(),
+                    value: "exact_resource".into(),
+                }],
+                policy_refs: request.policy_refs.clone(),
+                evaluated_at_epoch_seconds: now,
+                expires_at_epoch_seconds: Some(if self.expired {
+                    now.saturating_sub(1)
+                } else {
+                    now.saturating_add(self.expires_in_seconds)
+                }),
+            };
+            if self.mismatched_purpose {
+                result.purpose = "different purpose".into();
+            }
+            result
+        }
+    }
+
+    fn authorization_request(resource_ref: &ResourceRef) -> AuthorizationRequest {
+        let now = crate::authorization_enforcement::current_epoch_seconds().unwrap();
+        AuthorizationRequest {
             request_id: "request-1".into(),
             authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
             subject_ref: ResourceRef::new(ResourceType::Party, "party-1").unwrap(),
@@ -218,39 +277,24 @@ mod tests {
             policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
             jurisdiction_ref: None,
             data_class: Some("public".into()),
-            requested_at_epoch_seconds: 1_000,
+            requested_at_epoch_seconds: now,
             freshness_seconds: Some(1_000),
-        };
-        let result = AuthorizationResult {
-            request_id: request.request_id.clone(),
-            authorization_ref: request.authorization_ref.clone(),
-            subject_ref: request.subject_ref.clone(),
-            action: request.action.clone(),
-            resource_ref: request.resource_ref.clone(),
-            purpose: request.purpose.clone(),
-            jurisdiction_ref: request.jurisdiction_ref.clone(),
-            data_class: request.data_class.clone(),
-            decision: AuthorizationDecision::Allow,
-            constraints: vec![AuthorizationConstraint {
-                key: "scope".into(),
-                value: "exact_resource".into(),
-            }],
-            policy_refs: request.policy_refs.clone(),
-            evaluated_at_epoch_seconds: 1_000,
-            expires_at_epoch_seconds: Some(2_000),
-        };
-        (request, result)
+        }
     }
 
     fn request(resource_ref: ResourceRef) -> ResourceQueryRequest {
-        let (authorization_request, authorization) = authorization_context(&resource_ref);
         ResourceQueryRequest::new(
-            resource_ref,
-            authorization_request,
-            authorization,
+            resource_ref.clone(),
+            authorization_request(&resource_ref),
             Some("public".into()),
-            1_500,
         )
+    }
+
+    fn query<'a>(
+        factory: FakeFactory,
+        evaluator: &'a TestEvaluator,
+    ) -> UnitOfWorkResourceQuery<'a, FakeFactory, TestEvaluator> {
+        UnitOfWorkResourceQuery::new(factory, evaluator)
     }
 
     #[test]
@@ -266,8 +310,8 @@ mod tests {
                 }),
             },
         };
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        let record = query.get(request(resource_ref)).unwrap();
+        let evaluator = TestEvaluator::default();
+        let record = query(factory, &evaluator).get(request(resource_ref)).unwrap();
         assert_eq!(record.revision, Revision { value: 3 });
         assert_eq!(record.payload, Value::String("canonical".into()));
     }
@@ -275,11 +319,14 @@ mod tests {
     #[test]
     fn denied_authorization_is_rejected_before_persistence_read() {
         let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
-        let mut request = request(resource_ref);
-        request.authorization.decision = AuthorizationDecision::Deny;
-        let factory = FakeFactory::default();
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(query.get(request), Err(QueryError::AuthorizationDenied));
+        let evaluator = TestEvaluator {
+            decision: AuthorizationDecision::Deny,
+            ..TestEvaluator::default()
+        };
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request(resource_ref)),
+            Err(QueryError::AuthorizationDenied)
+        );
     }
 
     #[test]
@@ -288,40 +335,66 @@ mod tests {
         let other_ref = ResourceRef::new(ResourceType::Case, "case-2").unwrap();
         let mut request = request(resource_ref);
         request.authorization_request.resource_ref = other_ref;
-        let factory = FakeFactory::default();
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(query.get(request), Err(QueryError::AuthorizationMismatch));
+        let evaluator = TestEvaluator::default();
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request),
+            Err(QueryError::AuthorizationMismatch)
+        );
     }
 
     #[test]
-    fn authorization_result_must_match_exact_request_context() {
+    fn evaluator_result_must_match_exact_request_context() {
+        let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
+        let evaluator = TestEvaluator {
+            mismatched_purpose: true,
+            ..TestEvaluator::default()
+        };
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request(resource_ref)),
+            Err(QueryError::AuthorizationMismatch)
+        );
+    }
+
+    #[test]
+    fn wrong_action_cannot_read_a_resource() {
         let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
         let mut request = request(resource_ref);
-        request.authorization.purpose = "different purpose".into();
-        let factory = FakeFactory::default();
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(query.get(request), Err(QueryError::AuthorizationMismatch));
+        request.authorization_request.action =
+            ResourceRef::new(ResourceType::Action, "case.delete").unwrap();
+        let evaluator = TestEvaluator::default();
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request),
+            Err(QueryError::AuthorizationMismatch)
+        );
     }
 
     #[test]
     fn expired_authorization_is_rejected_before_persistence_read() {
         let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
-        let mut request = request(resource_ref);
-        request.authorization.expires_at_epoch_seconds = Some(1_500);
-        let factory = FakeFactory::default();
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(query.get(request), Err(QueryError::AuthorizationExpired));
+        let evaluator = TestEvaluator {
+            expired: true,
+            ..TestEvaluator::default()
+        };
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request(resource_ref)),
+            Err(QueryError::AuthorizationExpired)
+        );
     }
 
     #[test]
     fn stale_request_is_rejected_before_persistence_read() {
         let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
         let mut request = request(resource_ref);
-        request.authorization_request.requested_at_epoch_seconds = 1_000;
+        request.authorization_request.requested_at_epoch_seconds =
+            crate::authorization_enforcement::current_epoch_seconds()
+                .unwrap()
+                .saturating_sub(1_000);
         request.authorization_request.freshness_seconds = Some(100);
-        let factory = FakeFactory::default();
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(query.get(request), Err(QueryError::AuthorizationExpired));
+        let evaluator = TestEvaluator::default();
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request),
+            Err(QueryError::AuthorizationExpired)
+        );
     }
 
     #[test]
@@ -329,16 +402,20 @@ mod tests {
         let resource_ref = ResourceRef::new(ResourceType::Case, "case-1").unwrap();
         let mut request = request(resource_ref);
         request.requested_data_class = Some("restricted".into());
-        let factory = FakeFactory::default();
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(query.get(request), Err(QueryError::AuthorizationMismatch));
+        let evaluator = TestEvaluator::default();
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request),
+            Err(QueryError::AuthorizationMismatch)
+        );
     }
 
     #[test]
     fn missing_resource_is_distinguished_from_denial() {
         let resource_ref = ResourceRef::new(ResourceType::Case, "missing").unwrap();
-        let factory = FakeFactory::default();
-        let mut query = UnitOfWorkResourceQuery::new(factory);
-        assert_eq!(query.get(request(resource_ref)), Err(QueryError::NotFound));
+        let evaluator = TestEvaluator::default();
+        assert_eq!(
+            query(FakeFactory::default(), &evaluator).get(request(resource_ref)),
+            Err(QueryError::NotFound)
+        );
     }
 }
