@@ -1,13 +1,41 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `230e97a504a07cbb60dfbff9c089a166b39ba4ef`
+**Last audited baseline:** `main` at `bcaeda9329990982cade7d29bb726790e0a5fefc`
 **Audit date:** 2026-10-15
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
 
 
-## Current repository and engineering-cycle audit — 2026-10-15
+## Post-merge security audit — 2026-10-15
+
+**Verified main baseline:** `bcaeda9329990982cade7d29bb726790e0a5fefc`  
+**Active branches:** exactly 9 observed after merge.  
+**Current engineering posture:** close operation-specific authorization gaps, then continue the protected-data bypass audit. No new orchestration abstraction is justified by this finding.
+
+### Verified security finding and fix
+
+- PR #163, `fix: bind evidence retrieval to read action`, was squash-merged to `main` as `bcaeda9329990982cade7d29bb726790e0a5fefc`.
+- Finding: `AuthorizedEvidenceQuery` validated that an authorization result matched the supplied request but did not bind the request action to the read operation. A matching Allow result for a different action could pass the context-consistency check.
+- Fix: the retrieval boundary now requires `ResourceType::Action` with action ID `evidence.read`.
+- Regression test: a matching request and Allow result for `evidence.delete` must be rejected.
+- Exact-head Foundation Validation passed: format, compile, test suite, live PostgreSQL proof matrix, and Clippy.
+- Exact-head Security and Supply Chain passed; RustSec Audit and GitHub Actions Security passed. OpenSSF Scorecard was skipped and is not counted as passing.
+- Post-merge CI for `main` is queued/in progress at the time of this checklist update and must be confirmed independently.
+
+### Next proof obligations
+
+1. Add negative tests for operation-specific authorization binding across every protected-data consumer. A consumer must require its own action; request/result equality alone is insufficient.
+2. Audit each protected read/write/export/transform path for action binding, exact resource binding, purpose and data-class requirements, freshness/expiry, and capability lease requirements where relevant.
+3. Inventory historical evidence transformations without trustworthy provenance; define fail-closed migration/quarantine, with no fabricated history.
+4. Test direct-store access paths, tampered content, storage failures, rollback, and metadata/content mismatch.
+5. Retire stale branches only after unique commits, PRs, protections, and workflow/deployment references are verified. Keep exactly nine active branches.
+
+---
+
+**Historical note:** the earlier 2026-10-15 audit section below reflects the baseline before PR #163 and is retained as history; the post-merge audit above is authoritative for the latest implementation.
+
+## Historical repository and engineering-cycle audit — 2026-10-15
 
 **Verified main baseline:** `230e97a504a07cbb60dfbff9c089a166b39ba4ef`  
 **Active branch count:** exactly 9 observed. No branches were created or deleted in this cycle.  
