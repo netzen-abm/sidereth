@@ -341,7 +341,9 @@ mod tests {
         let vault = vault();
         let mut request = request();
         request.authorization_request.requested_at_epoch_seconds =
-            crate::authorization_enforcement::current_epoch_seconds().unwrap().saturating_sub(1_000);
+            crate::authorization_enforcement::current_epoch_seconds()
+                .unwrap()
+                .saturating_sub(1_000);
         request.authorization_request.freshness_seconds = Some(100);
         let evaluator = TestEvaluator::default();
         let query = AuthorizedEvidenceQuery::new(&vault, &vault, &evaluator);
