@@ -146,15 +146,12 @@ impl<'a, E: AuthorizationEvaluator> AuthorizedKnowledgeGraph<'a, E> {
         {
             return Err("knowledge graph authorization request is invalid");
         }
-        let now = current_epoch_seconds()
-            .ok_or("knowledge graph authorization clock is unavailable")?;
+        let now =
+            current_epoch_seconds().ok_or("knowledge graph authorization clock is unavailable")?;
         let mut request = intent.clone();
         request.request_id = format!(
             "{}:{}:{:?}:{}",
-            intent.request_id,
-            action_id,
-            resource.resource_type,
-            resource.id
+            intent.request_id, action_id, resource.resource_type, resource.id
         );
         request.action = ResourceRef::new(ResourceType::Action, action_id)
             .map_err(|_| "knowledge graph action is invalid")?;
@@ -218,7 +215,12 @@ impl<'a, E: AuthorizationEvaluator> AuthorizedKnowledgeGraph<'a, E> {
             if depth >= max_depth {
                 continue;
             }
-            for edge in self.graph.edges.values().filter(|edge| edge.source == current) {
+            for edge in self
+                .graph
+                .edges
+                .values()
+                .filter(|edge| edge.source == current)
+            {
                 // The current resource has already been authorized. A target
                 // that is denied, expired, or cannot be evaluated is omitted
                 // so traversal does not disclose the existence of a protected
@@ -233,5 +235,4 @@ impl<'a, E: AuthorizationEvaluator> AuthorizedKnowledgeGraph<'a, E> {
         }
         Ok(result)
     }
-
 }
