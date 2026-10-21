@@ -338,6 +338,100 @@ fn lifecycle_authorization_is_bound_to_exact_operation_and_resource() {
 }
 
 #[test]
+fn lifecycle_denial_and_expiry_are_evaluated_inside_the_command() {
+    let mut factory = MockFactory::default();
+    let prior = observation("obs-old", json!({"condition":"present"}));
+    seed_prior(&factory, &prior);
+    let state = factory.state.clone();
+    let evaluator = TestEvaluator {
+        decision: AuthorizationDecision::Deny,
+        ..TestEvaluator::default()
+    };
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
+
+    assert_eq!(
+        command.correct(
+            context("observation.correct", "obs-new"),
+            ResourceRef::new(ResourceType::Observation, "obs-old").unwrap(),
+            observation("obs-new", json!({"condition":"repaired"})),
+            "reviewed correction",
+        ),
+        Err(ObservationLifecycleError::AuthorizationDenied)
+    );
+    drop(command);
+    assert_eq!(state.records.borrow().len(), 1);
+
+    let mut expired_factory = MockFactory::default();
+    let prior = observation("obs-old", json!({"condition":"present"}));
+    seed_prior(&expired_factory, &prior);
+    let expired_state = expired_factory.state.clone();
+    let evaluator = TestEvaluator {
+        expired: true,
+        ..TestEvaluator::default()
+    };
+    let mut expired_command = ObservationLifecycleCommand::new(&mut expired_factory, &evaluator);
+
+    assert_eq!(
+        expired_command.correct(
+            context("observation.correct", "obs-new"),
+            ResourceRef::new(ResourceType::Observation, "obs-old").unwrap(),
+            observation("obs-new", json!({"condition":"repaired"})),
+            "reviewed correction",
+        ),
+        Err(ObservationLifecycleError::AuthorizationExpired)
+    );
+    assert_eq!(expired_state.records.borrow().len(), 1);
+}
+
+#[test]
+fn lifecycle_rejects_evaluator_result_context_mismatch() {
+    let mut factory = MockFactory::default();
+    let prior = observation("obs-old", json!({"condition":"present"}));
+    seed_prior(&factory, &prior);
+    let state = factory.state.clone();
+    let evaluator = TestEvaluator {
+        mismatched_purpose: true,
+        ..TestEvaluator::default()
+    };
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
+
+    assert_eq!(
+        command.correct(
+            context("observation.correct", "obs-new"),
+            ResourceRef::new(ResourceType::Observation, "obs-old").unwrap(),
+            observation("obs-new", json!({"condition":"repaired"})),
+            "reviewed correction",
+        ),
+        Err(ObservationLifecycleError::AuthorizationMismatch)
+    );
+    assert_eq!(state.records.borrow().len(), 1);
+}
+
+#[test]
+fn policy_selector_cannot_bypass_lifecycle_evaluator_denial() {
+    let mut factory = MockFactory::default();
+    let prior = observation("obs-old", json!({"condition":"present"}));
+    seed_prior(&factory, &prior);
+    let state = factory.state.clone();
+    let mut test_context = context("observation.correct", "obs-new");
+    test_context.authorization_request.policy_refs =
+        vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()];
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
+
+    assert_eq!(
+        command.correct(
+            test_context,
+            ResourceRef::new(ResourceType::Observation, "obs-old").unwrap(),
+            observation("obs-new", json!({"condition":"repaired"})),
+            "reviewed correction",
+        ),
+        Err(ObservationLifecycleError::AuthorizationDenied)
+    );
+    assert_eq!(state.records.borrow().len(), 1);
+}
+
+#[test]
 fn lifecycle_does_not_resolve_epistemic_conflict_by_itself() {
     let mut factory = MockFactory::default();
     let prior = observation("obs-old", json!({"condition":"present"}));
