@@ -801,6 +801,12 @@ mod tests {
             repository.create(evidence.clone()).unwrap();
             assert_eq!(
                 repository.get(&"evidence-1".into()).unwrap(),
+                Some(evidence.clone())
+            );
+            // The same validated trust repository contract is usable by the
+            // protected read boundary without creating a second persistence API.
+            assert_eq!(
+                EvidenceTrustRepository::get(&mut repository, &"evidence-1".into()).unwrap(),
                 Some(evidence)
             );
         }
