@@ -467,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn uow_read_quarantines_legacy_transformation_without_provenance_by_rejection() {
+    fn uow_read_rejects_legacy_transformation_without_provenance() {
         let transformation = EvidenceTransformation {
             transformation_id: "legacy-transform-read".into(),
             source_evidence_id: "evidence-1".into(),
