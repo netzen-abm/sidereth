@@ -182,8 +182,9 @@ mod tests {
     use super::*;
     use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
     use crate::{
-        EvidencePersistenceError, EvidenceRepository, EvidenceTrustMetadata, EvidenceTrustRepository,
-        InMemoryEvidenceTrustRepository, InMemoryEvidenceVault, PersistedEvidence,
+        EvidencePersistenceError, EvidenceRepository, EvidenceTrustMetadata,
+        EvidenceTrustRepository, InMemoryEvidenceTrustRepository, InMemoryEvidenceVault,
+        PersistedEvidence,
     };
 
     #[derive(Clone)]
@@ -287,9 +288,7 @@ mod tests {
 
         let mut trust_repository = InMemoryEvidenceTrustRepository::default();
         trust_repository
-            .create(
-                PersistedEvidence::new(1, original, EvidenceTrustMetadata::default()).unwrap(),
-            )
+            .create(PersistedEvidence::new(1, original, EvidenceTrustMetadata::default()).unwrap())
             .unwrap();
         (vault, trust_repository)
     }
@@ -308,10 +307,7 @@ mod tests {
     }
 
     impl EvidenceTrustRepository for UnvalidatedTrustRepository {
-        fn create(
-            &mut self,
-            evidence: PersistedEvidence,
-        ) -> Result<(), EvidencePersistenceError> {
+        fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError> {
             self.record = Some(evidence);
             Ok(())
         }
@@ -358,12 +354,8 @@ mod tests {
     fn authorized_retrieval_returns_metadata_and_content() {
         let (vault, mut trust_repository) = vault();
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         let result = query.get(request()).unwrap();
         assert_eq!(result.original.evidence_id, "evidence-1");
         assert_eq!(result.content, b"original evidence");
@@ -376,12 +368,8 @@ mod tests {
             decision: AuthorizationDecision::Deny,
             ..TestEvaluator::default()
         };
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request()),
             Err(EvidenceQueryError::AuthorizationDenied)
@@ -395,12 +383,8 @@ mod tests {
         request.authorization_request.resource_ref =
             ResourceRef::new(ResourceType::Evidence, "evidence-2").unwrap();
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request),
             Err(EvidenceQueryError::AuthorizationMismatch)
@@ -414,12 +398,8 @@ mod tests {
             mismatched_purpose: true,
             ..TestEvaluator::default()
         };
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request()),
             Err(EvidenceQueryError::AuthorizationMismatch)
@@ -433,12 +413,8 @@ mod tests {
         request.authorization_request.action =
             ResourceRef::new(ResourceType::Action, "evidence.delete").unwrap();
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request),
             Err(EvidenceQueryError::AuthorizationMismatch)
@@ -452,12 +428,8 @@ mod tests {
             expired: true,
             ..TestEvaluator::default()
         };
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request()),
             Err(EvidenceQueryError::AuthorizationExpired)
@@ -474,12 +446,8 @@ mod tests {
                 .saturating_sub(1_000);
         request.authorization_request.freshness_seconds = Some(100);
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request),
             Err(EvidenceQueryError::AuthorizationExpired)
@@ -502,12 +470,8 @@ mod tests {
             ],
             ..TestEvaluator::default()
         };
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request()),
             Err(EvidenceQueryError::AuthorizationInvalid)
@@ -519,12 +483,8 @@ mod tests {
         let (vault, _valid_trust_repository) = vault();
         let mut empty_trust_repository = InMemoryEvidenceTrustRepository::default();
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut empty_trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut empty_trust_repository, &evaluator);
 
         assert_eq!(
             query.get(request()),
@@ -539,12 +499,8 @@ mod tests {
             record: Some(legacy_record_without_provenance()),
         };
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut unvalidated_trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut unvalidated_trust_repository, &evaluator);
 
         assert_eq!(
             query.get(request()),
@@ -564,12 +520,8 @@ mod tests {
             record: Some(trust_record),
         };
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut unvalidated_trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut unvalidated_trust_repository, &evaluator);
 
         assert_eq!(
             query.get(request()),
@@ -582,12 +534,8 @@ mod tests {
         let (mut vault, mut trust_repository) = vault();
         vault.tamper_object("object-1", b"tampered evidence");
         let evaluator = TestEvaluator::default();
-        let mut query = AuthorizedEvidenceQuery::new(
-            &vault,
-            &vault,
-            &mut trust_repository,
-            &evaluator,
-        );
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request()),
             Err(EvidenceQueryError::StorageFailure)
