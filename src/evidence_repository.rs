@@ -61,9 +61,7 @@ pub(crate) fn validate_evidence_resource_payload(
 
     let evidence: PersistedEvidence = serde_json::from_value(payload.clone())
         .map_err(|_| PersistenceError::SerializationFailure)?;
-    if evidence.schema_version != schema_version
-        || evidence.original.evidence_id != resource_ref.id
-    {
+    if evidence.schema_version != schema_version || evidence.original.evidence_id != resource_ref.id {
         return Err(PersistenceError::IntegrityFailure);
     }
     evidence.validate().map_err(PersistenceError::from)
