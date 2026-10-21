@@ -200,7 +200,10 @@ impl PersistedEvidence {
 /// trustworthy provenance merely because a storage read succeeded.
 pub trait EvidenceTrustRepository {
     fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError>;
-    fn get(&mut self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError>;
+    fn get(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError>;
     fn list_transformations(
         &mut self,
         evidence_id: &Id,
@@ -223,7 +226,10 @@ impl EvidenceTrustRepository for InMemoryEvidenceTrustRepository {
         Ok(())
     }
 
-    fn get(&mut self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
+    fn get(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
         let Some(evidence) = self.records.get(evidence_id) else {
             return Ok(None);
         };
