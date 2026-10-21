@@ -12,6 +12,8 @@ pub enum EvidencePersistenceError {
     NotFound,
     Duplicate,
     IntegrityFailure,
+    /// Provider/transaction failure that does not map safely to a domain error.
+    StorageFailure,
 }
 
 impl From<EvidencePersistenceError> for PersistenceError {
@@ -21,6 +23,28 @@ impl From<EvidencePersistenceError> for PersistenceError {
             EvidencePersistenceError::NotFound => PersistenceError::NotFound,
             EvidencePersistenceError::Duplicate => PersistenceError::Duplicate,
             EvidencePersistenceError::IntegrityFailure => PersistenceError::IntegrityFailure,
+            EvidencePersistenceError::StorageFailure => PersistenceError::Unavailable,
+        }
+    }
+}
+
+impl From<PersistenceError> for EvidencePersistenceError {
+    fn from(error: PersistenceError) -> Self {
+        match error {
+            PersistenceError::ValidationFailure | PersistenceError::UnsupportedSchemaVersion => {
+                Self::ValidationFailure
+            }
+            PersistenceError::NotFound => Self::NotFound,
+            PersistenceError::Duplicate | PersistenceError::IdempotencyAlreadyClaimed => {
+                Self::Duplicate
+            }
+            PersistenceError::IntegrityFailure => Self::IntegrityFailure,
+            PersistenceError::Unavailable
+            | PersistenceError::Timeout
+            | PersistenceError::Conflict
+            | PersistenceError::AuthorizationFailure
+            | PersistenceError::SerializationFailure
+            | PersistenceError::RetentionBlocked => Self::StorageFailure,
         }
     }
 }
@@ -171,11 +195,14 @@ impl PersistedEvidence {
     }
 }
 
+/// Provider-neutral validated trust-state repository. Implementations MUST validate
+/// decoded aggregates before returning them from `get`; consumers must not infer
+/// trustworthy provenance merely because a storage read succeeded.
 pub trait EvidenceTrustRepository {
     fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError>;
-    fn get(&self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError>;
+    fn get(&mut self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError>;
     fn list_transformations(
-        &self,
+        &mut self,
         evidence_id: &Id,
     ) -> Result<Vec<EvidenceTransformation>, EvidencePersistenceError>;
 }
@@ -196,19 +223,21 @@ impl EvidenceTrustRepository for InMemoryEvidenceTrustRepository {
         Ok(())
     }
 
-    fn get(&self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
-        Ok(self.records.get(evidence_id).cloned())
+    fn get(&mut self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
+        let Some(evidence) = self.records.get(evidence_id) else {
+            return Ok(None);
+        };
+        evidence.validate()?;
+        Ok(Some(evidence.clone()))
     }
 
     fn list_transformations(
-        &self,
+        &mut self,
         evidence_id: &Id,
     ) -> Result<Vec<EvidenceTransformation>, EvidencePersistenceError> {
-        let record = self
-            .records
-            .get(evidence_id)
-            .ok_or(EvidencePersistenceError::NotFound)?;
-        Ok(record.transformations.clone())
+        self.get(evidence_id)?
+            .map(|evidence| evidence.transformations)
+            .ok_or(EvidencePersistenceError::NotFound)
     }
 }
 
