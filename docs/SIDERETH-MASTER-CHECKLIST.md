@@ -1,14 +1,14 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST  
-**Last verified main baseline:** `b52cdcca4f10e0463a39a7d04118165d1efd712a`  
+**Last verified implementation baseline before checklist-only PR #174:** `b52cdcca4f10e0463a39a7d04118165d1efd712a`  
 **Audit date:** 2026-10-21
 
 > Checklist state is evidence-based. A checked item means the repository contains the stated implementation or proof at the described scope; it does not automatically mean production-ready.
 
 ## Current verified baseline — 2026-10-21
 
-**Main:** `b52cdcca4f10e0463a39a7d04118165d1efd712a`  
+**Last verified code baseline:** `b52cdcca4f10e0463a39a7d04118165d1efd712a`  
 **Active branches:** exactly **9**, verified from GitHub's branch listing after PR #173 merged.  
 **Engineering posture:** close concrete trust-boundary bypasses and prove behavior. Add abstractions only where a distinct trust, persistence, provider, change, or independent-reuse boundary justifies them.
 
@@ -16,12 +16,12 @@
 
 - PR [#170](https://github.com/netzen-abm/sidereth/pull/170) added generic Evidence write validation and PostgreSQL revalidation as `e7f901ccc75d7d59a87c6f5009cc98721dfd327f`. Exact-head Foundation Validation [#39610409084](https://github.com/netzen-abm/sidereth/actions/runs/39610409084) and Security/Supply Chain [#39610409076](https://github.com/netzen-abm/sidereth/actions/runs/39610409076) passed, including unit tests, live PostgreSQL proof matrix, Clippy, RustSec Audit, and GitHub Actions Security.
 - PR [#171](https://github.com/netzen-abm/sidereth/pull/171) rebaselined the checklist as `8b75998098f60abf67457a132da9866c39d31a31`. Its post-merge Foundation Validation [#39612724805](https://github.com/netzen-abm/sidereth/actions/runs/39612724805), Security/Supply Chain [#39612724707](https://github.com/netzen-abm/sidereth/actions/runs/39612724707), branch enforcement [#39612724728](https://github.com/netzen-abm/sidereth/actions/runs/39612724728), and push orchestration [#39612771384](https://github.com/netzen-abm/sidereth/actions/runs/39612771384) passed on that main head.
-- PR [#172](https://github.com/netzen-abm/sidereth/pull/172) merged as `73b17427b0c5fdc6bac9e01a612e0f75b3196a9c). Exact-head Foundation [#39619637009](https://github.com/netzen-abm/sidereth/actions/runs/39619637009), Security/Supply Chain [#39619637116](https://github.com/netzen-abm/sidereth/actions/runs/39619637116), and the CodeQL/PR workflow [#39619627604](https://github.com/netzen-abm/sidereth/actions/runs/39619627604) passed.
+- PR [#172](https://github.com/netzen-abm/sidereth/pull/172) merged as `73b17427b0c5fdc6bac9e01a612e0f75b3196a9c`. Exact-head Foundation [#39619637009](https://github.com/netzen-abm/sidereth/actions/runs/39619637009), Security/Supply Chain [#39619637116](https://github.com/netzen-abm/sidereth/actions/runs/39619637116), and the CodeQL/PR workflow [#39619627604](https://github.com/netzen-abm/sidereth/actions/runs/39619627604) passed.
 - PR [#173](https://github.com/netzen-abm/sidereth/pull/173) merged as `b52cdcca4f10e0463a39a7d04118165d1efd712a`. On the exact reviewed head `ee6b272cec402cac400fbe51206f0a6b860d3d07`, Foundation Validation [#39622430041](https://github.com/netzen-abm/sidereth/actions/runs/39622430041) and Security/Supply Chain [#39622430059](https://github.com/netzen-abm/sidereth/actions/runs/39622430059) passed. The Rust unit tests, live PostgreSQL proof matrix, Clippy, RustSec Audit, and GitHub Actions Security are included in those checks. The CodeQL check on workflow [#39622460091](https://github.com/netzen-abm/sidereth/actions/runs/39622460091) reported **success**; OpenSSF Scorecard was skipped and is not counted as a pass.
-- Post-merge workflows for current `main` at `b52cdcca4f10e0463a39a7d04118165d1efd712a` have not yet been verified. Do not claim they passed until runs against that exact SHA report their final conclusions.
-- The live branch listing reports exactly nine branches. Branch enforcement remains configured around the explicit keep/retire allow-list. Do not create a tenth branch; reuse the approved architecture branch or deliberately disposition an existing branch first.
+- PR [#174](https://github.com/netzen-abm/sidereth/pull/174), the checklist-only rebaseline, merged as `0631bfbcdbd5997e2bd5bc6b4e37ab9ae0e844b5`. Its exact-head Foundation Validation [#39623246259](https://github.com/netzen-abm/sidereth/actions/runs/39623246259) and Security/Supply Chain [#39623246093](https://github.com/netzen-abm/sidereth/actions/runs/39623246093) passed. The CodeQL check for that documentation-only change was neutral and is not counted as a pass. Current `main` has advanced from the implementation baseline `b52cdcca4f10e0463a39a7d04118165d1efd712a` through this checklist-only merge; post-merge workflows for the latest documentation head were not visible at the last audit.
+- The live branch listing reports exactly nine branches, and the approved architecture branch has been returned to the current main head. Branch enforcement remains configured around the explicit keep/retire allow-list. Do not create a tenth branch; deliberately disposition an existing branch first.
 
-### Nine active branches — verified after PR #173
+### Nine active branches — verified after PR #174
 
 1. `main`
 2. `architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19`
@@ -57,7 +57,7 @@ The enforcement workflow checks open PRs before deleting a retired branch, rejec
 ### Remaining security and portability gates
 
 1. **Issue #159 — historic evidence disposition:** inventory actual historical records; verify backups and original hashes; produce and review a dry-run classification report; implement/test quarantine across normal read/export/RAG/graph routes; prove idempotent recovery/rollback; and obtain an explicit policy decision. Missing attribution must never be silently reconstructed. Keep the issue open.
-2. **Post-merge proof:** check Foundation, Security/Supply Chain, branch-enforcement and push orchestration for current main `b52cdcca4f10e0463a39a7d04118165d1efd712a`; record their exact conclusions before claiming production-main CI is green.
+2. **Post-merge proof:** check Foundation, Security/Supply Chain, branch-enforcement and push orchestration for the latest main head after PR #174; record their exact conclusions before claiming production-main CI is green.
 3. **Remaining authorization consumers:** audit other protected operations and AI/tool paths for evaluator origin, exact action/resource/purpose/data-class binding, current time, expiry, and lease enforcement.
 4. **Persistence conformance:** finish ResourceLink endpoint/atomicity, duplicate/class-conflict, backward-compatibility, and provider-neutral adapter conformance.
 5. **Portability:** verify trusted time on every intended runtime, especially WASM.
