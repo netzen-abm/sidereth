@@ -1,4 +1,5 @@
 use serde_json::json;
+use sidereth_core::authorization::AuthorizationEvaluator;
 use sidereth_core::persistence::{
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceRecord, ResourceWrite,
     ResourceWriteMode, UnitOfWork, UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
@@ -126,46 +127,82 @@ fn seed_prior(factory: &MockFactory, prior: &Observation) {
     );
 }
 
+fn now_epoch_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
 fn context(action: &str, observation_id: &str) -> ObservationLifecycleCommandContext {
     let actor_ref = ResourceRef::new(ResourceType::Party, "party-1").unwrap();
-    let authorization_ref = ResourceRef::new(ResourceType::Other, "auth-1").unwrap();
-    let action_ref = ResourceRef::new(ResourceType::Action, action).unwrap();
-    let resource_ref = ResourceRef::new(ResourceType::Observation, observation_id).unwrap();
-    let policy_ref = ResourceRef::new(ResourceType::Other, "policy-1").unwrap();
     let authorization_request = AuthorizationRequest {
         request_id: format!("request-{observation_id}"),
-        authorization_ref: authorization_ref.clone(),
+        authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
         subject_ref: actor_ref.clone(),
-        action: action_ref.clone(),
-        resource_ref: resource_ref.clone(),
+        action: ResourceRef::new(ResourceType::Action, action).unwrap(),
+        resource_ref: ResourceRef::new(ResourceType::Observation, observation_id).unwrap(),
         purpose: "observation lifecycle".into(),
-        policy_refs: vec![policy_ref.clone()],
+        policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
         jurisdiction_ref: None,
         data_class: Some("RESTRICTED".into()),
-        requested_at_epoch_seconds: 90,
-        freshness_seconds: Some(30),
+        requested_at_epoch_seconds: now_epoch_seconds(),
+        freshness_seconds: Some(300),
     };
     ObservationLifecycleCommandContext {
         actor_ref,
         operation_id: format!("op-{action}-{observation_id}"),
         correlation_id: format!("corr-{observation_id}"),
-        now_epoch_seconds: 100,
-        authorization_request: authorization_request.clone(),
-        authorization: AuthorizationResult {
-            request_id: authorization_request.request_id.clone(),
-            authorization_ref,
-            subject_ref: authorization_request.subject_ref.clone(),
-            action: action_ref,
-            resource_ref,
-            purpose: authorization_request.purpose.clone(),
-            jurisdiction_ref: None,
-            data_class: authorization_request.data_class.clone(),
+        authorization_request,
+    }
+}
+
+#[derive(Clone)]
+struct TestEvaluator {
+    decision: AuthorizationDecision,
+    expired: bool,
+    mismatched_purpose: bool,
+}
+
+impl Default for TestEvaluator {
+    fn default() -> Self {
+        Self {
             decision: AuthorizationDecision::Allow,
+            expired: false,
+            mismatched_purpose: false,
+        }
+    }
+}
+
+impl AuthorizationEvaluator for TestEvaluator {
+    fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
+        let now = now_epoch_seconds();
+        let policy_ok = request.policy_refs
+            == vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()];
+        let decision = if policy_ok && request.jurisdiction_ref.is_none() {
+            self.decision
+        } else {
+            AuthorizationDecision::Deny
+        };
+        let mut result = AuthorizationResult {
+            request_id: request.request_id.clone(),
+            authorization_ref: request.authorization_ref.clone(),
+            subject_ref: request.subject_ref.clone(),
+            action: request.action.clone(),
+            resource_ref: request.resource_ref.clone(),
+            purpose: request.purpose.clone(),
+            jurisdiction_ref: request.jurisdiction_ref.clone(),
+            data_class: request.data_class.clone(),
+            decision,
             constraints: vec![],
-            policy_refs: authorization_request.policy_refs.clone(),
-            evaluated_at_epoch_seconds: 90,
-            expires_at_epoch_seconds: Some(120),
-        },
+            policy_refs: request.policy_refs.clone(),
+            evaluated_at_epoch_seconds: now,
+            expires_at_epoch_seconds: Some(if self.expired { now } else { now + 300 }),
+        };
+        if self.mismatched_purpose {
+            result.purpose = "forged-purpose".into();
+        }
+        result
     }
 }
 
@@ -175,7 +212,8 @@ fn correction_preserves_prior_and_links_new_observation() {
     let prior = observation("obs-old", json!({"condition":"damaged"}));
     seed_prior(&factory, &prior);
     let state = factory.state.clone();
-    let mut command = ObservationLifecycleCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
 
     let result = command
         .correct(
@@ -208,7 +246,8 @@ fn supersession_is_explicit_and_does_not_delete_prior() {
     let prior = observation("obs-old", json!({"status":"open"}));
     seed_prior(&factory, &prior);
     let state = factory.state.clone();
-    let mut command = ObservationLifecycleCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
 
     command
         .supersede(
@@ -232,7 +271,8 @@ fn contradiction_preserves_both_observations() {
     let prior = observation("obs-old", json!({"condition":"present"}));
     seed_prior(&factory, &prior);
     let state = factory.state.clone();
-    let mut command = ObservationLifecycleCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
 
     command
         .contradict(
@@ -251,7 +291,8 @@ fn contradiction_preserves_both_observations() {
 fn missing_prior_is_rejected_without_creating_new_observation() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut command = ObservationLifecycleCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
 
     let result = command.correct(
         context("observation.correct", "obs-new"),
@@ -279,9 +320,10 @@ fn lifecycle_authorization_is_bound_to_exact_operation_and_resource() {
     seed_prior(&factory, &prior);
     let state = factory.state.clone();
     let mut bad_context = context("observation.correct", "obs-new");
-    bad_context.authorization.resource_ref =
+    bad_context.authorization_request.resource_ref =
         ResourceRef::new(ResourceType::Observation, "other").unwrap();
-    let mut command = ObservationLifecycleCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
 
     assert_eq!(
         command.correct(
@@ -301,7 +343,8 @@ fn lifecycle_does_not_resolve_epistemic_conflict_by_itself() {
     let prior = observation("obs-old", json!({"condition":"present"}));
     seed_prior(&factory, &prior);
     let state = factory.state.clone();
-    let mut command = ObservationLifecycleCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
     let mut new_observation = observation("obs-new", json!({"condition":"absent"}));
     new_observation.epistemic_status = EpistemicStatus::Inferred;
 
