@@ -1,6 +1,8 @@
 use super::*;
 use crate::audit::AuditSink;
-use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
+use crate::authorization::{
+    AuthorizationConstraint, AuthorizationDecision, AuthorizationEvaluator,
+};
 use crate::persistence::{
     IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
     PersistenceError,
@@ -151,6 +153,8 @@ fn registry() -> InMemoryToolRegistry {
 }
 
 fn request() -> AuthorizationRequest {
+    let now = crate::authorization_enforcement::current_epoch_seconds()
+        .expect("trusted system time must be available");
     AuthorizationRequest {
         request_id: "req-1".into(),
         authorization_ref: r(crate::ResourceType::Other, "auth-1"),
@@ -161,30 +165,60 @@ fn request() -> AuthorizationRequest {
         policy_refs: vec![r(crate::ResourceType::Other, "policy-1")],
         jurisdiction_ref: Some(r(crate::ResourceType::Jurisdiction, "IN")),
         data_class: Some("restricted".into()),
-        requested_at_epoch_seconds: 1000,
-        freshness_seconds: Some(100),
+        requested_at_epoch_seconds: now,
+        freshness_seconds: Some(3_600),
     }
 }
 
-fn authorization() -> AuthorizationResult {
-    let q = request();
-    AuthorizationResult {
-        request_id: q.request_id.clone(),
-        authorization_ref: q.authorization_ref.clone(),
-        subject_ref: q.subject_ref.clone(),
-        action: q.action.clone(),
-        resource_ref: q.resource_ref.clone(),
-        purpose: q.purpose.clone(),
-        jurisdiction_ref: q.jurisdiction_ref.clone(),
-        data_class: q.data_class.clone(),
-        decision: AuthorizationDecision::Allow,
-        constraints: vec![AuthorizationConstraint {
-            key: "scope".into(),
-            value: "exact_resource".into(),
-        }],
-        policy_refs: q.policy_refs.clone(),
-        evaluated_at_epoch_seconds: 1000,
-        expires_at_epoch_seconds: Some(1100),
+#[derive(Clone)]
+struct TestEvaluator {
+    decision: AuthorizationDecision,
+    constraints: Vec<AuthorizationConstraint>,
+    expired: bool,
+    mismatched_purpose: bool,
+}
+
+impl Default for TestEvaluator {
+    fn default() -> Self {
+        Self {
+            decision: AuthorizationDecision::Allow,
+            constraints: vec![AuthorizationConstraint {
+                key: "scope".into(),
+                value: "exact_resource".into(),
+            }],
+            expired: false,
+            mismatched_purpose: false,
+        }
+    }
+}
+
+impl AuthorizationEvaluator for TestEvaluator {
+    fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
+        let now = crate::authorization_enforcement::current_epoch_seconds()
+            .expect("trusted system time must be available");
+        let mut result = AuthorizationResult {
+            request_id: request.request_id.clone(),
+            authorization_ref: request.authorization_ref.clone(),
+            subject_ref: request.subject_ref.clone(),
+            action: request.action.clone(),
+            resource_ref: request.resource_ref.clone(),
+            purpose: request.purpose.clone(),
+            jurisdiction_ref: request.jurisdiction_ref.clone(),
+            data_class: request.data_class.clone(),
+            decision: self.decision,
+            constraints: self.constraints.clone(),
+            policy_refs: request.policy_refs.clone(),
+            evaluated_at_epoch_seconds: now,
+            expires_at_epoch_seconds: Some(if self.expired {
+                now.saturating_sub(1)
+            } else {
+                now.saturating_add(3_600)
+            }),
+        };
+        if self.mismatched_purpose {
+            result.purpose = "different purpose".into();
+        }
+        result
     }
 }
 
@@ -221,9 +255,10 @@ fn invocation() -> ToolGatewayInvocation {
 fn valid_context_passes_without_claiming() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     assert_eq!(
-        gateway.validate(&invocation(), &request(), &authorization(), 1050),
+        gateway.validate(&invocation(), &request()),
         Ok(ToolGatewayPhase::Validated)
     );
     assert!(idempotency.claimed.is_empty());
@@ -233,7 +268,8 @@ fn valid_context_passes_without_claiming() {
 fn capability_mismatch_fails_before_claim_and_provider_execution() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     let mut i = invocation();
@@ -243,10 +279,8 @@ fn capability_mismatch_fails_before_claim_and_provider_execution() {
             &i,
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -263,7 +297,8 @@ fn capability_mismatch_fails_before_claim_and_provider_execution() {
 fn function_mismatch_fails_before_claim_and_provider_execution() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     let mut i = invocation();
@@ -273,10 +308,8 @@ fn function_mismatch_fails_before_claim_and_provider_execution() {
             &i,
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -293,7 +326,8 @@ fn function_mismatch_fails_before_claim_and_provider_execution() {
 fn implementation_mismatch_fails_before_claim_and_provider_execution() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     let mut i = invocation();
@@ -303,10 +337,8 @@ fn implementation_mismatch_fails_before_claim_and_provider_execution() {
             &i,
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -323,7 +355,8 @@ fn implementation_mismatch_fails_before_claim_and_provider_execution() {
 fn provider_mismatch_fails_before_claim_and_provider_execution() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     let mut i = invocation();
@@ -333,10 +366,8 @@ fn provider_mismatch_fails_before_claim_and_provider_execution() {
             &i,
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -353,7 +384,8 @@ fn provider_mismatch_fails_before_claim_and_provider_execution() {
 fn implementation_version_mismatch_fails_before_claim_and_provider_execution() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     let mut i = invocation();
@@ -363,10 +395,8 @@ fn implementation_version_mismatch_fails_before_claim_and_provider_execution() {
             &i,
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -405,7 +435,8 @@ fn provider_object_mismatch_fails_before_claim_and_execution() {
 
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = WrongProvider;
     let mut audit = crate::InMemoryAudit::default();
     assert!(matches!(
@@ -413,10 +444,8 @@ fn provider_object_mismatch_fails_before_claim_and_execution() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -432,11 +461,12 @@ fn provider_object_mismatch_fails_before_claim_and_execution() {
 fn subject_mismatch_fails_closed() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut i = invocation();
     i.subject_ref = r(crate::ResourceType::Party, "party-2");
     assert!(matches!(
-        gateway.validate(&i, &request(), &authorization(), 1050),
+        gateway.validate(&i, &request()),
         Err(ToolGatewayError::Authorization(
             AuthorizationValidationError::RequestResultMismatch
         ))
@@ -447,9 +477,13 @@ fn subject_mismatch_fails_closed() {
 fn exact_expiry_fails_closed() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator {
+        expired: true,
+        ..TestEvaluator::default()
+    };
+    let gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     assert!(matches!(
-        gateway.validate(&invocation(), &request(), &authorization(), 1100),
+        gateway.validate(&invocation(), &request()),
         Err(ToolGatewayError::Authorization(
             AuthorizationValidationError::Expired
         ))
@@ -460,11 +494,12 @@ fn exact_expiry_fails_closed() {
 fn exact_resource_scope_binds_to_resource() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut i = invocation();
     i.requested_scope = "case-2".into();
     assert!(matches!(
-        gateway.validate(&i, &request(), &authorization(), 1050),
+        gateway.validate(&i, &request()),
         Err(ToolGatewayError::Authorization(
             AuthorizationValidationError::ConstraintViolation
         ))
@@ -485,9 +520,9 @@ fn duplicate_context_bound_operation_is_blocked() {
     .unwrap();
     action.authorization_ref = Some("auth-1".into());
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let q = request();
-    let a = authorization();
     let i = invocation();
     let mut p = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
@@ -496,10 +531,8 @@ fn duplicate_context_bound_operation_is_blocked() {
             &i,
             ToolGatewayExecutionContext {
                 request: &q,
-                authorization: &a,
                 action: Some(&action),
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut p
@@ -512,10 +545,8 @@ fn duplicate_context_bound_operation_is_blocked() {
             &i,
             ToolGatewayExecutionContext {
                 request: &q,
-                authorization: &a,
                 action: Some(&action),
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut p
@@ -554,9 +585,10 @@ fn required_capability_lease_cannot_be_omitted() {
         )
         .unwrap();
     let mut idempotency = Idempotency::default();
-    let gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     assert!(matches!(
-        gateway.validate(&invocation(), &request(), &authorization(), 1050),
+        gateway.validate(&invocation(), &request()),
         Err(ToolGatewayError::Lease(CapabilityLeaseError::InvalidLease))
     ));
     assert!(idempotency.claimed.is_empty());
@@ -566,7 +598,8 @@ fn required_capability_lease_cannot_be_omitted() {
 fn nonapproval_tool_cannot_bypass_canonical_execution_gate() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
 
@@ -575,10 +608,8 @@ fn nonapproval_tool_cannot_bypass_canonical_execution_gate() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -621,7 +652,8 @@ fn approval_required_fails_before_claim_without_canonical_action() {
         .unwrap();
 
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     assert_eq!(
@@ -629,10 +661,8 @@ fn approval_required_fails_before_claim_without_canonical_action() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: None,
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -708,7 +738,8 @@ fn human_approval_allows_consequential_tool_execution() {
         .unwrap();
 
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     assert_eq!(
@@ -716,10 +747,8 @@ fn human_approval_allows_consequential_tool_execution() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: Some(&action),
                 approval: Some(&approval),
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -785,7 +814,8 @@ fn non_human_approval_cannot_satisfy_consequential_tool_requirement() {
     };
 
     let mut idempotency = Idempotency::default();
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     assert_eq!(
@@ -793,10 +823,8 @@ fn non_human_approval_cannot_satisfy_consequential_tool_requirement() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: Some(&action),
                 approval: Some(&approval),
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -834,7 +862,8 @@ fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
         fail_mark_completed: true,
         ..Default::default()
     };
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider::default();
     let mut audit = crate::InMemoryAudit::default();
     let mut action = Action::new(
@@ -853,10 +882,8 @@ fn provider_success_with_lifecycle_persistence_failure_becomes_unknown() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: Some(&action),
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -879,7 +906,8 @@ fn provider_failure_with_audit_failure_becomes_unknown() {
         fail_mark_failed: true,
         ..Default::default()
     };
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider {
         fail: true,
         ..Default::default()
@@ -901,10 +929,8 @@ fn provider_failure_with_audit_failure_becomes_unknown() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: Some(&action),
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -927,7 +953,8 @@ fn provider_failure_with_durable_lifecycle_failure_is_unknown_not_failed() {
         fail_mark_failed: true,
         ..Default::default()
     };
-    let mut gateway = ToolGateway::new(&registry, &mut idempotency);
+    let evaluator = TestEvaluator::default();
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     let mut provider = Provider {
         fail: true,
         ..Default::default()
@@ -949,10 +976,8 @@ fn provider_failure_with_durable_lifecycle_failure_is_unknown_not_failed() {
             &invocation(),
             ToolGatewayExecutionContext {
                 request: &request(),
-                authorization: &authorization(),
                 action: Some(&action),
                 approval: None,
-                now_epoch_seconds: 1050,
                 audit: &mut audit,
             },
             &mut provider
@@ -968,17 +993,66 @@ fn provider_failure_with_durable_lifecycle_failure_is_unknown_not_failed() {
 }
 
 #[test]
+fn evaluator_context_mismatch_fails_closed() {
+    let registry = registry();
+    let mut idempotency = Idempotency::default();
+    let evaluator = TestEvaluator {
+        mismatched_purpose: true,
+        ..TestEvaluator::default()
+    };
+    let gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
+    assert!(matches!(
+        gateway.validate(&invocation(), &request()),
+        Err(ToolGatewayError::Authorization(
+            AuthorizationValidationError::RequestResultMismatch
+        ))
+    ));
+}
+
+#[test]
+fn denied_evaluation_fails_before_claim_and_provider_execution() {
+    let registry = registry();
+    let mut idempotency = Idempotency::default();
+    let evaluator = TestEvaluator {
+        decision: AuthorizationDecision::Deny,
+        ..TestEvaluator::default()
+    };
+    let mut gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
+    let mut provider = Provider::default();
+    let mut audit = crate::InMemoryAudit::default();
+    assert!(matches!(
+        gateway.execute(
+            &invocation(),
+            ToolGatewayExecutionContext {
+                request: &request(),
+                action: None,
+                approval: None,
+                audit: &mut audit,
+            },
+            &mut provider
+        ),
+        Err(ToolGatewayError::Authorization(
+            AuthorizationValidationError::Denied
+        ))
+    ));
+    assert_eq!(provider.calls, 0);
+    assert!(idempotency.claimed.is_empty());
+}
+
+#[test]
 fn unsupported_constraint_fails_closed() {
     let registry = registry();
     let mut idempotency = Idempotency::default();
-    let gateway = ToolGateway::new(&registry, &mut idempotency);
-    let mut a = authorization();
-    a.constraints.push(AuthorizationConstraint {
-        key: "scope".into(),
-        value: "broader_resource_set".into(),
-    });
+    let evaluator = TestEvaluator {
+        constraints: vec![AuthorizationConstraint {
+            key: "scope".into(),
+            value: "broader_resource_set".into(),
+        }],
+        ..TestEvaluator::default()
+    };
+    let gateway = ToolGateway::new(&registry, &mut idempotency, &evaluator);
     assert!(matches!(
-        gateway.validate(&invocation(), &request(), &a, 1050),
+        gateway.validate(&invocation(), &request()),
         Err(ToolGatewayError::Authorization(
             AuthorizationValidationError::ConstraintViolation
         ))

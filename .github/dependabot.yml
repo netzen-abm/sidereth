@@ -1,0 +1,19 @@
+# Dependency update PRs are intentionally disabled to preserve SIDERETH's
+# hard exactly-nine-active-branches invariant. Security scanning remains in CI;
+# update dependencies through the existing engineering branch and required checks.
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7

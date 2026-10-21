@@ -1,41 +1,67 @@
 # SIDERETH — Master Implementation Checklist
 
-**Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `c09c7f3742b5a767f89629baf34b362fcfb2f42b`
-**Audit date:** 2026-10-15
+**Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST  
+**Last audited baseline:** `main` at `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`  
+**Audit date:** 2026-10-21
 
 > Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
 
+## Current verified baseline — 2026-10-21
 
-## Current verified baseline — 2026-10-15
+**Verified main baseline:** `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`  
+**Branch-count audit:** 10 branches were visible on 2026-10-21 after an extra `netzen-abm-patch-1` branch was created with a malformed Dependabot scaffold. Its configuration intent is being preserved in corrected `.github/dependabot.yml` in this PR; after merge, the existing nine-branch workflow will retire that non-allowlisted branch, restoring exactly nine.  
 
-**Verified main baseline:** `c09c7f3742b5a767f89629baf34b362fcfb2f42b`  
-**Active branch count:** exactly 9 observed after merge.  
-**Current engineering posture:** continue the protected-operation audit. Do not add orchestration layers; close demonstrated trust-boundary gaps and test them.
+**Dependency-update policy:** `.github/dependabot.yml` documents Cargo and GitHub Actions, but sets `open-pull-requests-limit: 0` for both ecosystems to prevent routine version-update PR branches from violating the hard nine-branch invariant. Security scanning remains enforced through RustSec Audit, GitHub Actions Security (zizmor), and CodeQL. Review dependency changes on the approved engineering branch with full CI; do not allow background update PRs to grow the branch inventory.  
+**Current engineering posture:** close demonstrated trust-boundary gaps and prove behavior with regression/integration tests; do not add abstractions or orchestration layers without an independently justified boundary.
 
-### Verified implementation changes
+### Latest verified GitHub evidence
+
+- The current `main` SHA remains `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`.
+- Foundation Validation run [#38738581329](https://github.com/netzen-abm/sidereth/actions/runs/38738581329), on this exact SHA (2026-10-15), passed format, compile, tests, live PostgreSQL proof matrix, Clippy, required-document checks, legacy-reference checks, and direct-secret-pattern checks.
+- Security and Supply Chain run [#38738581367](https://github.com/netzen-abm/sidereth/actions/runs/38738581367), on this exact SHA (2026-10-15), passed RustSec Audit, GitHub Actions Security, and OpenSSF Scorecard. Scorecard is not a required PR check and is not counted as a required-gate pass.
+- The nine-branch enforcement run [#38738581533](https://github.com/netzen-abm/sidereth/actions/runs/38738581533) passed on this SHA.
+- GitHub's CodeQL Setup run [#39567399286](https://github.com/netzen-abm/sidereth/actions/runs/39567399286) succeeded on 2026-10-21; the Rust and GitHub Actions analyses completed successfully.
+- These checks are the latest observable runs on the unchanged current `main`; the next code PR must still pass all required checks on its exact final head.
+
+### Nine active branches — verified
+
+1. `main`
+2. `architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19`
+3. `architecture/repo-organization-privacy-runtime-licensing-2026-09-17`
+4. `architecture/reticulum-inspired-cost-delay-sovereignty-research-2026-09-17`
+5. `governance/ruleset-baseline-2026-09-16`
+6. `docs/documentation-governance-2026-09-11`
+7. `docs/semantic-audit-domain-model-2026-09-11`
+8. `sidereth-ecosystem-architecture`
+9. `feat/knowledge-graph-next`
+
+The nine-branch enforcement workflow uses an explicit keep/retire allow-list, checks retired branches for open PRs before deletion, and verifies that exactly nine remain. Do not create a tenth branch; use an existing approved branch or first complete an evidence-backed branch disposition.
+
+### Current repository governance state
+
+- The active `SIDERETH Main Protection` ruleset targets `main`, requires a pull request and the checks `Validate Foundation`, `RustSec Audit`, and `GitHub Actions Security`; force-push and branch deletion are prohibited.
+- **Gap:** the active ruleset currently requires **zero approving reviews** and does **not** require review-thread resolution. Repository governance therefore exists but remains short of the intended review standard. Keep issue #100 open until the repository owner enables one approval and resolved review conversations, then re-read the live ruleset to verify.
+
+### Verified implementation baseline
 
 - PR #165, `fix: evaluate authorization inside protected evidence query`, merged as `d27303de209a44db59e7491145467ba654d8cc94`.
-- PR #166, `fix: evaluate canonical authorization at protected read boundaries`, merged as `c09c7f3742b5a767f89629baf34b362fcfb2f42b`.
-- `EvidenceQueryRequest` no longer accepts a caller-supplied `AuthorizationResult` or timestamp. `AuthorizedEvidenceQuery` invokes the configured `AuthorizationEvaluator`, binds the operation to `Action/evidence.read`, validates the result, and verifies the content hash before returning bytes.
-- `ResourceQueryRequest` likewise no longer accepts a caller-supplied result or timestamp. `UnitOfWorkResourceQuery` evaluates authorization itself, binds the operation to `Action/resource.read`, validates the decision before opening a Unit of Work, and preserves the existing transaction boundary.
-- Current-time acquisition is centralized in `src/authorization_enforcement.rs`; expiry and freshness are checked against the query boundary's current time.
-- Regression coverage includes denied decisions, mismatched evaluator context, wrong actions, expiry/freshness, data-class mismatch, missing resources, unknown constraints, and tampered evidence.
-- Exact-head Foundation Validation passed on PR #166, including format, compile, tests, live PostgreSQL proof matrix, and Clippy. Security and Supply Chain passed; RustSec Audit and GitHub Actions Security passed. OpenSSF Scorecard was skipped and is not counted as a pass.
-- The latest post-merge Foundation Validation, Security and Supply Chain, and nine-branch workflow were still queued/in progress at the time of this update; verify their final conclusions before treating the merge baseline as fully green.
+- PR #166, `fix: evaluate canonical authorization at protected read boundaries`, merged as `c09c7f3742b5a767f89629baf34b362fcfb2f42b`; the subsequent checklist-only rebaseline is `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`.
+- `EvidenceQueryRequest` does not accept a caller-supplied `AuthorizationResult` or timestamp. `AuthorizedEvidenceQuery` invokes the configured `AuthorizationEvaluator`, binds the operation to `Action/evidence.read`, validates the result using the local clock, and verifies the content hash before returning bytes.
+- `ResourceQueryRequest` likewise carries request intent only. `UnitOfWorkResourceQuery` evaluates authorization itself, binds `Action/resource.read`, validates before opening the Unit of Work, and preserves the existing transaction boundary.
+- `current_epoch_seconds()` centralizes the available system-clock read. Browser/WASM clock suitability remains unproven and must not be claimed until tested.
 
-### Remaining security and portability gates
+### Current security and portability gates
 
-1. Audit every remaining consumer that accepts an authorization result or timestamp from its caller, including Knowledge Graph, Observation Command/Lifecycle, and Tool Gateway. Confirm that the result originates from the configured trusted evaluator and that the operation binds the exact action/resource/purpose/data class.
-2. Verify the trusted-time implementation on every intended runtime, especially WASM. `SystemTime::now()` may not be a usable clock on every WASM target; do not claim browser/WASM readiness until the host clock behavior is proven. If unsupported, inject a trusted platform clock at the provider boundary.
-3. Keep raw `EvidenceObjectStore` and `EvidenceRepository` handles inside trusted adapter scope. The interfaces are intentionally authorization-neutral; production surfaces and AI/agent runtimes must not receive unrestricted store access.
-4. Inventory legacy transformations without trustworthy provenance and define fail-closed migration/quarantine without fabricating history.
-5. Complete ResourceLink endpoint/atomicity, duplicate/class-conflict, PostgreSQL, backward-compatibility, and provider-neutral conformance tests.
-6. Retire stale branches only after unique material, protections, PRs, workflow references, and deployment dependencies are checked. Preserve exactly nine active branches.
+1. **Tool Gateway authorization convergence (current next code gate).** On `main`, `ToolGateway::validate` and `ToolGatewayExecutionContext` still accept a caller-supplied `AuthorizationResult` and `now_epoch_seconds`. The bounded change on the existing `architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19` branch moves evaluation into the gateway, obtains current time at the gateway boundary, and reuses that single result for execution-gate enforcement. It adds tests for mismatched evaluator context, denial before idempotency claim/provider execution, and expiry. **This is not complete until the PR's exact-head Foundation and Security/Supply Chain checks pass and the diff is reviewed.**
+2. **Evidence provenance and persistence.** PR #161 merged as `230e97a504a07cbb60dfbff9c089a166b39ba4ef`; `PersistedEvidence::validate` now checks one-to-one transformation/provenance bindings and permits typed Tool/Service actors only when creator identity still matches. Issue #159 remains open for a repository-wide bypass/call-site audit and a fail-closed migration/quarantine decision for any historical record without verifiable provenance.
+3. **Remaining authorization consumers.** Audit Knowledge Graph, Observation Command/Lifecycle, and any other protected path for trusted evaluator origin, exact action/resource/purpose/data-class binding, expiry, and lease enforcement as applicable.
+4. **Store boundary.** Keep raw `EvidenceObjectStore` and `EvidenceRepository` handles inside trusted adapter scope; public surfaces and AI/agent runtimes must not receive unrestricted store access.
+5. **Persistence conformance.** Complete ResourceLink endpoint/atomicity, duplicate/class-conflict, PostgreSQL, backward-compatibility, and provider-neutral conformance tests.
+6. **Portability and branch hygiene.** Verify trusted time on every intended runtime, especially WASM. Retire stale branches only after unique material, PRs, protections, workflow references, and deployment dependencies are checked; preserve exactly nine active branches.
 
 ---
 
-**Historical note:** the prior same-day audits below are retained as history. This section is authoritative for the `c09c7f3742b5a767f89629baf34b362fcfb2f42b` baseline.
+**Historical note:** The prior audits below are retained as historical records. The verified baseline above is authoritative for `main` at `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`.
 
 ## Historical post-merge security audit — 2026-10-15
 

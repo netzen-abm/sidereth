@@ -51,6 +51,7 @@ jobs:
             "sidereth-transactional-read-cas-current"
             "sidereth-universal-contract-hardening"
             "sidereth-universal-core-audit"
+            "netzen-abm-patch-1"
           )
           is_kept() { local candidate="$1"; for item in "${keep[@]}"; do [[ "$candidate" == "$item" ]] && return 0; done; return 1; }
           is_retired() { local candidate="$1"; for item in "${retire[@]}"; do [[ "$candidate" == "$item" ]] && return 0; done; return 1; }
