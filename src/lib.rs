@@ -120,8 +120,7 @@ pub use intelligence::{
 };
 pub use jurisdiction::{Jurisdiction, JurisdictionRegistry, JurisdictionStatus, JurisdictionType};
 pub use knowledge_graph::{
-    KnowledgeEdge, KnowledgeGraph, KnowledgeGraphAccessContext,
-    KnowledgeGraphResourceAuthorization, KnowledgeLinkClass, KnowledgeNode,
+    AuthorizedKnowledgeGraph, KnowledgeEdge, KnowledgeLinkClass, KnowledgeNode,
 };
 pub use legal_source::{
     LegalProposition, LegalSource, PropositionType, SourceType, VerificationStatus,
