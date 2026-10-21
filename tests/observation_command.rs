@@ -331,7 +331,6 @@ fn denied_or_expired_authorization_cannot_mutate() {
         denied_command.create(context(), observation()),
         Err(ObservationCommandError::AuthorizationDenied)
     );
-    drop(denied_command);
 
     let expired_evaluator = TestEvaluator {
         expired: true,
