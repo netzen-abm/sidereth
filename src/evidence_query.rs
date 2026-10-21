@@ -499,8 +499,12 @@ mod tests {
             record: Some(legacy_record_without_provenance()),
         };
         let evaluator = TestEvaluator::default();
-        let mut query =
-            AuthorizedEvidenceQuery::new(&vault, &vault, &mut unvalidated_trust_repository, &evaluator);
+        let mut query = AuthorizedEvidenceQuery::new(
+            &vault,
+            &vault,
+            &mut unvalidated_trust_repository,
+            &evaluator,
+        );
 
         assert_eq!(
             query.get(request()),
@@ -520,8 +524,12 @@ mod tests {
             record: Some(trust_record),
         };
         let evaluator = TestEvaluator::default();
-        let mut query =
-            AuthorizedEvidenceQuery::new(&vault, &vault, &mut unvalidated_trust_repository, &evaluator);
+        let mut query = AuthorizedEvidenceQuery::new(
+            &vault,
+            &vault,
+            &mut unvalidated_trust_repository,
+            &evaluator,
+        );
 
         assert_eq!(
             query.get(request()),
