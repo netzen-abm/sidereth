@@ -1,5 +1,7 @@
 use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest};
-use crate::authorization_enforcement::{current_epoch_seconds, validate_authorization as enforce_authorization};
+use crate::authorization_enforcement::{
+    current_epoch_seconds, validate_authorization as enforce_authorization,
+};
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
@@ -156,15 +158,18 @@ fn validate_authorization<E: AuthorizationEvaluator>(
     }
     let now = current_epoch_seconds().ok_or(ObservationCommandError::AuthorizationInvalid)?;
     let authorization = evaluator.evaluate(request);
-    enforce_authorization(request, &authorization, now)
-        .map_err(|error| match error {
-            crate::AuthorizationValidationError::Denied => ObservationCommandError::AuthorizationDenied,
-            crate::AuthorizationValidationError::Expired => ObservationCommandError::AuthorizationExpired,
-            crate::AuthorizationValidationError::NotYetEvaluated
-            | crate::AuthorizationValidationError::InvalidRequest
-            | crate::AuthorizationValidationError::RequestResultMismatch
-            | crate::AuthorizationValidationError::ConstraintViolation => ObservationCommandError::AuthorizationMismatch,
-        })?;
+    enforce_authorization(request, &authorization, now).map_err(|error| match error {
+        crate::AuthorizationValidationError::Denied => ObservationCommandError::AuthorizationDenied,
+        crate::AuthorizationValidationError::Expired => {
+            ObservationCommandError::AuthorizationExpired
+        }
+        crate::AuthorizationValidationError::NotYetEvaluated
+        | crate::AuthorizationValidationError::InvalidRequest
+        | crate::AuthorizationValidationError::RequestResultMismatch
+        | crate::AuthorizationValidationError::ConstraintViolation => {
+            ObservationCommandError::AuthorizationMismatch
+        }
+    })?;
     Ok(authorization)
 }
 
