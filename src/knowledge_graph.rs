@@ -223,8 +223,4 @@ impl<'a, E: AuthorizationEvaluator> AuthorizedKnowledgeGraph<'a, E> {
         Ok(result)
     }
 
-    #[cfg(test)]
-    pub(crate) fn counts(&self) -> (usize, usize) {
-        (self.graph.nodes.len(), self.graph.edges.len())
-    }
 }
