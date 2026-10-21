@@ -10,6 +10,8 @@
 
 **Verified main baseline:** `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`  
 **Branch-count audit:** 10 branches were visible on 2026-10-21 after an extra `netzen-abm-patch-1` branch was created with a malformed Dependabot scaffold. Its configuration intent is being preserved in corrected `.github/dependabot.yml` in this PR; after merge, the existing nine-branch workflow will retire that non-allowlisted branch, restoring exactly nine.  
+
+**Dependency-update policy:** `.github/dependabot.yml` documents Cargo and GitHub Actions, but sets `open-pull-requests-limit: 0` for both ecosystems to prevent routine version-update PR branches from violating the hard nine-branch invariant. Security scanning remains enforced through RustSec Audit, GitHub Actions Security (zizmor), and CodeQL. Review dependency changes on the approved engineering branch with full CI; do not allow background update PRs to grow the branch inventory.  
 **Current engineering posture:** close demonstrated trust-boundary gaps and prove behavior with regression/integration tests; do not add abstractions or orchestration layers without an independently justified boundary.
 
 ### Latest verified GitHub evidence
