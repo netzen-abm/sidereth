@@ -73,6 +73,17 @@ impl KnowledgeGraph {
     }
 
     fn insert_edge(&mut self, edge: KnowledgeEdge) -> Result<(), &'static str> {
+        // Struct fields remain public for wire/API ergonomics, so constructors
+        // are not the trust boundary. Validate every invariant before mutating
+        // state; a rejected edge must never remain in the graph.
+        if edge.edge_id.trim().is_empty()
+            || edge.predicate.trim().is_empty()
+            || edge.source.id.is_empty()
+            || edge.target.id.is_empty()
+            || edge.provenance.id.is_empty()
+        {
+            return Err("knowledge edge contains an incomplete canonical field");
+        }
         if edge.class == KnowledgeLinkClass::Strong && !self.nodes.contains_key(&edge.target) {
             return Err("strong knowledge link target must exist");
         }
