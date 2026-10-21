@@ -301,8 +301,14 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
             })?;
         record
             .map(|record| {
+                if record.resource_ref != resource_ref {
+                    return Err(PersistenceError::IntegrityFailure);
+                }
                 let evidence = serde_json::from_value::<PersistedEvidence>(record.payload)
                     .map_err(|_| PersistenceError::SerializationFailure)?;
+                if record.schema_version != evidence.schema_version {
+                    return Err(PersistenceError::IntegrityFailure);
+                }
                 evidence.validate().map_err(PersistenceError::from)?;
                 Ok(evidence)
             })
@@ -816,6 +822,25 @@ mod tests {
                 Some(evidence)
             );
         }
+    }
+
+    #[test]
+    fn uow_adapter_rejects_row_and_payload_schema_version_mismatch() {
+        let evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        let mut context = FakeContext {
+            record: Some(ResourceRecord {
+                resource_ref: ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
+                schema_version: 2,
+                revision: Revision::initial(),
+                payload: serde_json::to_value(evidence).unwrap(),
+            }),
+        };
+        let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
+        assert_eq!(
+            repository.get(&"evidence-1".into()),
+            Err(PersistenceError::IntegrityFailure)
+        );
     }
 
     #[test]
