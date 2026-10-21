@@ -1,6 +1,8 @@
 use super::*;
 use crate::audit::AuditSink;
-use crate::authorization::{AuthorizationConstraint, AuthorizationDecision, AuthorizationEvaluator};
+use crate::authorization::{
+    AuthorizationConstraint, AuthorizationDecision, AuthorizationEvaluator,
+};
 use crate::persistence::{
     IdempotencyClaim, IdempotencyLifecycleStore, IdempotencyState, IdempotencyStore,
     PersistenceError,
@@ -1011,7 +1013,6 @@ fn provider_failure_with_durable_lifecycle_failure_is_unknown_not_failed() {
         Some(IdempotencyState::Unknown)
     );
 }
-
 
 #[test]
 fn evaluator_context_mismatch_fails_closed() {
