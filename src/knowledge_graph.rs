@@ -84,6 +84,9 @@ impl KnowledgeGraph {
         {
             return Err("knowledge edge contains an incomplete canonical field");
         }
+        if !self.nodes.contains_key(&edge.source) {
+            return Err("knowledge graph edge source must exist");
+        }
         if edge.class == KnowledgeLinkClass::Strong && !self.nodes.contains_key(&edge.target) {
             return Err("strong knowledge link target must exist");
         }
@@ -107,6 +110,9 @@ impl KnowledgeGraph {
                 || edge.provenance.id.is_empty()
             {
                 return Err("knowledge edge contains an incomplete canonical field");
+            }
+            if !self.nodes.contains_key(&edge.source) {
+                return Err("knowledge graph edge source is unresolved");
             }
             if edge.class == KnowledgeLinkClass::Strong && !self.nodes.contains_key(&edge.target) {
                 return Err("strong knowledge link target is unresolved");
