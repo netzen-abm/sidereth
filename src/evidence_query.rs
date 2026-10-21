@@ -84,10 +84,11 @@ pub enum EvidenceQueryError {
 
 /// Canonical protected evidence-content retrieval boundary.
 ///
-/// Object storage remains authorization-neutral. Callers must enter through
-/// this boundary when retrieving protected evidence content. The boundary
-/// evaluates the exact request, validates the result against current time,
-/// then reads metadata/content and verifies the content hash.
+/// Object storage and original-metadata storage remain authorization-neutral.
+/// This boundary evaluates the exact request and trusted current time, then
+/// requires a valid Evidence Trust aggregate whose original metadata exactly
+/// matches the stored original before it reads and hash-verifies the bytes.
+/// Invalid or missing provenance state fails closed.
 pub struct AuthorizedEvidenceQuery<
     'a,
     R: crate::EvidenceRepository,
@@ -555,7 +556,7 @@ mod tests {
     fn trust_state_must_match_stored_original_metadata() {
         let (vault, _valid_trust_repository) = vault();
         let mut mismatched_original = evidence();
-        mismatched_original.media_type = "application/pdf".into();
+        mismatched_original.captured_by = "different-capture-actor".into();
         let trust_record =
             PersistedEvidence::new(1, mismatched_original, EvidenceTrustMetadata::default())
                 .unwrap();
