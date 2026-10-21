@@ -313,6 +313,29 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
     }
 }
 
+impl<C: UnitOfWorkContext> EvidenceTrustRepository for EvidenceTrustUnitOfWorkRepository<'_, C> {
+    fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError> {
+        EvidenceTrustUnitOfWorkRepository::create(self, evidence)
+            .map_err(EvidencePersistenceError::from)
+    }
+
+    fn get(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
+        EvidenceTrustUnitOfWorkRepository::get(self, evidence_id)
+            .map_err(EvidencePersistenceError::from)
+    }
+
+    fn list_transformations(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Vec<EvidenceTransformation>, EvidencePersistenceError> {
+        EvidenceTrustUnitOfWorkRepository::list_transformations(self, evidence_id)
+            .map_err(EvidencePersistenceError::from)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
