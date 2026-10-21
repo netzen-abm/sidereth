@@ -1,81 +1,95 @@
+use sidereth_core::authorization::AuthorizationEvaluator;
 use sidereth_core::{
-    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, KnowledgeEdge,
-    KnowledgeGraph, KnowledgeGraphAccessContext, KnowledgeGraphResourceAuthorization,
-    KnowledgeLinkClass, KnowledgeNode, ResourceRef, ResourceType,
+    AuthorizationDecision, AuthorizationRequest, AuthorizationResult, AuthorizedKnowledgeGraph,
+    KnowledgeEdge, KnowledgeLinkClass, KnowledgeNode, ResourceRef, ResourceType,
 };
 use std::collections::BTreeSet;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn reference(t: ResourceType, id: &str) -> ResourceRef {
     ResourceRef::new(t, id).unwrap()
 }
 
-fn access_many(resources: &[ResourceRef], action_id: &str) -> KnowledgeGraphAccessContext {
-    KnowledgeGraphAccessContext {
-        authorizations: resources
-            .iter()
-            .map(|resource| {
-                let request = AuthorizationRequest {
-                    request_id: format!("req-{}", resource.id),
-                    authorization_ref: reference(ResourceType::Other, "auth"),
-                    subject_ref: reference(ResourceType::Party, "researcher"),
-                    action: reference(ResourceType::Action, action_id),
-                    resource_ref: resource.clone(),
-                    purpose: "knowledge graph".into(),
-                    policy_refs: vec![reference(ResourceType::Other, "policy")],
-                    jurisdiction_ref: None,
-                    data_class: Some("research".into()),
-                    requested_at_epoch_seconds: 100,
-                    freshness_seconds: Some(100),
-                };
-                let result = AuthorizationResult {
-                    request_id: request.request_id.clone(),
-                    authorization_ref: request.authorization_ref.clone(),
-                    subject_ref: request.subject_ref.clone(),
-                    action: request.action.clone(),
-                    resource_ref: request.resource_ref.clone(),
-                    purpose: request.purpose.clone(),
-                    jurisdiction_ref: request.jurisdiction_ref.clone(),
-                    data_class: request.data_class.clone(),
-                    decision: AuthorizationDecision::Allow,
-                    constraints: vec![],
-                    policy_refs: request.policy_refs.clone(),
-                    evaluated_at_epoch_seconds: 100,
-                    expires_at_epoch_seconds: Some(200),
-                };
-                KnowledgeGraphResourceAuthorization {
-                    request,
-                    result,
-                    now_epoch_seconds: 100,
-                }
-            })
-            .collect(),
+fn now_epoch_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+fn request(resource: &ResourceRef) -> AuthorizationRequest {
+    AuthorizationRequest {
+        request_id: format!("req-{}", resource.id),
+        authorization_ref: reference(ResourceType::Other, "auth"),
+        subject_ref: reference(ResourceType::Party, "researcher"),
+        action: reference(ResourceType::Action, "caller-intent-only"),
+        resource_ref: resource.clone(),
+        purpose: "knowledge graph".into(),
+        policy_refs: vec![reference(ResourceType::Other, "policy")],
+        jurisdiction_ref: None,
+        data_class: Some("research".into()),
+        requested_at_epoch_seconds: now_epoch_seconds(),
+        freshness_seconds: Some(300),
     }
 }
 
-fn access(resource: &ResourceRef) -> KnowledgeGraphAccessContext {
-    access_many(std::slice::from_ref(resource), "graph.read")
+#[derive(Default)]
+struct TestEvaluator {
+    denied_resource: Option<ResourceRef>,
+    denied_action: Option<String>,
+    expired: bool,
 }
 
-fn write_access(resources: &[ResourceRef]) -> KnowledgeGraphAccessContext {
-    access_many(resources, "graph.write")
+impl AuthorizationEvaluator for TestEvaluator {
+    fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
+        let now = now_epoch_seconds();
+        let denied = self.denied_resource.as_ref() == Some(&request.resource_ref)
+            || self.denied_action.as_deref() == Some(request.action.id.as_str());
+        AuthorizationResult {
+            request_id: request.request_id.clone(),
+            authorization_ref: request.authorization_ref.clone(),
+            subject_ref: request.subject_ref.clone(),
+            action: request.action.clone(),
+            resource_ref: request.resource_ref.clone(),
+            purpose: request.purpose.clone(),
+            jurisdiction_ref: request.jurisdiction_ref.clone(),
+            data_class: request.data_class.clone(),
+            decision: if denied {
+                AuthorizationDecision::Deny
+            } else {
+                AuthorizationDecision::Allow
+            },
+            constraints: vec![sidereth_core::authorization::AuthorizationConstraint {
+                key: "scope".into(),
+                value: "exact_resource".into(),
+            }],
+            policy_refs: request.policy_refs.clone(),
+            evaluated_at_epoch_seconds: now,
+            expires_at_epoch_seconds: Some(if self.expired { now } else { now + 300 }),
+        }
+    }
+}
+
+fn node(resource: ResourceRef) -> KnowledgeNode {
+    KnowledgeNode {
+        resource,
+        labels: BTreeSet::new(),
+    }
 }
 
 #[test]
-fn graph_contract_requires_authorized_resource_scope() {
+fn graph_read_is_bound_to_exact_resource() {
     let doc = reference(ResourceType::Document, "doc-1");
     let other = reference(ResourceType::Document, "doc-2");
-    let mut graph = KnowledgeGraph::default();
-    graph
-        .insert_node(
-            KnowledgeNode {
-                resource: doc.clone(),
-                labels: BTreeSet::new(),
-            },
-            &write_access(std::slice::from_ref(&doc)),
-        )
-        .unwrap();
+    let evaluator = TestEvaluator {
+        denied_resource: Some(other.clone()),
+        ..Default::default()
+    };
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    graph.insert_node(&request(&doc), node(doc.clone())).unwrap();
+
     assert_eq!(
-        graph.get_node(&other, &access(&doc)),
+        graph.get_node(&request(&doc), &other),
         Err("knowledge graph read is unauthorized")
     );
 }
@@ -85,18 +99,12 @@ fn graph_contract_preserves_external_federation_reference() {
     let source = reference(ResourceType::Document, "doc-1");
     let external = reference(ResourceType::Other, "external-record");
     let provenance = reference(ResourceType::Provenance, "prov-1");
-    let mut graph = KnowledgeGraph::default();
-    graph
-        .insert_node(
-            KnowledgeNode {
-                resource: source.clone(),
-                labels: BTreeSet::new(),
-            },
-            &write_access(std::slice::from_ref(&source)),
-        )
-        .unwrap();
+    let evaluator = TestEvaluator::default();
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    graph.insert_node(&request(&source), node(source.clone())).unwrap();
     graph
         .insert_edge(
+            &request(&source),
             KnowledgeEdge::new(
                 "edge-1",
                 source.clone(),
@@ -106,93 +114,83 @@ fn graph_contract_preserves_external_federation_reference() {
                 provenance,
             )
             .unwrap(),
-            &write_access(&[source.clone(), external.clone()]),
         )
         .unwrap();
+
     assert_eq!(
-        graph
-            .traverse(
-                &source,
-                1,
-                &access_many(&[source.clone(), external.clone()], "graph.read")
-            )
-            .unwrap(),
+        graph.traverse(&request(&source), &source, 1).unwrap(),
         vec![source, external]
     );
 }
 
 #[test]
-fn graph_traversal_rejects_an_unauthorized_target() {
+fn graph_traversal_filters_an_unauthorized_target() {
     let source = reference(ResourceType::Document, "doc-source");
     let target = reference(ResourceType::Document, "doc-private");
-    let provenance = reference(ResourceType::Provenance, "prov-private");
-    let mut graph = KnowledgeGraph::default();
-    graph
-        .insert_node(
-            KnowledgeNode {
-                resource: source.clone(),
-                labels: BTreeSet::new(),
-            },
-            &write_access(std::slice::from_ref(&source)),
-        )
-        .unwrap();
+    let evaluator = TestEvaluator {
+        denied_resource: Some(target.clone()),
+        ..Default::default()
+    };
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    graph.insert_node(&request(&source), node(source.clone())).unwrap();
     graph
         .insert_edge(
-            KnowledgeEdge::new(
-                "edge-private",
-                source.clone(),
-                "references",
-                target.clone(),
-                KnowledgeLinkClass::Forward,
-                provenance,
-            )
-            .unwrap(),
-            &write_access(&[source.clone(), target.clone()]),
-        )
-        .unwrap();
-
-    assert_eq!(
-        graph.traverse(&source, 1, &access(&source)).unwrap(),
-        vec![source]
-    );
-}
-
-#[test]
-fn graph_access_rejects_expired_canonical_authorization() {
-    let resource = reference(ResourceType::Document, "doc-expired");
-    let mut context = access(&resource);
-    context.authorizations[0].now_epoch_seconds = 200;
-    assert!(!context.permits(&resource, "graph.read"));
-}
-
-#[test]
-fn edge_mutation_rejects_an_unauthorized_target() {
-    let source = reference(ResourceType::Document, "doc-source");
-    let target = reference(ResourceType::Document, "doc-private");
-    let provenance = reference(ResourceType::Provenance, "prov-private");
-    let mut graph = KnowledgeGraph::default();
-    graph
-        .insert_node(
-            KnowledgeNode {
-                resource: source.clone(),
-                labels: BTreeSet::new(),
-            },
-            &write_access(std::slice::from_ref(&source)),
-        )
-        .unwrap();
-
-    assert_eq!(
-        graph.insert_edge(
+            &request(&source),
             KnowledgeEdge::new(
                 "edge-private",
                 source.clone(),
                 "references",
                 target,
                 KnowledgeLinkClass::Forward,
-                provenance,
+                reference(ResourceType::Provenance, "prov-private"),
             )
             .unwrap(),
-            &write_access(std::slice::from_ref(&source)),
+        )
+        .unwrap();
+
+    assert_eq!(
+        graph.traverse(&request(&source), &source, 1).unwrap(),
+        vec![source]
+    );
+}
+
+#[test]
+fn expired_evaluator_decision_fails_closed() {
+    let resource = reference(ResourceType::Document, "doc-expired");
+    let evaluator = TestEvaluator {
+        expired: true,
+        ..Default::default()
+    };
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    assert_eq!(
+        graph.insert_node(&request(&resource), node(resource)),
+        Err("knowledge graph node mutation is unauthorized")
+    );
+}
+
+#[test]
+fn edge_mutation_requires_authorization_for_both_endpoints() {
+    let source = reference(ResourceType::Document, "doc-source");
+    let target = reference(ResourceType::Document, "doc-private");
+    let evaluator = TestEvaluator {
+        denied_resource: Some(target.clone()),
+        ..Default::default()
+    };
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+
+    assert_eq!(
+        graph.insert_edge(
+            &request(&source),
+            KnowledgeEdge::new(
+                "edge-private",
+                source,
+                "references",
+                target,
+                KnowledgeLinkClass::Forward,
+                reference(ResourceType::Provenance, "prov-private"),
+            )
+            .unwrap(),
         ),
         Err("knowledge graph edge mutation is unauthorized")
     );
@@ -201,36 +199,58 @@ fn edge_mutation_rejects_an_unauthorized_target() {
 #[test]
 fn read_authorization_cannot_mutate_graph() {
     let resource = reference(ResourceType::Document, "doc-read-only");
-    let mut graph = KnowledgeGraph::default();
+    let evaluator = TestEvaluator {
+        denied_action: Some("graph.write".into()),
+        ..Default::default()
+    };
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+
     assert_eq!(
-        graph.insert_node(
-            KnowledgeNode {
-                resource: resource.clone(),
-                labels: BTreeSet::new(),
-            },
-            &access(&resource),
-        ),
+        graph.insert_node(&request(&resource), node(resource.clone())),
         Err("knowledge graph node mutation is unauthorized")
     );
-    assert_eq!(graph.node_count(), 0);
+    // A read under a separate action remains possible but returns no node.
+    assert!(graph.get_node(&request(&resource), &resource).unwrap().is_none());
 }
 
 #[test]
 fn write_authorization_cannot_read_graph() {
     let resource = reference(ResourceType::Document, "doc-write-only");
-    let mut graph = KnowledgeGraph::default();
-    graph
-        .insert_node(
-            KnowledgeNode {
-                resource: resource.clone(),
-                labels: BTreeSet::new(),
-            },
-            &write_access(std::slice::from_ref(&resource)),
-        )
-        .unwrap();
+    let evaluator = TestEvaluator {
+        denied_action: Some("graph.read".into()),
+        ..Default::default()
+    };
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    graph.insert_node(&request(&resource), node(resource.clone())).unwrap();
 
     assert_eq!(
-        graph.get_node(&resource, &write_access(std::slice::from_ref(&resource)),),
+        graph.get_node(&request(&resource), &resource),
         Err("knowledge graph read is unauthorized")
     );
+}
+
+#[test]
+fn strong_edge_rejects_missing_target_without_mutating_graph() {
+    let source = reference(ResourceType::Document, "doc-source");
+    let target = reference(ResourceType::Document, "doc-missing");
+    let evaluator = TestEvaluator::default();
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+
+    assert_eq!(
+        graph.insert_edge(
+            &request(&source),
+            KnowledgeEdge::new(
+                "edge-strong",
+                source.clone(),
+                "requires",
+                target,
+                KnowledgeLinkClass::Strong,
+                reference(ResourceType::Provenance, "prov-strong"),
+            )
+            .unwrap(),
+        ),
+        Err("strong knowledge link target must exist")
+    );
+    assert!(graph.get_node(&request(&source), &source).unwrap().is_some());
 }
