@@ -43,8 +43,14 @@ struct TestEvaluator {
 impl AuthorizationEvaluator for TestEvaluator {
     fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
         let now = now_epoch_seconds();
-        let denied = self.denied_resource.as_ref() == Some(&request.resource_ref)
-            || self.denied_action.as_deref() == Some(request.action.id.as_str());
+        let denied = match (&self.denied_resource, &self.denied_action) {
+            (Some(resource), Some(action)) => {
+                resource == &request.resource_ref && action == &request.action.id
+            }
+            (Some(resource), None) => resource == &request.resource_ref,
+            (None, Some(action)) => action == &request.action.id,
+            (None, None) => false,
+        };
         AuthorizationResult {
             request_id: request.request_id.clone(),
             authorization_ref: request.authorization_ref.clone(),
@@ -133,6 +139,7 @@ fn graph_traversal_filters_an_unauthorized_target() {
     let target = reference(ResourceType::Document, "doc-private");
     let evaluator = TestEvaluator {
         denied_resource: Some(target.clone()),
+        denied_action: Some("graph.read".into()),
         ..Default::default()
     };
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
