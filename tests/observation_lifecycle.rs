@@ -162,6 +162,7 @@ struct TestEvaluator {
     decision: AuthorizationDecision,
     expired: bool,
     mismatched_purpose: bool,
+    denied_resource: Option<ResourceRef>,
 }
 
 impl Default for TestEvaluator {
@@ -170,6 +171,7 @@ impl Default for TestEvaluator {
             decision: AuthorizationDecision::Allow,
             expired: false,
             mismatched_purpose: false,
+            denied_resource: None,
         }
     }
 }
@@ -179,7 +181,10 @@ impl AuthorizationEvaluator for TestEvaluator {
         let now = now_epoch_seconds();
         let policy_ok = request.policy_refs
             == vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()];
-        let decision = if policy_ok && request.jurisdiction_ref.is_none() {
+        let decision = if policy_ok
+            && request.jurisdiction_ref.is_none()
+            && self.denied_resource.as_ref() != Some(&request.resource_ref)
+        {
             self.decision
         } else {
             AuthorizationDecision::Deny
@@ -381,6 +386,31 @@ fn lifecycle_denial_and_expiry_are_evaluated_inside_the_command() {
         Err(ObservationLifecycleError::AuthorizationExpired)
     );
     assert_eq!(expired_state.records.borrow().len(), 1);
+}
+
+#[test]
+fn lifecycle_requires_authorization_for_the_prior_observation_too() {
+    let mut factory = MockFactory::default();
+    let prior = observation("obs-old", json!({"condition":"present"}));
+    seed_prior(&factory, &prior);
+    let state = factory.state.clone();
+    let evaluator = TestEvaluator {
+        denied_resource: Some(ResourceRef::new(ResourceType::Observation, "obs-old").unwrap()),
+        ..TestEvaluator::default()
+    };
+    let mut command = ObservationLifecycleCommand::new(&mut factory, &evaluator);
+
+    assert_eq!(
+        command.correct(
+            context("observation.correct", "obs-new"),
+            ResourceRef::new(ResourceType::Observation, "obs-old").unwrap(),
+            observation("obs-new", json!({"condition":"repaired"})),
+            "reviewed correction",
+        ),
+        Err(ObservationLifecycleError::AuthorizationDenied)
+    );
+    assert_eq!(state.records.borrow().len(), 1);
+    assert!(state.links.borrow().is_empty());
 }
 
 #[test]
