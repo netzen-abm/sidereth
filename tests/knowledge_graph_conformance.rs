@@ -230,6 +230,45 @@ fn write_authorization_cannot_read_graph() {
 }
 
 #[test]
+fn malformed_edge_is_rejected_before_graph_mutation() {
+    let source = reference(ResourceType::Document, "doc-source");
+    let target = reference(ResourceType::Document, "doc-target");
+    let evaluator = TestEvaluator::default();
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+
+    let malformed = KnowledgeEdge {
+        edge_id: "edge-retry".into(),
+        source: source.clone(),
+        predicate: "   ".into(),
+        target: target.clone(),
+        class: KnowledgeLinkClass::Forward,
+        provenance: reference(ResourceType::Provenance, "prov-retry"),
+    };
+    assert_eq!(
+        graph.insert_edge(&request(&source), malformed),
+        Err("knowledge edge contains an incomplete canonical field")
+    );
+
+    // Reusing the same ID with a valid edge proves the rejected attempt did not
+    // leave a partially inserted edge behind.
+    graph
+        .insert_edge(
+            &request(&source),
+            KnowledgeEdge::new(
+                "edge-retry",
+                source.clone(),
+                "references",
+                target,
+                KnowledgeLinkClass::Forward,
+                reference(ResourceType::Provenance, "prov-retry"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+}
+
+#[test]
 fn strong_edge_rejects_missing_target_without_mutating_graph() {
     let source = reference(ResourceType::Document, "doc-source");
     let target = reference(ResourceType::Document, "doc-missing");
