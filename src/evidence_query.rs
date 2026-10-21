@@ -1,7 +1,7 @@
 use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest};
 use crate::{
     validate_authorization, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal,
-    EvidenceTrustRepository, Id, PersistedEvidence, ResourceRef, ResourceType,
+    EvidenceTrustRepository, Id, ResourceRef, ResourceType,
 };
 
 /// Provider-neutral request for retrieval of evidence content.
