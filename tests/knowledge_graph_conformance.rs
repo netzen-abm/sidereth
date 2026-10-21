@@ -86,7 +86,9 @@ fn graph_read_is_bound_to_exact_resource() {
         ..Default::default()
     };
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
-    graph.insert_node(&request(&doc), node(doc.clone())).unwrap();
+    graph
+        .insert_node(&request(&doc), node(doc.clone()))
+        .unwrap();
 
     assert_eq!(
         graph.get_node(&request(&doc), &other),
@@ -101,7 +103,9 @@ fn graph_contract_preserves_external_federation_reference() {
     let provenance = reference(ResourceType::Provenance, "prov-1");
     let evaluator = TestEvaluator::default();
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
-    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+    graph
+        .insert_node(&request(&source), node(source.clone()))
+        .unwrap();
     graph
         .insert_edge(
             &request(&source),
@@ -132,7 +136,9 @@ fn graph_traversal_filters_an_unauthorized_target() {
         ..Default::default()
     };
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
-    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+    graph
+        .insert_node(&request(&source), node(source.clone()))
+        .unwrap();
     graph
         .insert_edge(
             &request(&source),
@@ -177,7 +183,9 @@ fn edge_mutation_requires_authorization_for_both_endpoints() {
         ..Default::default()
     };
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
-    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+    graph
+        .insert_node(&request(&source), node(source.clone()))
+        .unwrap();
 
     assert_eq!(
         graph.insert_edge(
@@ -210,7 +218,10 @@ fn read_authorization_cannot_mutate_graph() {
         Err("knowledge graph node mutation is unauthorized")
     );
     // A read under a separate action remains possible but returns no node.
-    assert!(graph.get_node(&request(&resource), &resource).unwrap().is_none());
+    assert!(graph
+        .get_node(&request(&resource), &resource)
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -221,7 +232,9 @@ fn write_authorization_cannot_read_graph() {
         ..Default::default()
     };
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
-    graph.insert_node(&request(&resource), node(resource.clone())).unwrap();
+    graph
+        .insert_node(&request(&resource), node(resource.clone()))
+        .unwrap();
 
     assert_eq!(
         graph.get_node(&request(&resource), &resource),
@@ -235,7 +248,9 @@ fn malformed_edge_is_rejected_before_graph_mutation() {
     let target = reference(ResourceType::Document, "doc-target");
     let evaluator = TestEvaluator::default();
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
-    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+    graph
+        .insert_node(&request(&source), node(source.clone()))
+        .unwrap();
 
     let malformed = KnowledgeEdge {
         edge_id: "edge-retry".into(),
@@ -274,7 +289,9 @@ fn strong_edge_rejects_missing_target_without_mutating_graph() {
     let target = reference(ResourceType::Document, "doc-missing");
     let evaluator = TestEvaluator::default();
     let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
-    graph.insert_node(&request(&source), node(source.clone())).unwrap();
+    graph
+        .insert_node(&request(&source), node(source.clone()))
+        .unwrap();
 
     assert_eq!(
         graph.insert_edge(
@@ -291,5 +308,8 @@ fn strong_edge_rejects_missing_target_without_mutating_graph() {
         ),
         Err("strong knowledge link target must exist")
     );
-    assert!(graph.get_node(&request(&source), &source).unwrap().is_some());
+    assert!(graph
+        .get_node(&request(&source), &source)
+        .unwrap()
+        .is_some());
 }
