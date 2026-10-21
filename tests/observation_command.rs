@@ -240,26 +240,34 @@ fn authorization_must_bind_exact_observation_resource() {
 }
 
 #[test]
-fn authorization_must_bind_exact_purpose_and_policy_context() {
-    for mutate_request in [
-        |request: &mut AuthorizationRequest| request.purpose = "different purpose".into(),
-        |request: &mut AuthorizationRequest| {
-            request.policy_refs = vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()]
-        },
-    ] {
-        let mut factory = MockFactory::default();
-        let state = factory.state.clone();
-        let mut test_context = context();
-        mutate_request(&mut test_context.authorization_request);
-        let evaluator = TestEvaluator::default();
+fn authorization_purpose_is_bound_to_observation_creation() {
+    let mut factory = MockFactory::default();
+    let state = factory.state.clone();
+    let mut test_context = context();
+    test_context.authorization_request.purpose = "different purpose".into();
+    let evaluator = TestEvaluator::default();
     let mut command = ObservationCommand::new(&mut factory, &evaluator);
+    assert_eq!(
+        command.create(test_context, observation()),
+        Err(ObservationCommandError::AuthorizationMismatch)
+    );
+    assert!(state.0.borrow().is_empty());
+}
 
-        assert_eq!(
-            command.create(test_context, observation()),
-            Err(ObservationCommandError::AuthorizationMismatch)
-        );
-        assert!(state.0.borrow().is_empty());
-    }
+#[test]
+fn policy_selector_cannot_bypass_evaluator_denial() {
+    let mut factory = MockFactory::default();
+    let state = factory.state.clone();
+    let mut test_context = context();
+    test_context.authorization_request.policy_refs =
+        vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()];
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
+    assert_eq!(
+        command.create(test_context, observation()),
+        Err(ObservationCommandError::AuthorizationDenied)
+    );
+    assert!(state.0.borrow().is_empty());
 }
 
 #[test]
@@ -274,7 +282,7 @@ fn authorization_must_bind_exact_jurisdiction_and_data_class() {
 
     assert_eq!(
         command.create(test_context, observation()),
-        Err(ObservationCommandError::AuthorizationMismatch)
+        Err(ObservationCommandError::AuthorizationDenied)
     );
     assert!(state.0.borrow().is_empty());
 
