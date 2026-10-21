@@ -1,26 +1,24 @@
 # SIDERETH — Master Implementation Checklist
 
 **Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST  
-**Last audited baseline:** `main` at `041aef7ac851a050f28f58eb00d9f25a0e572bd2`  
+**Last audited baseline:** `main` at `e7f901ccc75d7d59a87c6f5009cc98721dfd327f`  
 **Audit date:** 2026-10-21
 
 > Checklist state is evidence-based. A checked item means the repository contains the stated foundation/evidence at the described scope; it does not automatically mean production-ready.
 
 ## Current verified baseline — 2026-10-21
 
-**Verified main baseline:** `041aef7ac851a050f28f58eb00d9f25a0e572bd2`  
-**Active branches:** exactly **9**, verified from GitHub's live branch listing.  
-**Current engineering posture:** prove security invariants and production behavior; add no new abstractions unless a separate trust, persistence, provider, change, or independent-reuse boundary demonstrably requires one.
+**Verified main baseline:** `e7f901ccc75d7d59a87c6f5009cc98721dfd327f`  
+**Active branches:** exactly **9**, verified from GitHub's live branch listing after the latest merge.  
+**Engineering posture:** prove security invariants and real persistence behavior; do not add abstractions unless a distinct trust, persistence, provider, change, or independent-reuse boundary requires them.
 
 ### Latest verified GitHub evidence
 
-- PR [#168](https://github.com/netzen-abm/sidereth/pull/168), `fix: obtain Tool Gateway authorization at trusted boundary`, was squash-merged as `e8a43283ea1c3e4f87bf7cc1ef26dc5111f45e4d`.
-- Foundation Validation passed on PR #168's exact final head `98a94e176d42f1cc215456173e652b03874fe804` in [run #39606763500](https://github.com/netzen-abm/sidereth/actions/runs/39606763500). Formatting, compilation, tests, live PostgreSQL proof matrix, Clippy, document/structure checks, and security-pattern scans passed.
-- Security and Supply Chain passed on PR #168's exact final head in [run #39606763540](https://github.com/netzen-abm/sidereth/actions/runs/39606763540): RustSec Audit and GitHub Actions Security passed. OpenSSF Scorecard was skipped on the pull-request event and is not counted as a pass.
-- Post-merge Foundation Validation and Security/Supply Chain passed on the PR #168 merge commit in [run #39607155809](https://github.com/netzen-abm/sidereth/actions/runs/39607155809) and [run #39607156014](https://github.com/netzen-abm/sidereth/actions/runs/39607156014).
-- The branch-enforcement workflow [run #39607155846](https://github.com/netzen-abm/sidereth/actions/runs/39607155846) passed, deleted the malformed `netzen-abm-patch-1` scaffold branch, and left exactly nine active branches.
-- PR [#169](https://github.com/netzen-abm/sidereth/pull/169) updated this checklist after PR #168 and was merged as `041aef7ac851a050f28f58eb00d9f25a0e572bd2`. Foundation Validation and Security/Supply Chain passed on its exact review head.
-- PR [#170](https://github.com/netzen-abm/sidereth/pull/170) is the current evidence-persistence hardening change. **Not yet merged.** The final head must pass Foundation Validation and Security/Supply Chain, including the live PostgreSQL bypass regression, before this checklist may mark the low-level write-boundary gap closed.
+- PR [#168](https://github.com/netzen-abm/sidereth/pull/168), `fix: obtain Tool Gateway authorization at trusted boundary`, merged as `e8a43283ea1c3e4f87bf7cc1ef26dc5111f45e4d`. Its exact-head Foundation Validation [#39606763500](https://github.com/netzen-abm/sidereth/actions/runs/39606763500) and Security/Supply Chain [#39606763540](https://github.com/netzen-abm/sidereth/actions/runs/39606763540) passed.
+- PR [#169](https://github.com/netzen-abm/sidereth/pull/169) rebaselined this checklist and merged as `041aef7ac851a050f28f58eb00d9f25a0e572bd2`. Foundation Validation [#39607620005](https://github.com/netzen-abm/sidereth/actions/runs/39607620005) and Security/Supply Chain [#39607620166](https://github.com/netzen-abm/sidereth/actions/runs/39607620166) passed on its final PR head.
+- PR [#170](https://github.com/netzen-abm/sidereth/pull/170), `fix: enforce evidence provenance at persistence boundary`, merged as `e7f901ccc75d7d59a87c6f5009cc98721dfd327f`. On its exact reviewed head `df216fc018cd9cf1bc8e7e5144950ff3c0922ae9`, Foundation Validation [#39610409084](https://github.com/netzen-abm/sidereth/actions/runs/39610409084) passed formatting, compilation, tests, the live PostgreSQL proof matrix, Clippy, and repository/security-pattern checks. Security/Supply Chain [#39610409076](https://github.com/netzen-abm/sidereth/actions/runs/39610409076) passed RustSec Audit and GitHub Actions Security. OpenSSF Scorecard was skipped on pull-request CI and is not counted as a pass.
+- Branch enforcement [#39610467136](https://github.com/netzen-abm/sidereth/actions/runs/39610467136) passed on the prior main head and confirmed the nine-branch policy. The live branch endpoint currently still reports exactly nine branches after PR #170; its merge did not add a branch.
+- Post-merge workflows for current `main` at `e7f901ccc75d7d59a87c6f5009cc98721dfd327f` were not yet visible at the time of this checklist refresh. The passed exact-head PR workflows above are the evidence for PR #170; do not claim post-merge CI for `e7f901ccc75d7d59a87c6f5009cc98721dfd327f` until runs against that SHA report success.
 
 ### Nine active branches — verified
 
@@ -34,38 +32,42 @@
 8. `sidereth-ecosystem-architecture`
 9. `feat/knowledge-graph-next`
 
-The enforcement workflow keeps an explicit keep/retire allow-list, checks whether a retired branch has an open PR before deleting it, rejects unexpected branches, and verifies the final count. Do not create a tenth branch; reuse an approved branch or first complete an evidence-backed disposition.
+The enforcement workflow maintains an explicit keep/retire allow-list, checks open PRs before branch deletion, rejects unexpected branches, and verifies the final count. Do not create a tenth branch without first completing an evidence-backed disposition of an existing branch.
 
 ### Dependency and cost policy
 
-- `.github/dependabot.yml` identifies Cargo and GitHub Actions, but sets `open-pull-requests-limit: 0` for both ecosystems. Routine version-update PRs are intentionally disabled because their branch refs conflict with the exact-nine invariant. Dependency changes must enter through an approved engineering branch and required CI.
-- **Repository settings not verified through the current connector:** Dependabot security-update PRs and vulnerability-alert toggles are separate from version-update limits. Before claiming these are disabled, the repository owner must inspect [Settings → Code security and analysis](https://github.com/netzen-abm/sidereth/settings/security_analysis). Do not automatically delete a security-update branch without evaluating the vulnerability and preserving its fix.
-- The active dependency manifest is the Rust `Cargo.toml`, with `serde`, `serde_json`, `sha2`, and optional `postgres`. The active source/config scan did not identify an integration with a paid external AI/provider API or a paid deployment service. This is a code/config audit, not an audit of external account billing or GitHub product settings.
-- CI uses GitHub-hosted `ubuntu-latest` and a PostgreSQL 16 service container. Keep metered services opt-in and document their owner, data boundary, budget/limit, and shutoff procedure before enabling them.
+- `.github/dependabot.yml` names Cargo and GitHub Actions, but sets `open-pull-requests-limit: 0` for both. Routine version-update PRs are intentionally disabled because their branch refs conflict with the hard nine-branch invariant. Dependency changes must enter through an approved engineering branch and required CI.
+- **Repository settings not verified through the current connector:** Dependabot security-update PRs and vulnerability-alert toggles are separate from version-update limits. The repository owner must inspect [Settings → Code security and analysis](https://github.com/netzen-abm/sidereth/settings/security_analysis) before claiming those controls are disabled. Do not automatically delete a security-update branch without evaluating the vulnerability and preserving its fix.
+- The active manifest is Rust `Cargo.toml`, with `serde`, `serde_json`, `sha2`, and optional `postgres`. The active source/config scan did not identify paid external AI/provider integrations or paid deployment/billing configuration. This is a repository-code audit, not an audit of external account billing or GitHub product settings.
+- CI uses GitHub-hosted `ubuntu-latest` and a PostgreSQL 16 service container. Keep metered services opt-in and document the owner, data boundary, budget/limit, and shutoff procedure before enabling them.
 
 ### Current repository governance state
 
-- The active `SIDERETH Main Protection` ruleset targets `main`, requires a pull request and the checks `Validate Foundation`, `RustSec Audit`, and `GitHub Actions Security`; force-push and branch deletion are prohibited.
-- **Open governance gap:** the live ruleset still requires **zero approving reviews** and does **not** require review-thread resolution. The connector can read the ruleset but cannot administer that repository setting. Keep issue #100 open until the owner enables at least one approval and resolved conversations, then read back the live ruleset to verify.
+- The active `SIDERETH Main Protection` ruleset targets `main`, requires a pull request and the checks `Validate Foundation`, `RustSec Audit`, and `GitHub Actions Security`; it prohibits force-push and branch deletion.
+- **Open governance gap:** the live ruleset requires **zero approving reviews** and does **not** require resolved review conversations. The current connector can read the ruleset but cannot administer that setting. Keep issue #100 open until the repository owner enables at least one approval and resolved conversations, then read back the live ruleset to verify.
 
 ### Verified implementation baseline
 
-- PR #165, `fix: evaluate authorization inside protected evidence query`, merged as `d27303de209a44db59e7491145467ba654d8cc94`.
-- PR #166, `fix: evaluate canonical authorization at protected read boundaries`, merged as `c09c7f3742b5a767f89629baf34b362fcfb2f42b`; a checklist-only rebaseline followed at `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`.
-- PR #161, `fix: enforce evidence transformation provenance binding`, merged as `230e97a504a07cbb60dfbff9c089a166b39ba4ef`. Its domain aggregate binds each transformation to exactly one provenance record and permits `Party`, `Tool`, or `Service` actors only when the actor ID matches the transformation creator.
-- PR #168 closed the Tool Gateway's caller-supplied authorization/time gap. The gateway obtains authorization from the canonical evaluator and trusted current time before idempotency claim/provider execution, then reuses the validated decision for execution-gate enforcement. Full gateway conformance and bypass/idempotency proof remain open.
-- **Evidence persistence gap being addressed in PR #170:** typed `EvidenceTrustUnitOfWorkRepository` already validates persisted aggregates, and its reads validate decoded records. The newly audited bypass is the generic `ResourceWrite` boundary: public/serde fields can be mutated after constructor validation, and the PostgreSQL adapter previously accepted writes without revalidation. PR #170 adds aggregate validation to the resource write contract, revalidates in PostgreSQL immediately before SQL, rejects generic Evidence upserts, and tests a mutated provenance actor at unit and live PostgreSQL boundaries. This remains **pending** until final-head checks pass and the source-level bypass audit is reviewed.
-- The source-level search for `ResourceType::Evidence`, `ResourceWrite::new`, `PersistedEvidence`, and `EvidenceTrustUnitOfWorkRepository` found no second production constructor directly writing an Evidence resource; known production writes use the typed Evidence Trust repository. Generic-write hardening is still necessary as defence in depth for direct callers and future adapters.
-- `EvidenceQueryRequest` carries request intent only; `AuthorizedEvidenceQuery` evaluates canonical authorization, binds `Action/evidence.read`, obtains current time locally, and validates content hash before returning bytes.
-- `ResourceQueryRequest` likewise carries request intent only; `UnitOfWorkResourceQuery` evaluates canonical authorization, binds `Action/resource.read`, and validates before opening the Unit of Work.
+- PR #161, `fix: enforce evidence transformation provenance binding`, merged as `230e97a504a07cbb60dfbff9c089a166b39ba4ef`. `PersistedEvidence::validate` enforces transformation/provenance one-to-one binding and ties the actor ID to the transformation creator; `Party`, `Tool`, and `Service` actors are supported.
+- PR #168 closes the Tool Gateway caller-supplied authorization/time gap. The gateway obtains authorization from the canonical evaluator and current time from the trusted clock boundary before idempotency claim/provider execution, then reuses the validated decision for execution-gate enforcement. Full gateway conformance and complete bypass/idempotency proof remain open.
+- PR #170 closes the lower-level Evidence-write bypass found during the #159 follow-up audit:
+  - `PersistedEvidence::validate` is invoked by the canonical evidence-resource payload validator, which checks serialized aggregate validity, resource ID, and schema-version agreement.
+  - `ResourceWrite::new` validates Evidence payloads and exposes `ResourceWrite::validate()` for a second check immediately before persistence.
+  - The PostgreSQL adapter calls `write.validate()` before SQL, covering public-field mutation or deserialization after constructor validation.
+  - Generic Evidence `Upsert` is rejected; evidence remains insert-only through the generic write contract until a typed append-only trust-state operation is designed.
+  - Unit regressions cover missing provenance binding, resource-ID mismatch, post-construction payload mutation, insert-only behavior, and Service-actor provenance round-trip. A live PostgreSQL regression proves a forged actor binding is rejected and no Evidence record is stored.
+  - The source-level search found no second production constructor directly creating an Evidence `ResourceWrite`; known production evidence creation uses `EvidenceTrustUnitOfWorkRepository`. PostgreSQL is the active production Unit-of-Work adapter. Any future storage adapter must follow the `UnitOfWorkContext` requirement to revalidate immediately before its write.
+- The evidence persistence boundary remains provider-neutral. No second transaction manager, generic validation registry, or parallel evidence authorization service was introduced.
+- `EvidenceQueryRequest` carries request intent only; `AuthorizedEvidenceQuery` evaluates canonical authorization, binds `Action/evidence.read`, obtains current time locally, and verifies the content hash before returning bytes.
+- `ResourceQueryRequest` likewise carries intent only; `UnitOfWorkResourceQuery` evaluates canonical authorization, binds `Action/resource.read`, and validates before opening the Unit of Work.
 - `current_epoch_seconds()` centralizes the current system-clock read. Suitability on browser/WASM and other intended runtimes remains unproven.
 
 ### Remaining security and portability gates
 
-1. **Issue #159 — evidence persistence/provenance:** finish the repository-wide direct-write and read/export call-site audit, pass PR #170's final required CI, and attach file/test evidence. Define a fail-closed migration/quarantine decision for historical records with missing or invalid bindings; do not silently reconstruct attribution.
+1. **Issue #159 — legacy evidence migration/quarantine:** the current write-boundary bypass fix is merged and its final-head tests passed. Keep the issue open until the policy for historical records with missing/invalid provenance is decided, including fail-closed quarantine and recovery rules. Do not reconstruct attribution silently.
 2. **Remaining authorization consumers:** audit Knowledge Graph, Observation Command/Lifecycle, and other protected operations for evaluator origin, exact action/resource/purpose/data-class binding, expiry, and lease enforcement as applicable.
 3. **Store boundary:** keep raw `EvidenceObjectStore` and `EvidenceRepository` handles inside trusted adapter scope; public surfaces and AI/agent runtimes must not receive unrestricted store access.
-4. **Persistence conformance:** finish ResourceLink endpoint/atomicity, duplicate/class-conflict, PostgreSQL, backward-compatibility, and provider-neutral adapter conformance.
+4. **Persistence conformance:** finish ResourceLink endpoint/atomicity, duplicate/class-conflict, backward-compatibility, and provider-neutral adapter conformance. Keep the live PostgreSQL evidence mutation test enabled in the proof matrix.
 5. **Portability:** verify trusted time on each intended runtime, especially WASM.
 6. **Repository governance:** remediate the one-approval/resolved-conversation ruleset gap and verify security-update settings without weakening CI or violating the exact-nine-branch invariant.
 
