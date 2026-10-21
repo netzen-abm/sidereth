@@ -4,23 +4,32 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
+# This workflow is deliberately read-only. Branch retirement is a reviewed
+# governance operation: archive and verify the exact commit, inspect unique
+# commits and dependencies, then delete only after explicit disposition.
+# Never delete a branch automatically from a name allow-list.
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
-  prune-superseded-branches:
+  audit-nine-active-branches:
     runs-on: ubuntu-latest
     steps:
-      - name: Retire explicitly dispositioned branches
+      - name: Verify the canonical nine-branch inventory
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          keep=(
+
+          expected=(
             "main"
             "architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19"
             "architecture/repo-organization-privacy-runtime-licensing-2026-09-17"
@@ -31,50 +40,26 @@ jobs:
             "sidereth-ecosystem-architecture"
             "feat/knowledge-graph-next"
           )
-          retire=(
-            "sidereth-language-runtime-strategy"
-            "governance/nine-branch-enforcement-2026-10-05"
-            "architecture/tool-gateway-kernel-v0-1-2026-09-17"
-            "decentralized-system"
-            "feat/case-service-authorization-convergence-2026-09-14"
-            "feat/observation-lifecycle-integrity-2026-09-12"
-            "refactor/canonical-authorization-binding-2026-09-14"
-            "sidereth-authorization-boundary"
-            "sidereth-canonical-resource-links"
-            "sidereth-capability-registry-conformance-hardening"
-            "sidereth-cas-hardening-v2"
-            "sidereth-evidence-persistence"
-            "sidereth-license-apache-2"
-            "sidereth-post-pr39-semantic-audit"
-            "sidereth-tool-gateway-implementation"
-            "sidereth-transactional-read-cas"
-            "sidereth-transactional-read-cas-current"
-            "sidereth-universal-contract-hardening"
-            "sidereth-universal-core-audit"
-            "netzen-abm-patch-1"
-          )
-          is_kept() { local candidate="$1"; for item in "${keep[@]}"; do [[ "$candidate" == "$item" ]] && return 0; done; return 1; }
-          is_retired() { local candidate="$1"; for item in "${retire[@]}"; do [[ "$candidate" == "$item" ]] && return 0; done; return 1; }
 
-          gh api --paginate -H "Accept: application/vnd.github+json" "/repos/$REPO/branches?per_page=100" --jq '.[].name' > /tmp/branches.txt
+          gh api --paginate -H "Accept: application/vnd.github+json" \
+            "/repos/$REPO/branches?per_page=100" --jq '.[].name' \
+            | LC_ALL=C sort > /tmp/actual-branches.txt
+          printf '%s\n' "${expected[@]}" | LC_ALL=C sort > /tmp/expected-branches.txt
 
-          while IFS= read -r branch; do
-            is_kept "$branch" && continue
-            if ! is_retired "$branch"; then
-              echo "FAIL: unexpected non-allowlisted branch remains: $branch"
-              exit 1
-            fi
-            open_prs=$(gh api --paginate -H "Accept: application/vnd.github+json" "/repos/$REPO/pulls?state=open&per_page=100" --jq '.[].head.ref' | grep -Fx "$branch" | wc -l || true)
-            if [[ "$open_prs" != "0" ]]; then
-              echo "FAIL: retired branch has an open PR: $branch"
-              exit 1
-            fi
-            encoded=$(python -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")
-            echo "DELETE dispositioned branch: $branch"
-            gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/$REPO/git/refs/heads/$encoded"
-          done < /tmp/branches.txt
+          actual_count=$(wc -l < /tmp/actual-branches.txt | tr -d ' ')
+          if [[ "$actual_count" -ne 9 ]]; then
+            echo "FAIL: expected exactly 9 active branches; found $actual_count."
+            echo "No branches were changed. Review and disposition branches manually."
+            cat /tmp/actual-branches.txt
+            exit 1
+          fi
 
-          remaining=$(gh api --paginate -H "Accept: application/vnd.github+json" "/repos/$REPO/branches?per_page=100" --jq '.[].name' | wc -l)
-          test "$remaining" -eq 9
-          echo "Active branch count: $remaining"
-          echo "Nine-branch invariant: PASS"
+          if ! diff -u /tmp/expected-branches.txt /tmp/actual-branches.txt; then
+            echo "FAIL: active branch names differ from the canonical inventory."
+            echo "No branches were changed. Archive, verify and review before retirement."
+            exit 1
+          fi
+
+          echo "Active branch count: $actual_count"
+          echo "Canonical nine-branch inventory: PASS"
+          echo "Branch mutation: NONE (read-only audit)"
