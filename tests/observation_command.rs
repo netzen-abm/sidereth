@@ -1,6 +1,6 @@
 use serde_json::json;
-use sidereth_core::authorization::AuthorizationEvaluator;
 use sidereth_core::authorization::AuthorizationConstraint;
+use sidereth_core::authorization::AuthorizationEvaluator;
 use sidereth_core::persistence::{
     PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, UnitOfWork,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
@@ -170,8 +170,8 @@ impl AuthorizationEvaluator for TestEvaluator {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let policy_ok = request.policy_refs
-            == vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()];
+        let policy_ok =
+            request.policy_refs == vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()];
         let jurisdiction_ok = request.jurisdiction_ref.is_none();
         let decision = if !policy_ok || !jurisdiction_ok {
             AuthorizationDecision::Deny
@@ -305,7 +305,10 @@ fn authorization_result_must_match_evaluated_request() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
     let test_context = context();
-    let evaluator = TestEvaluator { mismatched_purpose: true, ..TestEvaluator::default() };
+    let evaluator = TestEvaluator {
+        mismatched_purpose: true,
+        ..TestEvaluator::default()
+    };
     let mut command = ObservationCommand::new(&mut factory, &evaluator);
 
     assert_eq!(
