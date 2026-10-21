@@ -42,6 +42,33 @@ pub struct TransformationProvenance {
     pub provenance: Provenance,
 }
 
+/**
+ * Validates the persisted evidence aggregate at the generic resource-write
+ * boundary. This catches callers that bypass EvidenceTrustUnitOfWorkRepository
+ * or mutate/deserialize a ResourceWrite after construction.
+ */
+pub(crate) fn validate_evidence_resource_payload(
+    resource_ref: &ResourceRef,
+    schema_version: u16,
+    payload: &serde_json::Value,
+) -> Result<(), PersistenceError> {
+    if resource_ref.resource_type != ResourceType::Evidence {
+        return Ok(());
+    }
+    if schema_version == 0 {
+        return Err(PersistenceError::ValidationFailure);
+    }
+
+    let evidence: PersistedEvidence = serde_json::from_value(payload.clone())
+        .map_err(|_| PersistenceError::SerializationFailure)?;
+    if evidence.schema_version != schema_version
+        || evidence.original.evidence_id != resource_ref.id
+    {
+        return Err(PersistenceError::IntegrityFailure);
+    }
+    evidence.validate().map_err(PersistenceError::from)
+}
+
 impl PersistedEvidence {
     pub fn new(
         schema_version: u16,
