@@ -1,5 +1,7 @@
 use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest};
-use crate::authorization_enforcement::{current_epoch_seconds, validate_authorization as enforce_authorization};
+use crate::authorization_enforcement::{
+    current_epoch_seconds, validate_authorization as enforce_authorization,
+};
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceLink, ResourceLinkClass, ResourceWrite, ResourceWriteMode, Revision,
@@ -284,7 +286,10 @@ fn validate_authorization<E: AuthorizationEvaluator>(
         .map_err(map_lifecycle_authorization_error)?;
 
     let mut prior_request = authorization_request.clone();
-    prior_request.request_id = format!("{}:prior:{}", authorization_request.request_id, prior_observation.id);
+    prior_request.request_id = format!(
+        "{}:prior:{}",
+        authorization_request.request_id, prior_observation.id
+    );
     prior_request.resource_ref = prior_observation.clone();
     let prior_authorization = evaluator.evaluate(&prior_request);
     enforce_authorization(&prior_request, &prior_authorization, now)
@@ -297,12 +302,18 @@ fn map_lifecycle_authorization_error(
     error: crate::AuthorizationValidationError,
 ) -> ObservationLifecycleError {
     match error {
-        crate::AuthorizationValidationError::Denied => ObservationLifecycleError::AuthorizationDenied,
-        crate::AuthorizationValidationError::Expired => ObservationLifecycleError::AuthorizationExpired,
+        crate::AuthorizationValidationError::Denied => {
+            ObservationLifecycleError::AuthorizationDenied
+        }
+        crate::AuthorizationValidationError::Expired => {
+            ObservationLifecycleError::AuthorizationExpired
+        }
         crate::AuthorizationValidationError::NotYetEvaluated
         | crate::AuthorizationValidationError::InvalidRequest
         | crate::AuthorizationValidationError::RequestResultMismatch
-        | crate::AuthorizationValidationError::ConstraintViolation => ObservationLifecycleError::AuthorizationMismatch,
+        | crate::AuthorizationValidationError::ConstraintViolation => {
+            ObservationLifecycleError::AuthorizationMismatch
+        }
     }
 }
 
