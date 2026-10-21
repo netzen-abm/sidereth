@@ -363,7 +363,6 @@ fn lifecycle_denial_and_expiry_are_evaluated_inside_the_command() {
         ),
         Err(ObservationLifecycleError::AuthorizationDenied)
     );
-    drop(command);
     assert_eq!(state.records.borrow().len(), 1);
 
     let mut expired_factory = MockFactory::default();
