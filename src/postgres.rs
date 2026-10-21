@@ -194,6 +194,9 @@ impl UnitOfWorkContext for PostgresUnitOfWorkContext {
     }
 
     fn write_resource(&mut self, write: ResourceWrite) -> Result<(), UnitOfWorkError> {
+        // Revalidate at the authoritative provider boundary. A caller can
+        // deserialize or mutate ResourceWrite after its constructor succeeded.
+        write.validate()?;
         let resource_type = Self::resource_type_name(write.resource_ref.resource_type);
         let id = write.resource_ref.id;
         let schema_version = i32::from(write.schema_version);

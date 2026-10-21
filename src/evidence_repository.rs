@@ -42,6 +42,32 @@ pub struct TransformationProvenance {
     pub provenance: Provenance,
 }
 
+/**
+ * Validates the persisted evidence aggregate at the generic resource-write
+ * boundary. This catches callers that bypass EvidenceTrustUnitOfWorkRepository
+ * or mutate/deserialize a ResourceWrite after construction.
+ */
+pub(crate) fn validate_evidence_resource_payload(
+    resource_ref: &ResourceRef,
+    schema_version: u16,
+    payload: &serde_json::Value,
+) -> Result<(), PersistenceError> {
+    if resource_ref.resource_type != ResourceType::Evidence {
+        return Ok(());
+    }
+    if schema_version == 0 {
+        return Err(PersistenceError::ValidationFailure);
+    }
+
+    let evidence: PersistedEvidence = serde_json::from_value(payload.clone())
+        .map_err(|_| PersistenceError::SerializationFailure)?;
+    if evidence.schema_version != schema_version || evidence.original.evidence_id != resource_ref.id
+    {
+        return Err(PersistenceError::IntegrityFailure);
+    }
+    evidence.validate().map_err(PersistenceError::from)
+}
+
 impl PersistedEvidence {
     pub fn new(
         schema_version: u16,
@@ -392,6 +418,151 @@ mod tests {
         assert_eq!(
             repository.create(evidence),
             Err(EvidencePersistenceError::IntegrityFailure)
+        );
+    }
+
+    #[test]
+    fn generic_resource_write_rejects_evidence_without_provenance_binding() {
+        let mut evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        evidence.transformations.push(EvidenceTransformation {
+            transformation_id: "transform-unbound".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "ocr-service".into(),
+            tool_id: Some("ocr-service".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        });
+
+        let payload = serde_json::to_value(&evidence).unwrap();
+        let result = ResourceWrite::new(
+            ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
+            evidence.schema_version,
+            payload,
+            ResourceWriteMode::Insert,
+        );
+
+        assert_eq!(
+            result,
+            Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure
+            ))
+        );
+    }
+
+    #[test]
+    fn generic_resource_write_rejects_evidence_id_binding_mismatch() {
+        let evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+
+        let result = ResourceWrite::new(
+            ResourceRef::new(ResourceType::Evidence, "different-evidence").unwrap(),
+            evidence.schema_version,
+            serde_json::to_value(&evidence).unwrap(),
+            ResourceWriteMode::Insert,
+        );
+
+        assert_eq!(
+            result,
+            Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure
+            ))
+        );
+    }
+
+    #[test]
+    fn generic_resource_write_rejects_evidence_upsert() {
+        let evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+
+        let result = ResourceWrite::new(
+            ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
+            evidence.schema_version,
+            serde_json::to_value(&evidence).unwrap(),
+            ResourceWriteMode::Upsert,
+        );
+
+        assert_eq!(result, Err(UnitOfWorkError::InvalidOperation));
+    }
+
+    #[test]
+    fn resource_write_revalidates_evidence_after_payload_mutation() {
+        let transformation = EvidenceTransformation {
+            transformation_id: "transform-mutate".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "ocr-service".into(),
+            tool_id: Some("ocr-service".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        };
+        let provenance = Provenance {
+            provenance_id: "prov-mutate".into(),
+            actor_ref: Some(ResourceRef::new(ResourceType::Service, "ocr-service").unwrap()),
+            source_refs: Vec::new(),
+            input_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
+            operation: "ocr".into(),
+            occurred_at: "2026-09-07T10:01:00Z".into(),
+        };
+        let evidence = PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default())
+            .unwrap()
+            .with_transformation(transformation, provenance)
+            .unwrap();
+        let mut write = ResourceWrite::new(
+            ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
+            evidence.schema_version,
+            serde_json::to_value(&evidence).unwrap(),
+            ResourceWriteMode::Insert,
+        )
+        .unwrap();
+
+        write.payload["transformation_provenance"][0]["provenance"]["actor_ref"]["id"] =
+            serde_json::Value::String("forged-actor".into());
+
+        assert_eq!(
+            write.validate(),
+            Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure
+            ))
+        );
+    }
+
+    #[test]
+    fn service_actor_provenance_round_trips() {
+        let transformation = EvidenceTransformation {
+            transformation_id: "transform-service".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "ocr-service".into(),
+            tool_id: Some("ocr-engine".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        };
+        let provenance = Provenance {
+            provenance_id: "prov-service".into(),
+            actor_ref: Some(ResourceRef::new(ResourceType::Service, "ocr-service").unwrap()),
+            source_refs: Vec::new(),
+            input_refs: vec![ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap()],
+            operation: "ocr".into(),
+            occurred_at: "2026-09-07T10:01:00Z".into(),
+        };
+        let evidence = PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default())
+            .unwrap()
+            .with_transformation(transformation, provenance)
+            .unwrap();
+
+        let mut repository = InMemoryEvidenceTrustRepository::default();
+        repository.create(evidence.clone()).unwrap();
+        assert_eq!(
+            repository.get(&"evidence-1".into()).unwrap(),
+            Some(evidence)
         );
     }
 

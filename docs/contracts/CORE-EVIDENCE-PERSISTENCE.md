@@ -44,6 +44,10 @@ The canonical contract MUST NOT depend on PostgreSQL, Supabase, SQLite, S3-compa
 8. Persistence failures must not be represented as successful evidence creation.
 9. Provider revision/CAS mechanisms MAY be used for concurrency, but provider-specific revision semantics must remain behind the adapter boundary.
 10. Technical integrity remains distinct from legal authenticity.
+11. Every transformation in a persisted evidence aggregate MUST have exactly one provenance binding, and every binding MUST refer to an existing transformation.
+12. The binding MUST preserve source-evidence identity, operation identity, and actor identity/type (Party, Tool, or Service); matching an actor ID alone is not enough if the operation or source differs.
+13. The resource reference ID and resource schema version MUST match the serialized PersistedEvidence aggregate.
+14. Evidence aggregates are insert-only through the generic resource-write contract. Mutable trust-state changes require a separately specified typed append-only operation; a generic Upsert MUST NOT replace evidence.
 
 ## Repository boundary
 
@@ -56,6 +60,14 @@ The provider-neutral repository SHOULD provide at least:
 - expose provider-neutral persistence errors.
 
 Updates to original evidence are prohibited. Future mutable trust-state changes, such as external verification events, should use explicit append-only verification records rather than mutating the original capture record.
+
+## Authoritative write validation
+
+`PersistedEvidence::validate` is the canonical aggregate validator. `ResourceWrite::new` invokes evidence validation when constructing an Evidence write, and each storage adapter MUST call `ResourceWrite::validate()` again immediately before persistence. Constructor-time validation alone is insufficient because a `ResourceWrite` can be deserialized or mutated after construction.
+
+For an Evidence resource, the persistence boundary MUST reject malformed payloads, resource-ID or schema-version mismatches, missing/duplicate/orphan transformation-provenance bindings, source/operation/actor mismatches, and generic `Upsert` operations. Reads through the Evidence Trust repository MUST decode and validate the aggregate before returning it. Providers must include bypass tests that mutate a previously valid write and prove no record reaches durable storage.
+
+These requirements belong at the existing evidence persistence boundary and the existing generic write-validation hook; they do not justify a second transaction manager or a parallel evidence authorization service.
 
 ## Transaction integration
 

@@ -4,6 +4,10 @@ use crate::ResourceRef;
 
 /// Provider-neutral read/write context used inside a unit of work.
 /// Reads occur in the same transaction as subsequent CAS writes.
+///
+/// Implementations MUST call `ResourceWrite::validate()` immediately before
+/// applying a write. The constructor is not the final trust boundary because
+/// public fields and deserialization can change a write after construction.
 pub trait UnitOfWorkContext {
     fn read_resource(
         &mut self,
