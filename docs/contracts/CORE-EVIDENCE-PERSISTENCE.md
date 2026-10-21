@@ -75,6 +75,10 @@ Where SIDERETH's existing `UnitOfWork` is available, evidence creation SHOULD pa
 
 The evidence contract must not create a parallel transaction abstraction that competes with the canonical Unit-of-Work boundary.
 
+## Legacy records and quarantine
+
+The operational disposition for historical records whose transformation/provenance binding is absent or invalid is specified in [LEGACY-EVIDENCE-QUARANTINE-POLICY.md](LEGACY-EVIDENCE-QUARANTINE-POLICY.md). Until the inventory, dry-run report, verified backup, quarantine enforcement, and recovery proof are complete, treat invalid records as rejected by normal validation. The policy document is a proposed operational policy, not evidence that an automated quarantine/migration job already exists.
+
 ## Completion gate
 
 This contract is considered implemented only when there is:
