@@ -223,28 +223,6 @@ impl AuthorizationEvaluator for TestEvaluator {
 }
 
 fn invocation() -> ToolGatewayInvocation {
-    let q = request();
-    AuthorizationResult {
-        request_id: q.request_id.clone(),
-        authorization_ref: q.authorization_ref.clone(),
-        subject_ref: q.subject_ref.clone(),
-        action: q.action.clone(),
-        resource_ref: q.resource_ref.clone(),
-        purpose: q.purpose.clone(),
-        jurisdiction_ref: q.jurisdiction_ref.clone(),
-        data_class: q.data_class.clone(),
-        decision: AuthorizationDecision::Allow,
-        constraints: vec![AuthorizationConstraint {
-            key: "scope".into(),
-            value: "exact_resource".into(),
-        }],
-        policy_refs: q.policy_refs.clone(),
-        evaluated_at_epoch_seconds: 1000,
-        expires_at_epoch_seconds: Some(1100),
-    }
-}
-
-fn invocation() -> ToolGatewayInvocation {
     ToolGatewayInvocation {
         request_id: "req-1".into(),
         occurred_at: "2026-09-20T10:00:00Z".into(),
