@@ -44,7 +44,7 @@ jobs:
           gh api --paginate -H "Accept: application/vnd.github+json" \
             "/repos/$REPO/branches?per_page=100" --jq '.[].name' \
             | LC_ALL=C sort > /tmp/actual-branches.txt
-          printf '%s\\n' "${expected[@]}" | LC_ALL=C sort > /tmp/expected-branches.txt
+          printf '%s\n' "${expected[@]}" | LC_ALL=C sort > /tmp/expected-branches.txt
 
           actual_count=$(wc -l < /tmp/actual-branches.txt | tr -d ' ')
           if [[ "$actual_count" -ne 9 ]]; then
