@@ -125,7 +125,6 @@ where
         reason: impl Into<String>,
     ) -> Result<ObservationLifecycleCommandResult, ObservationLifecycleError> {
         let reason = reason.into();
-        let authorization = validate_authorization(&context, operation, &observation, self.evaluator)?;
         if prior_observation.resource_type != ResourceType::Observation
             || prior_observation.id.is_empty()
         {
@@ -139,6 +138,13 @@ where
         if prior_observation == new_ref {
             return Err(ObservationLifecycleError::SameObservation);
         }
+        let authorization = validate_authorization(
+            &context,
+            operation,
+            &prior_observation,
+            &observation,
+            self.evaluator,
+        )?;
         if reason.trim().is_empty() {
             return Err(ObservationLifecycleError::InvalidInput);
         }
@@ -220,6 +226,7 @@ where
 fn validate_authorization<E: AuthorizationEvaluator>(
     context: &ObservationLifecycleCommandContext,
     operation: ObservationLifecycleOperation,
+    prior_observation: &ResourceRef,
     observation: &Observation,
     evaluator: &E,
 ) -> Result<AuthorizationResult, ObservationLifecycleError> {
@@ -266,17 +273,37 @@ fn validate_authorization<E: AuthorizationEvaluator>(
         return Err(ObservationLifecycleError::AuthorizationMismatch);
     }
     let now = current_epoch_seconds().ok_or(ObservationLifecycleError::AuthorizationInvalid)?;
-    let authorization = evaluator.evaluate(authorization_request);
-    enforce_authorization(authorization_request, &authorization, now)
-        .map_err(|error| match error {
-            crate::AuthorizationValidationError::Denied => ObservationLifecycleError::AuthorizationDenied,
-            crate::AuthorizationValidationError::Expired => ObservationLifecycleError::AuthorizationExpired,
-            crate::AuthorizationValidationError::NotYetEvaluated
-            | crate::AuthorizationValidationError::InvalidRequest
-            | crate::AuthorizationValidationError::RequestResultMismatch
-            | crate::AuthorizationValidationError::ConstraintViolation => ObservationLifecycleError::AuthorizationMismatch,
-        })?;
-    Ok(authorization)
+
+    // The lifecycle command appends a new observation and creates a strong
+    // relationship to a prior observation. Authorization for the new record
+    // alone must not imply authority to refer to/correct/supersede/contradict
+    // an arbitrary existing record. Evaluate both exact resources with the
+    // operation-specific action before the Unit of Work begins.
+    let new_authorization = evaluator.evaluate(authorization_request);
+    enforce_authorization(authorization_request, &new_authorization, now)
+        .map_err(map_lifecycle_authorization_error)?;
+
+    let mut prior_request = authorization_request.clone();
+    prior_request.request_id = format!("{}:prior:{}", authorization_request.request_id, prior_observation.id);
+    prior_request.resource_ref = prior_observation.clone();
+    let prior_authorization = evaluator.evaluate(&prior_request);
+    enforce_authorization(&prior_request, &prior_authorization, now)
+        .map_err(map_lifecycle_authorization_error)?;
+
+    Ok(new_authorization)
+}
+
+fn map_lifecycle_authorization_error(
+    error: crate::AuthorizationValidationError,
+) -> ObservationLifecycleError {
+    match error {
+        crate::AuthorizationValidationError::Denied => ObservationLifecycleError::AuthorizationDenied,
+        crate::AuthorizationValidationError::Expired => ObservationLifecycleError::AuthorizationExpired,
+        crate::AuthorizationValidationError::NotYetEvaluated
+        | crate::AuthorizationValidationError::InvalidRequest
+        | crate::AuthorizationValidationError::RequestResultMismatch
+        | crate::AuthorizationValidationError::ConstraintViolation => ObservationLifecycleError::AuthorizationMismatch,
+    }
 }
 
 struct ObservationLifecyclePersistContext {
