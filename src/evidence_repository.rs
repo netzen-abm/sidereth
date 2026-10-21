@@ -422,6 +422,91 @@ mod tests {
     }
 
     #[test]
+    fn legacy_serialized_transformation_without_provenance_fails_closed() {
+        let transformation = EvidenceTransformation {
+            transformation_id: "legacy-transform-unbound".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "legacy-ocr-service".into(),
+            tool_id: Some("legacy-ocr-service".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        };
+        let mut evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        evidence.transformations.push(transformation);
+
+        // The field did not exist on legacy serialized records. Serde's
+        // backward-compatible default decodes it as empty, but must not invent
+        // provenance for historical transformations.
+        let mut payload = serde_json::to_value(&evidence).unwrap();
+        payload
+            .as_object_mut()
+            .unwrap()
+            .remove("transformation_provenance")
+            .unwrap();
+        let decoded: PersistedEvidence = serde_json::from_value(payload.clone()).unwrap();
+
+        assert_eq!(
+            decoded.validate(),
+            Err(EvidencePersistenceError::IntegrityFailure)
+        );
+        assert_eq!(
+            ResourceWrite::new(
+                ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
+                1,
+                payload,
+                ResourceWriteMode::Insert,
+            ),
+            Err(UnitOfWorkError::Persistence(
+                PersistenceError::IntegrityFailure
+            ))
+        );
+    }
+
+    #[test]
+    fn uow_read_rejects_legacy_transformation_without_provenance() {
+        let transformation = EvidenceTransformation {
+            transformation_id: "legacy-transform-read".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "legacy-ocr-service".into(),
+            tool_id: Some("legacy-ocr-service".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        };
+        let mut evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        evidence.transformations.push(transformation);
+        let mut payload = serde_json::to_value(&evidence).unwrap();
+        payload
+            .as_object_mut()
+            .unwrap()
+            .remove("transformation_provenance")
+            .unwrap();
+
+        let resource_ref = ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap();
+        let mut context = FakeContext {
+            record: Some(ResourceRecord {
+                resource_ref,
+                schema_version: 1,
+                revision: Revision::initial(),
+                payload,
+            }),
+        };
+        let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
+
+        assert_eq!(
+            repository.get(&"evidence-1".into()),
+            Err(PersistenceError::IntegrityFailure)
+        );
+    }
+
+    #[test]
     fn generic_resource_write_rejects_evidence_without_provenance_binding() {
         let mut evidence =
             PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();

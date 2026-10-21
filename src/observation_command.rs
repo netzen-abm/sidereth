@@ -1,12 +1,13 @@
-use crate::authorization_enforcement::validate_authorization as enforce_authorization;
+use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest};
+use crate::authorization_enforcement::{
+    current_epoch_seconds, validate_authorization as enforce_authorization,
+};
 use crate::command::{execute_authoritative_command, AtomicCommandPlan, AuthoritativeCommandError};
 use crate::persistence::{
     PersistenceError, ResourceWrite, ResourceWriteMode, Revision, UnitOfWorkContext,
     UnitOfWorkError, UnitOfWorkFactory,
 };
-use crate::{
-    AuthorizationRequest, AuthorizationResult, Id, Observation, ResourceRef, ResourceType,
-};
+use crate::{AuthorizationResult, Id, Observation, ResourceRef, ResourceType};
 use serde_json::json;
 
 const OBSERVATION_CREATE_ACTION: &str = "observation.create";
@@ -16,6 +17,7 @@ pub enum ObservationCommandError {
     AuthorizationDenied,
     AuthorizationMismatch,
     AuthorizationExpired,
+    AuthorizationInvalid,
     Conflict,
     Duplicate,
     InvalidInput,
@@ -53,9 +55,7 @@ pub struct ObservationCommandContext {
     pub actor_ref: ResourceRef,
     pub operation_id: Id,
     pub correlation_id: Id,
-    pub now_epoch_seconds: u64,
     pub authorization_request: AuthorizationRequest,
-    pub authorization: AuthorizationResult,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,16 +65,18 @@ pub struct ObservationCommandResult {
     pub event_id: Id,
 }
 
-pub struct ObservationCommand<'a, F> {
+pub struct ObservationCommand<'a, F, E> {
     factory: &'a mut F,
+    evaluator: &'a E,
 }
 
-impl<'a, F> ObservationCommand<'a, F>
+impl<'a, F, E> ObservationCommand<'a, F, E>
 where
     F: UnitOfWorkFactory,
+    E: AuthorizationEvaluator,
 {
-    pub fn new(factory: &'a mut F) -> Self {
-        Self { factory }
+    pub fn new(factory: &'a mut F, evaluator: &'a E) -> Self {
+        Self { factory, evaluator }
     }
 
     pub fn create(
@@ -82,7 +84,7 @@ where
         context: ObservationCommandContext,
         observation: Observation,
     ) -> Result<ObservationCommandResult, ObservationCommandError> {
-        validate_authorization(&context, &observation)?;
+        let authorization = validate_authorization(&context, &observation, self.evaluator)?;
         observation
             .validate()
             .map_err(|_| ObservationCommandError::InvalidInput)?;
@@ -95,7 +97,6 @@ where
         let actor_ref = context.actor_ref;
         let correlation_id = context.correlation_id;
         let operation_id = context.operation_id;
-        let authorization = context.authorization;
 
         execute_authoritative_command(self.factory, plan, move |uow, plan| {
             persist_observation(
@@ -112,10 +113,11 @@ where
     }
 }
 
-fn validate_authorization(
+fn validate_authorization<E: AuthorizationEvaluator>(
     context: &ObservationCommandContext,
     observation: &Observation,
-) -> Result<(), ObservationCommandError> {
+    evaluator: &E,
+) -> Result<AuthorizationResult, ObservationCommandError> {
     if context.operation_id.is_empty()
         || context.correlation_id.is_empty()
         || context.actor_ref.id.is_empty()
@@ -151,22 +153,24 @@ fn validate_authorization(
         return Err(ObservationCommandError::AuthorizationMismatch);
     }
 
-    enforce_authorization(request, &context.authorization, context.now_epoch_seconds).map_err(
-        |error| match error {
-            crate::AuthorizationValidationError::Denied => {
-                ObservationCommandError::AuthorizationDenied
-            }
-            crate::AuthorizationValidationError::Expired => {
-                ObservationCommandError::AuthorizationExpired
-            }
-            crate::AuthorizationValidationError::NotYetEvaluated
-            | crate::AuthorizationValidationError::InvalidRequest
-            | crate::AuthorizationValidationError::RequestResultMismatch
-            | crate::AuthorizationValidationError::ConstraintViolation => {
-                ObservationCommandError::AuthorizationMismatch
-            }
-        },
-    )
+    if request.purpose != "record observation" || request.policy_refs.is_empty() {
+        return Err(ObservationCommandError::AuthorizationMismatch);
+    }
+    let now = current_epoch_seconds().ok_or(ObservationCommandError::AuthorizationInvalid)?;
+    let authorization = evaluator.evaluate(request);
+    enforce_authorization(request, &authorization, now).map_err(|error| match error {
+        crate::AuthorizationValidationError::Denied => ObservationCommandError::AuthorizationDenied,
+        crate::AuthorizationValidationError::Expired => {
+            ObservationCommandError::AuthorizationExpired
+        }
+        crate::AuthorizationValidationError::NotYetEvaluated
+        | crate::AuthorizationValidationError::InvalidRequest
+        | crate::AuthorizationValidationError::RequestResultMismatch
+        | crate::AuthorizationValidationError::ConstraintViolation => {
+            ObservationCommandError::AuthorizationMismatch
+        }
+    })?;
+    Ok(authorization)
 }
 
 fn persist_observation<C: UnitOfWorkContext>(

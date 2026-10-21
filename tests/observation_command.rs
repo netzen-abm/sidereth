@@ -1,4 +1,6 @@
 use serde_json::json;
+use sidereth_core::authorization::AuthorizationConstraint;
+use sidereth_core::authorization::AuthorizationEvaluator;
 use sidereth_core::persistence::{
     PersistenceError, ResourceRecord, ResourceWrite, ResourceWriteMode, UnitOfWork,
     UnitOfWorkContext, UnitOfWorkError, UnitOfWorkFactory,
@@ -112,6 +114,13 @@ fn observation() -> Observation {
     }
 }
 
+fn now_epoch_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
 fn authorization_request(actor_ref: ResourceRef) -> AuthorizationRequest {
     AuthorizationRequest {
         request_id: "request-1".into(),
@@ -123,35 +132,74 @@ fn authorization_request(actor_ref: ResourceRef) -> AuthorizationRequest {
         jurisdiction_ref: None,
         data_class: Some("RESTRICTED".into()),
         policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
-        requested_at_epoch_seconds: 80,
-        freshness_seconds: Some(40),
+        requested_at_epoch_seconds: now_epoch_seconds(),
+        freshness_seconds: Some(300),
     }
 }
 
 fn context() -> ObservationCommandContext {
     let actor_ref = ResourceRef::new(ResourceType::Party, "party-1").unwrap();
-    let authorization_request = authorization_request(actor_ref.clone());
     ObservationCommandContext {
-        actor_ref,
+        actor_ref: actor_ref.clone(),
         operation_id: "op-1".into(),
         correlation_id: "corr-1".into(),
-        now_epoch_seconds: 100,
-        authorization_request: authorization_request.clone(),
-        authorization: AuthorizationResult {
-            request_id: authorization_request.request_id.clone(),
-            authorization_ref: authorization_request.authorization_ref.clone(),
-            subject_ref: authorization_request.subject_ref.clone(),
-            action: authorization_request.action.clone(),
-            resource_ref: authorization_request.resource_ref.clone(),
-            purpose: authorization_request.purpose.clone(),
-            jurisdiction_ref: authorization_request.jurisdiction_ref.clone(),
-            data_class: authorization_request.data_class.clone(),
+        authorization_request: authorization_request(actor_ref),
+    }
+}
+
+#[derive(Clone)]
+struct TestEvaluator {
+    decision: AuthorizationDecision,
+    expired: bool,
+    mismatched_purpose: bool,
+}
+
+impl Default for TestEvaluator {
+    fn default() -> Self {
+        Self {
             decision: AuthorizationDecision::Allow,
-            constraints: Vec::new(),
-            policy_refs: authorization_request.policy_refs.clone(),
-            evaluated_at_epoch_seconds: 90,
-            expires_at_epoch_seconds: Some(120),
-        },
+            expired: false,
+            mismatched_purpose: false,
+        }
+    }
+}
+
+impl AuthorizationEvaluator for TestEvaluator {
+    fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let policy_ok =
+            request.policy_refs == vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()];
+        let jurisdiction_ok = request.jurisdiction_ref.is_none();
+        let decision = if !policy_ok || !jurisdiction_ok {
+            AuthorizationDecision::Deny
+        } else {
+            self.decision
+        };
+        let mut result = AuthorizationResult {
+            request_id: request.request_id.clone(),
+            authorization_ref: request.authorization_ref.clone(),
+            subject_ref: request.subject_ref.clone(),
+            action: request.action.clone(),
+            resource_ref: request.resource_ref.clone(),
+            purpose: request.purpose.clone(),
+            jurisdiction_ref: request.jurisdiction_ref.clone(),
+            data_class: request.data_class.clone(),
+            decision,
+            constraints: vec![AuthorizationConstraint {
+                key: "scope".into(),
+                value: "exact_resource".into(),
+            }],
+            policy_refs: request.policy_refs.clone(),
+            evaluated_at_epoch_seconds: now,
+            expires_at_epoch_seconds: Some(if self.expired { now } else { now + 120 }),
+        };
+        if self.mismatched_purpose {
+            result.purpose = "forged-purpose".into();
+        }
+        result
     }
 }
 
@@ -159,7 +207,8 @@ fn context() -> ObservationCommandContext {
 fn create_is_authorized_and_atomic() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut command = ObservationCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
 
     let result = command.create(context(), observation()).unwrap();
 
@@ -180,7 +229,8 @@ fn authorization_must_bind_exact_observation_resource() {
     let mut test_context = context();
     test_context.authorization_request.resource_ref =
         ResourceRef::new(ResourceType::Observation, "other").unwrap();
-    let mut command = ObservationCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
 
     assert_eq!(
         command.create(test_context, observation()),
@@ -190,25 +240,34 @@ fn authorization_must_bind_exact_observation_resource() {
 }
 
 #[test]
-fn authorization_must_bind_exact_purpose_and_policy_context() {
-    for mutate_request in [
-        |request: &mut AuthorizationRequest| request.purpose = "different purpose".into(),
-        |request: &mut AuthorizationRequest| {
-            request.policy_refs = vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()]
-        },
-    ] {
-        let mut factory = MockFactory::default();
-        let state = factory.state.clone();
-        let mut test_context = context();
-        mutate_request(&mut test_context.authorization_request);
-        let mut command = ObservationCommand::new(&mut factory);
+fn authorization_purpose_is_bound_to_observation_creation() {
+    let mut factory = MockFactory::default();
+    let state = factory.state.clone();
+    let mut test_context = context();
+    test_context.authorization_request.purpose = "different purpose".into();
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
+    assert_eq!(
+        command.create(test_context, observation()),
+        Err(ObservationCommandError::AuthorizationMismatch)
+    );
+    assert!(state.0.borrow().is_empty());
+}
 
-        assert_eq!(
-            command.create(test_context, observation()),
-            Err(ObservationCommandError::AuthorizationMismatch)
-        );
-        assert!(state.0.borrow().is_empty());
-    }
+#[test]
+fn policy_selector_cannot_bypass_evaluator_denial() {
+    let mut factory = MockFactory::default();
+    let state = factory.state.clone();
+    let mut test_context = context();
+    test_context.authorization_request.policy_refs =
+        vec![ResourceRef::new(ResourceType::Other, "policy-2").unwrap()];
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
+    assert_eq!(
+        command.create(test_context, observation()),
+        Err(ObservationCommandError::AuthorizationDenied)
+    );
+    assert!(state.0.borrow().is_empty());
 }
 
 #[test]
@@ -218,11 +277,12 @@ fn authorization_must_bind_exact_jurisdiction_and_data_class() {
     let mut test_context = context();
     test_context.authorization_request.jurisdiction_ref =
         Some(ResourceRef::new(ResourceType::Jurisdiction, "jurisdiction-1").unwrap());
-    let mut command = ObservationCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
 
     assert_eq!(
         command.create(test_context, observation()),
-        Err(ObservationCommandError::AuthorizationMismatch)
+        Err(ObservationCommandError::AuthorizationDenied)
     );
     assert!(state.0.borrow().is_empty());
 
@@ -230,7 +290,8 @@ fn authorization_must_bind_exact_jurisdiction_and_data_class() {
     let state = factory.state.clone();
     let mut test_context = context();
     test_context.authorization_request.data_class = Some("PUBLIC".into());
-    let mut command = ObservationCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
 
     assert_eq!(
         command.create(test_context, observation()),
@@ -243,9 +304,12 @@ fn authorization_must_bind_exact_jurisdiction_and_data_class() {
 fn authorization_result_must_match_evaluated_request() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut test_context = context();
-    test_context.authorization.purpose = "different purpose".into();
-    let mut command = ObservationCommand::new(&mut factory);
+    let test_context = context();
+    let evaluator = TestEvaluator {
+        mismatched_purpose: true,
+        ..TestEvaluator::default()
+    };
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
 
     assert_eq!(
         command.create(test_context, observation()),
@@ -258,18 +322,23 @@ fn authorization_result_must_match_evaluated_request() {
 fn denied_or_expired_authorization_cannot_mutate() {
     let mut factory = MockFactory::default();
     let state = factory.state.clone();
-    let mut denied = context();
-    denied.authorization.decision = AuthorizationDecision::Deny;
-    let mut command = ObservationCommand::new(&mut factory);
+    let denied_evaluator = TestEvaluator {
+        decision: AuthorizationDecision::Deny,
+        ..TestEvaluator::default()
+    };
+    let mut denied_command = ObservationCommand::new(&mut factory, &denied_evaluator);
     assert_eq!(
-        command.create(denied, observation()),
+        denied_command.create(context(), observation()),
         Err(ObservationCommandError::AuthorizationDenied)
     );
 
-    let mut expired = context();
-    expired.now_epoch_seconds = 121;
+    let expired_evaluator = TestEvaluator {
+        expired: true,
+        ..TestEvaluator::default()
+    };
+    let mut expired_command = ObservationCommand::new(&mut factory, &expired_evaluator);
     assert_eq!(
-        command.create(expired, observation()),
+        expired_command.create(context(), observation()),
         Err(ObservationCommandError::AuthorizationExpired)
     );
     assert!(state.0.borrow().is_empty());
@@ -281,7 +350,8 @@ fn authorization_does_not_upgrade_epistemic_status() {
     let state = factory.state.clone();
     let mut value = observation();
     value.epistemic_status = EpistemicStatus::Inferred;
-    let mut command = ObservationCommand::new(&mut factory);
+    let evaluator = TestEvaluator::default();
+    let mut command = ObservationCommand::new(&mut factory, &evaluator);
 
     command.create(context(), value).unwrap();
     let record = state
