@@ -179,8 +179,8 @@ impl Default for TestEvaluator {
 impl AuthorizationEvaluator for TestEvaluator {
     fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
         let now = now_epoch_seconds();
-        let policy_ok = request.policy_refs
-            == vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()];
+        let policy_ok =
+            request.policy_refs == vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()];
         let decision = if policy_ok
             && request.jurisdiction_ref.is_none()
             && self.denied_resource.as_ref() != Some(&request.resource_ref)
