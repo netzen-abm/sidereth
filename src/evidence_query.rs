@@ -298,6 +298,61 @@ mod tests {
         EvidenceQueryRequest::new(evidence_ref.clone(), authorization_request(&evidence_ref))
     }
 
+    /// Test-only backing store that simulates a legacy provider decoding a
+    /// record without validating it. The protected query must not trust the
+    /// provider to enforce the aggregate invariant by itself.
+    #[derive(Default)]
+    struct UnvalidatedTrustRepository {
+        record: Option<PersistedEvidence>,
+    }
+
+    impl EvidenceTrustRepository for UnvalidatedTrustRepository {
+        fn create(
+            &mut self,
+            evidence: PersistedEvidence,
+        ) -> Result<(), EvidencePersistenceError> {
+            self.record = Some(evidence);
+            Ok(())
+        }
+
+        fn get(
+            &mut self,
+            evidence_id: &Id,
+        ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
+            Ok(self
+                .record
+                .as_ref()
+                .filter(|record| &record.original.evidence_id == evidence_id)
+                .cloned())
+        }
+
+        fn list_transformations(
+            &mut self,
+            evidence_id: &Id,
+        ) -> Result<Vec<crate::EvidenceTransformation>, EvidencePersistenceError> {
+            self.get(evidence_id)?
+                .map(|record| record.transformations)
+                .ok_or(EvidencePersistenceError::NotFound)
+        }
+    }
+
+    fn legacy_record_without_provenance() -> PersistedEvidence {
+        let mut record =
+            PersistedEvidence::new(1, evidence(), EvidenceTrustMetadata::default()).unwrap();
+        record.transformations.push(crate::EvidenceTransformation {
+            transformation_id: "legacy-transform-1".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "legacy-ocr-service".into(),
+            tool_id: Some("legacy-ocr-service".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        });
+        record
+    }
+
     #[test]
     fn authorized_retrieval_returns_metadata_and_content() {
         let (vault, mut trust_repository) = vault();
@@ -415,6 +470,69 @@ mod tests {
         assert_eq!(
             query.get(request()),
             Err(EvidenceQueryError::AuthorizationInvalid)
+        );
+    }
+
+    #[test]
+    fn ordinary_retrieval_fails_closed_when_trust_record_is_missing() {
+        let (vault, _valid_trust_repository) = vault();
+        let mut empty_trust_repository = InMemoryEvidenceTrustRepository::default();
+        let evaluator = TestEvaluator::default();
+        let mut query = AuthorizedEvidenceQuery::new(
+            &vault,
+            &vault,
+            &mut empty_trust_repository,
+            &evaluator,
+        );
+
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::EvidenceNotFound)
+        );
+    }
+
+    #[test]
+    fn ordinary_retrieval_rejects_legacy_transformation_without_provenance() {
+        let (vault, _valid_trust_repository) = vault();
+        let mut unvalidated_trust_repository = UnvalidatedTrustRepository {
+            record: Some(legacy_record_without_provenance()),
+        };
+        let evaluator = TestEvaluator::default();
+        let mut query = AuthorizedEvidenceQuery::new(
+            &vault,
+            &vault,
+            &mut unvalidated_trust_repository,
+            &evaluator,
+        );
+
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::StorageFailure)
+        );
+    }
+
+    #[test]
+    fn trust_state_must_match_stored_original_metadata() {
+        let (vault, _valid_trust_repository) = vault();
+        let mut mismatched_original = evidence();
+        mismatched_original.media_type = "application/pdf".into();
+        let trust_record =
+            PersistedEvidence::new(1, mismatched_original, EvidenceTrustMetadata::default())
+                .unwrap();
+        let mut unvalidated_trust_repository = UnvalidatedTrustRepository {
+            record: Some(trust_record),
+        };
+        let evaluator = TestEvaluator::default();
+        let mut query = AuthorizedEvidenceQuery::new(
+            &vault,
+            &vault,
+            &mut unvalidated_trust_repository,
+            &evaluator,
+        );
+
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::StorageFailure)
         );
     }
 
