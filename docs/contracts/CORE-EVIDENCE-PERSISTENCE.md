@@ -48,6 +48,7 @@ The canonical contract MUST NOT depend on PostgreSQL, Supabase, SQLite, S3-compa
 12. The binding MUST preserve source-evidence identity, operation identity, and actor identity/type (Party, Tool, or Service); matching an actor ID alone is not enough if the operation or source differs.
 13. The resource reference ID and resource schema version MUST match the serialized PersistedEvidence aggregate.
 14. Evidence aggregates are insert-only through the generic resource-write contract. Mutable trust-state changes require a separately specified typed append-only operation; a generic Upsert MUST NOT replace evidence.
+15. Ordinary protected byte retrieval MUST require the corresponding validated `PersistedEvidence` trust aggregate and MUST bind its `EvidenceOriginal` exactly to the original-metadata record before reading or returning bytes. A matching content hash alone is not a substitute for valid provenance/trust state.
 
 ## Repository boundary
 
@@ -60,6 +61,12 @@ The provider-neutral repository SHOULD provide at least:
 - expose provider-neutral persistence errors.
 
 Updates to original evidence are prohibited. Future mutable trust-state changes, such as external verification events, should use explicit append-only verification records rather than mutating the original capture record.
+
+## Authoritative read validation
+
+`AuthorizedEvidenceQuery` is the protected byte-retrieval boundary. It MUST obtain the canonical authorization decision and current time at the boundary, then require a validated `PersistedEvidence` trust record. If the trust record is absent, malformed, has missing/ambiguous provenance, or its embedded `EvidenceOriginal` differs from the original-metadata record, ordinary retrieval MUST fail closed before returning object bytes. The object hash is checked after those trust and metadata checks. Export, AI/RAG, and graph/index integrations must not bypass this protected decision path when serving trusted evidence.
+
+The trust-state lookup uses the existing provider-neutral `EvidenceTrustRepository` contract and the canonical Unit-of-Work adapter where a shared transaction is required; it does not create a second persistence abstraction. Raw `EvidenceObjectStore` and original-metadata repositories remain authorization-neutral adapter primitives and must not be given directly to untrusted surfaces or agents.
 
 ## Authoritative write validation
 

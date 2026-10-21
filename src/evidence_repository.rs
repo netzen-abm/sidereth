@@ -12,6 +12,8 @@ pub enum EvidencePersistenceError {
     NotFound,
     Duplicate,
     IntegrityFailure,
+    /// Provider/transaction failure that does not map safely to a domain error.
+    StorageFailure,
 }
 
 impl From<EvidencePersistenceError> for PersistenceError {
@@ -21,6 +23,28 @@ impl From<EvidencePersistenceError> for PersistenceError {
             EvidencePersistenceError::NotFound => PersistenceError::NotFound,
             EvidencePersistenceError::Duplicate => PersistenceError::Duplicate,
             EvidencePersistenceError::IntegrityFailure => PersistenceError::IntegrityFailure,
+            EvidencePersistenceError::StorageFailure => PersistenceError::Unavailable,
+        }
+    }
+}
+
+impl From<PersistenceError> for EvidencePersistenceError {
+    fn from(error: PersistenceError) -> Self {
+        match error {
+            PersistenceError::ValidationFailure | PersistenceError::UnsupportedSchemaVersion => {
+                Self::ValidationFailure
+            }
+            PersistenceError::NotFound => Self::NotFound,
+            PersistenceError::Duplicate | PersistenceError::IdempotencyAlreadyClaimed => {
+                Self::Duplicate
+            }
+            PersistenceError::IntegrityFailure => Self::IntegrityFailure,
+            PersistenceError::Unavailable
+            | PersistenceError::Timeout
+            | PersistenceError::Conflict
+            | PersistenceError::AuthorizationFailure
+            | PersistenceError::SerializationFailure
+            | PersistenceError::RetentionBlocked => Self::StorageFailure,
         }
     }
 }
@@ -171,11 +195,17 @@ impl PersistedEvidence {
     }
 }
 
+/// Provider-neutral validated trust-state repository. Implementations MUST validate
+/// decoded aggregates before returning them from `get`; consumers must not infer
+/// trustworthy provenance merely because a storage read succeeded.
 pub trait EvidenceTrustRepository {
     fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError>;
-    fn get(&self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError>;
+    fn get(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError>;
     fn list_transformations(
-        &self,
+        &mut self,
         evidence_id: &Id,
     ) -> Result<Vec<EvidenceTransformation>, EvidencePersistenceError>;
 }
@@ -196,19 +226,24 @@ impl EvidenceTrustRepository for InMemoryEvidenceTrustRepository {
         Ok(())
     }
 
-    fn get(&self, evidence_id: &Id) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
-        Ok(self.records.get(evidence_id).cloned())
+    fn get(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
+        let Some(evidence) = self.records.get(evidence_id) else {
+            return Ok(None);
+        };
+        evidence.validate()?;
+        Ok(Some(evidence.clone()))
     }
 
     fn list_transformations(
-        &self,
+        &mut self,
         evidence_id: &Id,
     ) -> Result<Vec<EvidenceTransformation>, EvidencePersistenceError> {
-        let record = self
-            .records
-            .get(evidence_id)
-            .ok_or(EvidencePersistenceError::NotFound)?;
-        Ok(record.transformations.clone())
+        self.get(evidence_id)?
+            .map(|evidence| evidence.transformations)
+            .ok_or(EvidencePersistenceError::NotFound)
     }
 }
 
@@ -266,8 +301,14 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
             })?;
         record
             .map(|record| {
+                if record.resource_ref != resource_ref {
+                    return Err(PersistenceError::IntegrityFailure);
+                }
                 let evidence = serde_json::from_value::<PersistedEvidence>(record.payload)
                     .map_err(|_| PersistenceError::SerializationFailure)?;
+                if record.schema_version != evidence.schema_version {
+                    return Err(PersistenceError::IntegrityFailure);
+                }
                 evidence.validate().map_err(PersistenceError::from)?;
                 Ok(evidence)
             })
@@ -281,6 +322,29 @@ impl<'a, C: UnitOfWorkContext> EvidenceTrustUnitOfWorkRepository<'a, C> {
         self.get(evidence_id)?
             .map(|evidence| evidence.transformations)
             .ok_or(PersistenceError::NotFound)
+    }
+}
+
+impl<C: UnitOfWorkContext> EvidenceTrustRepository for EvidenceTrustUnitOfWorkRepository<'_, C> {
+    fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError> {
+        EvidenceTrustUnitOfWorkRepository::create(self, evidence)
+            .map_err(EvidencePersistenceError::from)
+    }
+
+    fn get(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
+        EvidenceTrustUnitOfWorkRepository::get(self, evidence_id)
+            .map_err(EvidencePersistenceError::from)
+    }
+
+    fn list_transformations(
+        &mut self,
+        evidence_id: &Id,
+    ) -> Result<Vec<EvidenceTransformation>, EvidencePersistenceError> {
+        EvidenceTrustUnitOfWorkRepository::list_transformations(self, evidence_id)
+            .map_err(EvidencePersistenceError::from)
     }
 }
 
@@ -749,9 +813,34 @@ mod tests {
             repository.create(evidence.clone()).unwrap();
             assert_eq!(
                 repository.get(&"evidence-1".into()).unwrap(),
+                Some(evidence.clone())
+            );
+            // The same validated trust repository contract is usable by the
+            // protected read boundary without creating a second persistence API.
+            assert_eq!(
+                EvidenceTrustRepository::get(&mut repository, &"evidence-1".into()).unwrap(),
                 Some(evidence)
             );
         }
+    }
+
+    #[test]
+    fn uow_adapter_rejects_row_and_payload_schema_version_mismatch() {
+        let evidence =
+            PersistedEvidence::new(1, original(), EvidenceTrustMetadata::default()).unwrap();
+        let mut context = FakeContext {
+            record: Some(ResourceRecord {
+                resource_ref: ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap(),
+                schema_version: 2,
+                revision: Revision::initial(),
+                payload: serde_json::to_value(evidence).unwrap(),
+            }),
+        };
+        let mut repository = EvidenceTrustUnitOfWorkRepository::new(&mut context);
+        assert_eq!(
+            repository.get(&"evidence-1".into()),
+            Err(PersistenceError::IntegrityFailure)
+        );
     }
 
     #[test]
