@@ -291,6 +291,52 @@ fn malformed_edge_is_rejected_before_graph_mutation() {
 }
 
 #[test]
+fn edge_rejects_missing_source_without_mutating_graph() {
+    let source = reference(ResourceType::Document, "doc-missing-source");
+    let external = reference(ResourceType::Other, "external-target");
+    let evaluator = TestEvaluator::default();
+    let mut graph = AuthorizedKnowledgeGraph::new(&evaluator);
+
+    assert_eq!(
+        graph.insert_edge(
+            &request(&source),
+            KnowledgeEdge::new(
+                "edge-missing-source",
+                source.clone(),
+                "federates_to",
+                external.clone(),
+                KnowledgeLinkClass::External,
+                reference(ResourceType::Provenance, "prov-missing-source"),
+            )
+            .unwrap(),
+        ),
+        Err("knowledge graph edge source must exist")
+    );
+
+    graph
+        .insert_node(&request(&source), node(source.clone()))
+        .unwrap();
+    graph
+        .insert_edge(
+            &request(&source),
+            KnowledgeEdge::new(
+                "edge-missing-source",
+                source.clone(),
+                "federates_to",
+                external.clone(),
+                KnowledgeLinkClass::External,
+                reference(ResourceType::Provenance, "prov-missing-source"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(
+        graph.traverse(&request(&source), &source, 1).unwrap(),
+        vec![source, external]
+    );
+}
+
+#[test]
 fn strong_edge_rejects_missing_target_without_mutating_graph() {
     let source = reference(ResourceType::Document, "doc-source");
     let target = reference(ResourceType::Document, "doc-missing");
