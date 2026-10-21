@@ -7,7 +7,7 @@ use crate::action::{
     Action, ApprovalRecord, ExecutionGate, ExecutionGateError, ExecutionGateInput,
 };
 use crate::audit::{AuditProvenanceSink, AuditRecord};
-use crate::authorization::{AuthorizationRequest, AuthorizationResult};
+use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest, AuthorizationResult};
 use crate::authorization_enforcement::{validate_authorization, AuthorizationValidationError};
 use crate::capability_lease::{CapabilityLease, CapabilityLeaseError};
 use crate::persistence::{IdempotencyClaim, IdempotencyLifecycleStore, PersistenceError};
@@ -70,6 +70,7 @@ pub enum ToolGatewayError {
     ProviderFailed,
     Unknown,
     Audit(&'static str),
+    TrustedTimeUnavailable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,37 +100,53 @@ pub trait ToolGatewayProvider {
 }
 
 pub struct ToolGatewayExecutionContext<'a> {
+    /// Request intent. The gateway obtains the authorization result and current
+    /// time internally; callers cannot inject an Allow result or stale clock.
     pub request: &'a AuthorizationRequest,
-    pub authorization: &'a AuthorizationResult,
     pub action: Option<&'a Action>,
     pub approval: Option<&'a ApprovalRecord>,
-    pub now_epoch_seconds: u64,
     /// Canonical audit/provenance sink. Tool execution cannot bypass invocation audit.
     pub audit: &'a mut dyn AuditProvenanceSink,
 }
 
-pub struct ToolGateway<'a, I: IdempotencyLifecycleStore> {
+pub struct ToolGateway<'a, I: IdempotencyLifecycleStore, E: AuthorizationEvaluator> {
     registry: &'a InMemoryToolRegistry,
     idempotency: &'a mut I,
+    evaluator: &'a E,
 }
 
-impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
-    pub fn new(registry: &'a InMemoryToolRegistry, idempotency: &'a mut I) -> Self {
+impl<'a, I: IdempotencyLifecycleStore, E: AuthorizationEvaluator> ToolGateway<'a, I, E> {
+    pub fn new(
+        registry: &'a InMemoryToolRegistry,
+        idempotency: &'a mut I,
+        evaluator: &'a E,
+    ) -> Self {
         Self {
             registry,
             idempotency,
+            evaluator,
         }
     }
 
-    /// Side-effect-free control-plane validation. Idempotency is deliberately
-    /// claimed only after every authority and execution-context check passes.
+    /// Validate an invocation using an authorization result obtained from the
+    /// configured evaluator and a trusted clock read at this boundary.
+    ///
+    /// This phase is side-effect free. It never claims idempotency or executes
+    /// a provider.
     pub fn validate(
         &self,
         invocation: &ToolGatewayInvocation,
         request: &AuthorizationRequest,
-        authorization: &AuthorizationResult,
-        now_epoch_seconds: u64,
     ) -> Result<ToolGatewayPhase, ToolGatewayError> {
+        self.validate_invocation(invocation, request)
+            .map(|_| ToolGatewayPhase::Validated)
+    }
+
+    fn validate_invocation(
+        &self,
+        invocation: &ToolGatewayInvocation,
+        request: &AuthorizationRequest,
+    ) -> Result<AuthorizationResult, ToolGatewayError> {
         if invocation.idempotency_ref.trim().is_empty() {
             return Err(ToolGatewayError::MissingIdempotency);
         }
@@ -138,7 +155,11 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                 AuthorizationValidationError::RequestResultMismatch,
             ));
         }
-        validate_authorization(request, authorization, now_epoch_seconds)
+
+        let authorization = self.evaluator.evaluate(request);
+        let now_epoch_seconds = crate::authorization_enforcement::current_epoch_seconds()
+            .ok_or(ToolGatewayError::TrustedTimeUnavailable)?;
+        validate_authorization(request, &authorization, now_epoch_seconds)
             .map_err(ToolGatewayError::Authorization)?;
 
         let tool = self
@@ -180,7 +201,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
                 .map_err(ToolGatewayError::Lease)?;
         }
 
-        Ok(ToolGatewayPhase::Validated)
+        Ok(authorization)
     }
 
     /// Claim is intentionally a separate phase from validation. Callers should
@@ -209,12 +230,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         if invocation.occurred_at.trim().is_empty() {
             return Err(ToolGatewayError::Audit("invocation timestamp is required"));
         }
-        self.validate(
-            invocation,
-            context.request,
-            context.authorization,
-            context.now_epoch_seconds,
-        )?;
+        let authorization = self.validate_invocation(invocation, context.request)?;
         let tool = self
             .registry
             .resolve(&invocation.tool_id, &invocation.tool_version)
@@ -223,7 +239,7 @@ impl<'a, I: IdempotencyLifecycleStore> ToolGateway<'a, I> {
         validate_execution_gate(
             invocation,
             tool,
-            context.authorization,
+            &authorization,
             context.action,
             context.approval,
         )?;

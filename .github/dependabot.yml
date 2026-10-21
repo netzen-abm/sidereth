@@ -1,0 +1,12 @@
+# Free weekly dependency update PRs for the Rust core and GitHub Actions.
+# This is configuration, not a workflow file; keep it at .github/dependabot.yml.
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
