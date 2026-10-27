@@ -60,7 +60,10 @@ mod schema_contract_tests {
 
     const RESOURCE_REF_SCHEMA: &str = include_str!("../schemas/resource-ref.schema.json");
 
-    fn canonical_resource_types() -> [ResourceType; 26] {
+    // Keep Other as the final enum variant. Deriving the array size from its
+    // discriminant makes adding a variant before Other require this list to
+    // be updated before the code can compile.
+    fn canonical_resource_types() -> [ResourceType; ResourceType::Other as usize + 1] {
         [
             ResourceType::Case,
             ResourceType::Incident,
