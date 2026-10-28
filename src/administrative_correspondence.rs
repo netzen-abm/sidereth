@@ -59,7 +59,7 @@ pub struct ChecklistFinding {
     pub code: ChecklistFindingCode,
     pub severity: FindingSeverity,
     /// Stable field identifier for UI and automated tests; not natural-language advice.
-    pub field: &'static str,
+    pub field: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -375,7 +375,7 @@ fn blocking(code: ChecklistFindingCode, field: &'static str) -> ChecklistFinding
     ChecklistFinding {
         code,
         severity: FindingSeverity::Blocking,
-        field,
+        field: field.into(),
     }
 }
 
@@ -383,7 +383,7 @@ fn review(code: ChecklistFindingCode, field: &'static str) -> ChecklistFinding {
     ChecklistFinding {
         code,
         severity: FindingSeverity::Review,
-        field,
+        field: field.into(),
     }
 }
 
