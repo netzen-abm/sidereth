@@ -181,10 +181,7 @@ impl CorrespondenceChecklistInput {
         }
 
         if !has_text(self.subject.as_deref()) {
-            findings.push(blocking(
-                ChecklistFindingCode::MissingSubject,
-                "subject",
-            ));
+            findings.push(blocking(ChecklistFindingCode::MissingSubject, "subject"));
         }
 
         match self.track {
@@ -210,7 +207,11 @@ impl CorrespondenceChecklistInput {
                         "requested_records",
                     ));
                 }
-                if self.requested_records.iter().any(|record| record.trim().is_empty()) {
+                if self
+                    .requested_records
+                    .iter()
+                    .any(|record| record.trim().is_empty())
+                {
                     findings.push(blocking(
                         ChecklistFindingCode::EmptyRequestedRecord,
                         "requested_records",
@@ -258,7 +259,11 @@ impl CorrespondenceChecklistInput {
                 ));
             }
 
-            if claim.source_refs.iter().any(|reference| !valid_reference(reference)) {
+            if claim
+                .source_refs
+                .iter()
+                .any(|reference| !valid_reference(reference))
+            {
                 findings.push(blocking(
                     ChecklistFindingCode::InvalidClaimSourceReference,
                     "claims.source_refs",
@@ -448,9 +453,10 @@ mod tests {
         let result = input.evaluate();
 
         assert_eq!(result.readiness, ChecklistReadiness::Blocked);
-        assert!(result.findings.iter().any(|finding| {
-            finding.code == ChecklistFindingCode::MissingRecipientDesignation
-        }));
+        assert!(result
+            .findings
+            .iter()
+            .any(|finding| { finding.code == ChecklistFindingCode::MissingRecipientDesignation }));
         input.recipient_designation = Some("CPIO".into());
         assert_eq!(
             input.evaluate().readiness,
@@ -489,13 +495,15 @@ mod tests {
         let result = input.evaluate();
 
         assert_eq!(result.readiness, ChecklistReadiness::Blocked);
-        assert!(result.findings.iter().any(|finding| {
-            finding.code == ChecklistFindingCode::LegalClaimMissingLegalSource
-        }));
+        assert!(result
+            .findings
+            .iter()
+            .any(|finding| { finding.code == ChecklistFindingCode::LegalClaimMissingLegalSource }));
     }
 
     #[test]
-    fn user_fact_requires_document_or_evidence_source_and_verified_claims_still_need_review_if_unverified() {
+    fn user_fact_requires_document_or_evidence_source_and_verified_claims_still_need_review_if_unverified(
+    ) {
         let mut input = base(CorrespondenceTrack::NoticeReply);
         input.source_document = Some(reference(ResourceType::Document, "notice-1"));
         input.trigger_date = Some("2026-10-01".into());
