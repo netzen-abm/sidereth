@@ -1,13 +1,101 @@
 # SIDERETH — Master Implementation Checklist
 
-**Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST
-**Last audited baseline:** `main` at `230e97a504a07cbb60dfbff9c089a166b39ba4ef`
-**Audit date:** 2026-10-15
+**Status:** CANONICAL / LIVE IMPLEMENTATION CHECKLIST  
+**Last verified implementation baseline before checklist-only PR #174:** `b52cdcca4f10e0463a39a7d04118165d1efd712a`  
+**Audit date:** 2026-10-21
 
-> Checklist state is evidence-based. A checked item means the repository currently contains the stated foundation/evidence at the scope described; it does not automatically mean production-ready.
+> Checklist state is evidence-based. A checked item means the repository contains the stated implementation or proof at the described scope; it does not automatically mean production-ready.
 
+## Current verified baseline — 2026-10-21
 
-## Current repository and engineering-cycle audit — 2026-10-15
+**Last verified code baseline:** `b52cdcca4f10e0463a39a7d04118165d1efd712a`  
+**Active branches:** exactly **9**, verified from GitHub's branch listing after PR #173 merged.  
+**Engineering posture:** close concrete trust-boundary bypasses and prove behavior. Add abstractions only where a distinct trust, persistence, provider, change, or independent-reuse boundary justifies them.
+
+### Latest verified GitHub evidence
+
+- PR [#170](https://github.com/netzen-abm/sidereth/pull/170) added generic Evidence write validation and PostgreSQL revalidation as `e7f901ccc75d7d59a87c6f5009cc98721dfd327f`. Exact-head Foundation Validation [#39610409084](https://github.com/netzen-abm/sidereth/actions/runs/39610409084) and Security/Supply Chain [#39610409076](https://github.com/netzen-abm/sidereth/actions/runs/39610409076) passed, including unit tests, live PostgreSQL proof matrix, Clippy, RustSec Audit, and GitHub Actions Security.
+- PR [#171](https://github.com/netzen-abm/sidereth/pull/171) rebaselined the checklist as `8b75998098f60abf67457a132da9866c39d31a31`. Its post-merge Foundation Validation [#39612724805](https://github.com/netzen-abm/sidereth/actions/runs/39612724805), Security/Supply Chain [#39612724707](https://github.com/netzen-abm/sidereth/actions/runs/39612724707), branch enforcement [#39612724728](https://github.com/netzen-abm/sidereth/actions/runs/39612724728), and push orchestration [#39612771384](https://github.com/netzen-abm/sidereth/actions/runs/39612771384) passed on that main head.
+- PR [#172](https://github.com/netzen-abm/sidereth/pull/172) merged as `73b17427b0c5fdc6bac9e01a612e0f75b3196a9c`. Exact-head Foundation [#39619637009](https://github.com/netzen-abm/sidereth/actions/runs/39619637009), Security/Supply Chain [#39619637116](https://github.com/netzen-abm/sidereth/actions/runs/39619637116), and the CodeQL/PR workflow [#39619627604](https://github.com/netzen-abm/sidereth/actions/runs/39619627604) passed.
+- PR [#173](https://github.com/netzen-abm/sidereth/pull/173) merged as `b52cdcca4f10e0463a39a7d04118165d1efd712a`. On the exact reviewed head `ee6b272cec402cac400fbe51206f0a6b860d3d07`, Foundation Validation [#39622430041](https://github.com/netzen-abm/sidereth/actions/runs/39622430041) and Security/Supply Chain [#39622430059](https://github.com/netzen-abm/sidereth/actions/runs/39622430059) passed. The Rust unit tests, live PostgreSQL proof matrix, Clippy, RustSec Audit, and GitHub Actions Security are included in those checks. The CodeQL check on workflow [#39622460091](https://github.com/netzen-abm/sidereth/actions/runs/39622460091) reported **success**; OpenSSF Scorecard was skipped and is not counted as a pass.
+- PR [#174](https://github.com/netzen-abm/sidereth/pull/174), the checklist-only rebaseline, merged as `0631bfbcdbd5997e2bd5bc6b4e37ab9ae0e844b5`. Its exact-head Foundation Validation [#39623246259](https://github.com/netzen-abm/sidereth/actions/runs/39623246259) and Security/Supply Chain [#39623246093](https://github.com/netzen-abm/sidereth/actions/runs/39623246093) passed. The CodeQL check for that documentation-only change was neutral and is not counted as a pass. Current `main` has advanced from the implementation baseline `b52cdcca4f10e0463a39a7d04118165d1efd712a` through this checklist-only merge; post-merge workflows for the latest documentation head were not visible at the last audit.
+- The live branch listing reports exactly nine branches, and the approved architecture branch has been returned to the current main head. Branch enforcement remains configured around the explicit keep/retire allow-list. Do not create a tenth branch; deliberately disposition an existing branch first.
+
+### Nine active branches — verified after PR #174
+
+1. `main`
+2. `architecture/durable-tool-gateway-idempotency-v0-1-2026-09-19`
+3. `architecture/repo-organization-privacy-runtime-licensing-2026-09-17`
+4. `architecture/reticulum-inspired-cost-delay-sovereignty-research-2026-09-17`
+5. `governance/ruleset-baseline-2026-09-16`
+6. `docs/documentation-governance-2026-09-11`
+7. `docs/semantic-audit-domain-model-2026-09-11`
+8. `sidereth-ecosystem-architecture`
+9. `feat/knowledge-graph-next`
+
+The enforcement workflow checks open PRs before deleting a retired branch, rejects unexpected branches, and verifies the final count. Keep the total at nine.
+
+### Dependency, cost, and governance policy
+
+- `.github/dependabot.yml` names Cargo and GitHub Actions but sets `open-pull-requests-limit: 0` for both. Routine version-update PRs are disabled to preserve the nine-branch invariant; dependency changes must use an approved branch and required CI.
+- **Separate GitHub security settings are not verified by the current connector.** Dependabot security-update PRs and vulnerability-alert toggles are distinct from routine update limits. The repository owner must inspect [Settings → Code security and analysis](https://github.com/netzen-abm/sidereth/settings/security_analysis). Do not delete a security-update branch without evaluating the vulnerability and preserving its fix.
+- Active dependencies are Rust `serde`, `serde_json`, `sha2`, and optional `postgres`. The active source/config scan did not identify paid external AI/provider integrations or paid deployment/billing configuration. This is not an external account billing audit.
+- CI uses GitHub-hosted `ubuntu-latest` and PostgreSQL 16 service tests. Metered services remain opt-in and require an owner, data boundary, budget/limit, and shutoff procedure before adoption.
+- The `SIDERETH Main Protection` ruleset requires a pull request and `Validate Foundation`, `RustSec Audit`, and `GitHub Actions Security`; it prohibits force-push and branch deletion. The previously observed governance gap remains: zero approving reviews and no resolved-conversation requirement. The connector can read but not administer this setting. Keep issue #100 open until the owner changes and verifies the ruleset.
+
+### Verified implementation and current work
+
+- PR #161 binds each persisted transformation to exactly one provenance record and validates source, operation, and actor consistency.
+- PR #168 moves Tool Gateway authorization and trusted time into the gateway boundary. Complete gateway contract/conformance and lifecycle/idempotency proofs remain open.
+- PR #170 validates Evidence aggregates, resource IDs, and schema agreement at write construction and again immediately before PostgreSQL SQL. Generic Evidence upserts are rejected. Unit and live PostgreSQL tests prove a changed provenance actor is rejected before persistence.
+- PR #172 moves Knowledge Graph and Observation Command/Lifecycle behind canonical evaluator and trusted-time boundaries. Graph reads and writes bind exact actions and resources; unauthorized traversal targets are filtered. Edge mutation validates canonical fields before state change and requires source-node existence; Strong links also require an existing target. Observation lifecycle authorizes both the new and prior Observation before opening the Unit of Work.
+- PR #173 closes the follow-up protected-read gap: `AuthorizedEvidenceQuery` now requires the existing `EvidenceTrustRepository`, validates the returned `PersistedEvidence` aggregate in the protected query itself, checks that its `EvidenceOriginal` exactly matches the original-metadata record, and only then reads bytes and verifies the hash. Regression coverage includes missing trust state, legacy transformation without provenance using an intentionally unvalidated test repository, original-metadata mismatch, tampered content, and Unit-of-Work row/payload schema-version mismatch.
+- The canonical `EvidenceTrustRepository` contract is implemented by both in-memory storage and the existing Unit-of-Work adapter. This reuses the existing persistence boundary; it does not create a second transaction manager or parallel evidence API.
+- A source-level search of the current `main` before PR #173 found `get_original` only in the raw evidence repository trait/implementation and the protected query implementation. There were no separate production callers of the original/object read primitives in active Rust source. The raw storage traits remain public, authorization-neutral adapter primitives, so the inventory must be repeated if new surfaces/adapters are added; raw handles must not be supplied directly to untrusted surfaces or agents.
+- `docs/contracts/LEGACY-EVIDENCE-QUARANTINE-POLICY.md` remains a **proposed policy/runbook**, not an automated quarantine/migration. No production migration or quarantine run has occurred.
+
+### Remaining security and portability gates
+
+1. **Issue #159 — historic evidence disposition:** inventory actual historical records; verify backups and original hashes; produce and review a dry-run classification report; implement/test quarantine across normal read/export/RAG/graph routes; prove idempotent recovery/rollback; and obtain an explicit policy decision. Missing attribution must never be silently reconstructed. Keep the issue open.
+2. **Post-merge proof:** check Foundation, Security/Supply Chain, branch-enforcement and push orchestration for the latest main head after PR #174; record their exact conclusions before claiming production-main CI is green.
+3. **Remaining authorization consumers:** audit other protected operations and AI/tool paths for evaluator origin, exact action/resource/purpose/data-class binding, current time, expiry, and lease enforcement.
+4. **Persistence conformance:** finish ResourceLink endpoint/atomicity, duplicate/class-conflict, backward-compatibility, and provider-neutral adapter conformance.
+5. **Portability:** verify trusted time on every intended runtime, especially WASM.
+6. **Repository governance:** address the one-approval/resolved-thread ruleset gap and verify security-update settings without weakening CI or violating the exact-nine-branch invariant.
+
+---
+
+**Historical note:** The prior audits below are retained as historical records. The verified baseline above is authoritative for `main` at `712b13fcf624a6d14b531bcc2d01d03f2f3bde31`.
+
+## Historical post-merge security audit — 2026-10-15
+
+**Verified main baseline:** `bcaeda9329990982cade7d29bb726790e0a5fefc`  
+**Active branches:** exactly 9 observed after merge.  
+**Current engineering posture:** close operation-specific authorization gaps, then continue the protected-data bypass audit. No new orchestration abstraction is justified by this finding.
+
+### Verified security finding and fix
+
+- PR #163, `fix: bind evidence retrieval to read action`, was squash-merged to `main` as `bcaeda9329990982cade7d29bb726790e0a5fefc`.
+- Finding: `AuthorizedEvidenceQuery` validated that an authorization result matched the supplied request but did not bind the request action to the read operation. A matching Allow result for a different action could pass the context-consistency check.
+- Fix: the retrieval boundary now requires `ResourceType::Action` with action ID `evidence.read`.
+- Regression test: a matching request and Allow result for `evidence.delete` must be rejected.
+- Exact-head Foundation Validation passed: format, compile, test suite, live PostgreSQL proof matrix, and Clippy.
+- Exact-head Security and Supply Chain passed; RustSec Audit and GitHub Actions Security passed. OpenSSF Scorecard was skipped and is not counted as passing.
+- Post-merge CI for `main` is queued/in progress at the time of this checklist update and must be confirmed independently.
+
+### Next proof obligations
+
+1. Add negative tests for operation-specific authorization binding across every protected-data consumer. A consumer must require its own action; request/result equality alone is insufficient.
+2. Audit each protected read/write/export/transform path for action binding, exact resource binding, purpose and data-class requirements, freshness/expiry, and capability lease requirements where relevant.
+3. Inventory historical evidence transformations without trustworthy provenance; define fail-closed migration/quarantine, with no fabricated history.
+4. Test direct-store access paths, tampered content, storage failures, rollback, and metadata/content mismatch.
+5. Retire stale branches only after unique commits, PRs, protections, and workflow/deployment references are verified. Keep exactly nine active branches.
+
+---
+
+**Historical note:** this section records the baseline immediately after PR #163 and before PRs #165–#166. The current verified baseline above supersedes it.
+
+## Historical repository and engineering-cycle audit — 2026-10-15
 
 **Verified main baseline:** `230e97a504a07cbb60dfbff9c089a166b39ba4ef`  
 **Active branch count:** exactly 9 observed. No branches were created or deleted in this cycle.  

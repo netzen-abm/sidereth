@@ -44,6 +44,11 @@ The canonical contract MUST NOT depend on PostgreSQL, Supabase, SQLite, S3-compa
 8. Persistence failures must not be represented as successful evidence creation.
 9. Provider revision/CAS mechanisms MAY be used for concurrency, but provider-specific revision semantics must remain behind the adapter boundary.
 10. Technical integrity remains distinct from legal authenticity.
+11. Every transformation in a persisted evidence aggregate MUST have exactly one provenance binding, and every binding MUST refer to an existing transformation.
+12. The binding MUST preserve source-evidence identity, operation identity, and actor identity/type (Party, Tool, or Service); matching an actor ID alone is not enough if the operation or source differs.
+13. The resource reference ID and resource schema version MUST match the serialized PersistedEvidence aggregate.
+14. Evidence aggregates are insert-only through the generic resource-write contract. Mutable trust-state changes require a separately specified typed append-only operation; a generic Upsert MUST NOT replace evidence.
+15. Ordinary protected byte retrieval MUST require the corresponding validated `PersistedEvidence` trust aggregate and MUST bind its `EvidenceOriginal` exactly to the original-metadata record before reading or returning bytes. A matching content hash alone is not a substitute for valid provenance/trust state.
 
 ## Repository boundary
 
@@ -57,11 +62,29 @@ The provider-neutral repository SHOULD provide at least:
 
 Updates to original evidence are prohibited. Future mutable trust-state changes, such as external verification events, should use explicit append-only verification records rather than mutating the original capture record.
 
+## Authoritative read validation
+
+`AuthorizedEvidenceQuery` is the protected byte-retrieval boundary. It MUST obtain the canonical authorization decision and current time at the boundary, then require a validated `PersistedEvidence` trust record. If the trust record is absent, malformed, has missing/ambiguous provenance, or its embedded `EvidenceOriginal` differs from the original-metadata record, ordinary retrieval MUST fail closed before returning object bytes. The object hash is checked after those trust and metadata checks. Export, AI/RAG, and graph/index integrations must not bypass this protected decision path when serving trusted evidence.
+
+The trust-state lookup uses the existing provider-neutral `EvidenceTrustRepository` contract and the canonical Unit-of-Work adapter where a shared transaction is required; it does not create a second persistence abstraction. Raw `EvidenceObjectStore` and original-metadata repositories remain authorization-neutral adapter primitives and must not be given directly to untrusted surfaces or agents.
+
+## Authoritative write validation
+
+`PersistedEvidence::validate` is the canonical aggregate validator. `ResourceWrite::new` invokes evidence validation when constructing an Evidence write, and each storage adapter MUST call `ResourceWrite::validate()` again immediately before persistence. Constructor-time validation alone is insufficient because a `ResourceWrite` can be deserialized or mutated after construction.
+
+For an Evidence resource, the persistence boundary MUST reject malformed payloads, resource-ID or schema-version mismatches, missing/duplicate/orphan transformation-provenance bindings, source/operation/actor mismatches, and generic `Upsert` operations. Reads through the Evidence Trust repository MUST decode and validate the aggregate before returning it. Providers must include bypass tests that mutate a previously valid write and prove no record reaches durable storage.
+
+These requirements belong at the existing evidence persistence boundary and the existing generic write-validation hook; they do not justify a second transaction manager or a parallel evidence authorization service.
+
 ## Transaction integration
 
 Where SIDERETH's existing `UnitOfWork` is available, evidence creation SHOULD participate in the same authoritative command transaction as related Case, Incident, Event, provenance or audit writes.
 
 The evidence contract must not create a parallel transaction abstraction that competes with the canonical Unit-of-Work boundary.
+
+## Legacy records and quarantine
+
+The operational disposition for historical records whose transformation/provenance binding is absent or invalid is specified in [LEGACY-EVIDENCE-QUARANTINE-POLICY.md](LEGACY-EVIDENCE-QUARANTINE-POLICY.md). Until the inventory, dry-run report, verified backup, quarantine enforcement, and recovery proof are complete, treat invalid records as rejected by normal validation. The policy document is a proposed operational policy, not evidence that an automated quarantine/migration job already exists.
 
 ## Completion gate
 

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::error::{PersistenceError, UnitOfWorkError};
-use crate::ResourceRef;
+use crate::{ResourceRef, ResourceType};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -30,13 +30,41 @@ impl ResourceWrite {
         if schema_version == 0 {
             return Err(UnitOfWorkError::InvalidOperation);
         }
-        Ok(Self {
+        let write = Self {
             resource_ref,
             schema_version,
             payload,
             mode,
             expected_revision: None,
-        })
+        };
+        write.validate()?;
+        Ok(write)
+    }
+
+    /// Validate invariants that must hold independently of the storage provider.
+    ///
+    /// Providers MUST call this again immediately before persistence because
+    /// ResourceWrite's public fields and serde representation can be changed
+    /// after construction. Evidence is insert-only until an explicit typed
+    /// append-only trust-state operation is designed.
+    pub fn validate(&self) -> Result<(), UnitOfWorkError> {
+        if self.schema_version == 0 {
+            return Err(UnitOfWorkError::InvalidOperation);
+        }
+
+        if self.resource_ref.resource_type == ResourceType::Evidence {
+            if self.mode != ResourceWriteMode::Insert || self.expected_revision.is_some() {
+                return Err(UnitOfWorkError::InvalidOperation);
+            }
+            crate::evidence_repository::validate_evidence_resource_payload(
+                &self.resource_ref,
+                self.schema_version,
+                &self.payload,
+            )
+            .map_err(UnitOfWorkError::Persistence)?;
+        }
+
+        Ok(())
     }
 
     pub fn with_expected_revision(mut self, revision: Revision) -> Self {

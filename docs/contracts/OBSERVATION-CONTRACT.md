@@ -185,6 +185,8 @@ A conforming implementation MUST preserve:
 
 Corrections and supersessions should normally be represented as new state/history linked to the prior observation rather than erasing the prior record.
 
+The lifecycle authorization boundary MUST authorize the exact new Observation and the exact prior Observation before creating the relationship. Authorization to create or correct the new record MUST NOT imply authority to reference, correct, supersede, or contradict an arbitrary prior record. Both decisions must be evaluated through the canonical AuthorizationEvaluator and validated against trusted current time before the Unit of Work begins.
+
 A contradiction is not automatically resolved by choosing the newest, highest-confidence, or AI-preferred observation.
 
 ## 13. Responsibility boundary

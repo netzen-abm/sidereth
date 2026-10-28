@@ -1,65 +1,67 @@
-use crate::authorization::AuthorizationRequest;
+use crate::authorization::{AuthorizationEvaluator, AuthorizationRequest};
 use crate::{
-    validate_authorization, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal, Id,
-    ResourceRef, ResourceType,
+    validate_authorization, AuthorizationResult, EvidenceObjectStore, EvidenceOriginal,
+    EvidenceTrustRepository, Id, ResourceRef, ResourceType,
 };
 
 /// Provider-neutral request for retrieval of evidence content.
 ///
-/// The authorization request and result are both retained so the retrieval
-/// boundary can prove that the exact context evaluated by the authorization
-/// boundary is the context being executed.
+/// The request carries intent only. The protected boundary obtains the
+/// authorization result from the configured canonical evaluator and obtains
+/// the current time locally; callers cannot submit a fabricated Allow result
+/// or choose a stale timestamp.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvidenceQueryRequest {
     pub evidence_ref: ResourceRef,
     pub authorization_request: AuthorizationRequest,
-    pub authorization: AuthorizationResult,
-    pub now_epoch_seconds: u64,
 }
 
 impl EvidenceQueryRequest {
-    pub fn new(
-        evidence_ref: ResourceRef,
-        authorization_request: AuthorizationRequest,
-        authorization: AuthorizationResult,
-        now_epoch_seconds: u64,
-    ) -> Self {
+    pub fn new(evidence_ref: ResourceRef, authorization_request: AuthorizationRequest) -> Self {
         Self {
             evidence_ref,
             authorization_request,
-            authorization,
-            now_epoch_seconds,
         }
     }
 
-    fn validate(&self) -> Result<(), EvidenceQueryError> {
+    fn validate_context(&self) -> Result<(), EvidenceQueryError> {
         let request = &self.authorization_request;
         if request.resource_ref != self.evidence_ref
             || request.resource_ref.resource_type != ResourceType::Evidence
+            || request.action.resource_type != ResourceType::Action
+            || request.action.id != "evidence.read"
         {
             return Err(EvidenceQueryError::AuthorizationMismatch);
         }
+        Ok(())
+    }
 
-        validate_authorization(request, &self.authorization, self.now_epoch_seconds).map_err(
-            |error| match error {
-                crate::AuthorizationValidationError::InvalidRequest => {
-                    EvidenceQueryError::InvalidRequest
-                }
-                crate::AuthorizationValidationError::RequestResultMismatch => {
-                    EvidenceQueryError::AuthorizationMismatch
-                }
-                crate::AuthorizationValidationError::NotYetEvaluated
-                | crate::AuthorizationValidationError::ConstraintViolation => {
-                    EvidenceQueryError::AuthorizationInvalid
-                }
-                crate::AuthorizationValidationError::Expired => {
-                    EvidenceQueryError::AuthorizationExpired
-                }
-                crate::AuthorizationValidationError::Denied => {
-                    EvidenceQueryError::AuthorizationDenied
-                }
-            },
+    fn validate_result(
+        &self,
+        authorization: &AuthorizationResult,
+        now_epoch_seconds: u64,
+    ) -> Result<(), EvidenceQueryError> {
+        validate_authorization(
+            &self.authorization_request,
+            authorization,
+            now_epoch_seconds,
         )
+        .map_err(|error| match error {
+            crate::AuthorizationValidationError::InvalidRequest => {
+                EvidenceQueryError::InvalidRequest
+            }
+            crate::AuthorizationValidationError::RequestResultMismatch => {
+                EvidenceQueryError::AuthorizationMismatch
+            }
+            crate::AuthorizationValidationError::NotYetEvaluated
+            | crate::AuthorizationValidationError::ConstraintViolation => {
+                EvidenceQueryError::AuthorizationInvalid
+            }
+            crate::AuthorizationValidationError::Expired => {
+                EvidenceQueryError::AuthorizationExpired
+            }
+            crate::AuthorizationValidationError::Denied => EvidenceQueryError::AuthorizationDenied,
+        })
     }
 }
 
@@ -82,29 +84,70 @@ pub enum EvidenceQueryError {
 
 /// Canonical protected evidence-content retrieval boundary.
 ///
-/// Object storage remains authorization-neutral. Callers must enter through
-/// this boundary when retrieving protected evidence content. The boundary
-/// validates the canonical authorization context before reading either the
-/// evidence metadata or its content object.
-pub struct AuthorizedEvidenceQuery<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> {
+/// Object storage and original-metadata storage remain authorization-neutral.
+/// This boundary evaluates the exact request and trusted current time, then
+/// requires a valid Evidence Trust aggregate whose original metadata exactly
+/// matches the stored original before it reads and hash-verifies the bytes.
+/// Invalid or missing provenance state fails closed.
+pub struct AuthorizedEvidenceQuery<
+    'a,
+    R: crate::EvidenceRepository,
+    O: EvidenceObjectStore,
+    T: EvidenceTrustRepository,
+    E: AuthorizationEvaluator,
+> {
     repository: &'a R,
     object_store: &'a O,
+    trust_repository: &'a mut T,
+    evaluator: &'a E,
 }
 
-impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> AuthorizedEvidenceQuery<'a, R, O> {
-    pub fn new(repository: &'a R, object_store: &'a O) -> Self {
+impl<
+        'a,
+        R: crate::EvidenceRepository,
+        O: EvidenceObjectStore,
+        T: EvidenceTrustRepository,
+        E: AuthorizationEvaluator,
+    > AuthorizedEvidenceQuery<'a, R, O, T, E>
+{
+    pub fn new(
+        repository: &'a R,
+        object_store: &'a O,
+        trust_repository: &'a mut T,
+        evaluator: &'a E,
+    ) -> Self {
         Self {
             repository,
             object_store,
+            trust_repository,
+            evaluator,
         }
     }
 
     pub fn get(
-        &self,
+        &mut self,
         request: EvidenceQueryRequest,
     ) -> Result<EvidenceQueryResult, EvidenceQueryError> {
-        request.validate()?;
+        request.validate_context()?;
+        let authorization = self.evaluator.evaluate(&request.authorization_request);
+        let now_epoch_seconds = crate::authorization_enforcement::current_epoch_seconds()
+            .ok_or(EvidenceQueryError::AuthorizationInvalid)?;
+        request.validate_result(&authorization, now_epoch_seconds)?;
+
         let evidence_id: Id = request.evidence_ref.id.clone();
+
+        // Trust state is authoritative for whether this evidence is eligible
+        // for ordinary retrieval. Hash verification of the original bytes
+        // alone cannot establish a valid transformation/provenance history.
+        let trusted = self
+            .trust_repository
+            .get(&evidence_id)
+            .map_err(|_| EvidenceQueryError::StorageFailure)?
+            .ok_or(EvidenceQueryError::EvidenceNotFound)?;
+        trusted
+            .validate()
+            .map_err(|_| EvidenceQueryError::StorageFailure)?;
+
         let original = self
             .repository
             .get_original(&evidence_id)
@@ -116,6 +159,12 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> AuthorizedEvidenc
         {
             return Err(EvidenceQueryError::AuthorizationMismatch);
         }
+        // Refuse to combine trust state for one metadata record with bytes
+        // or metadata from another record that happens to reuse the ID.
+        if trusted.original != original {
+            return Err(EvidenceQueryError::StorageFailure);
+        }
+
         let content = self
             .object_store
             .get(&original.storage_ref)
@@ -131,13 +180,72 @@ impl<'a, R: crate::EvidenceRepository, O: EvidenceObjectStore> AuthorizedEvidenc
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::authorization::AuthorizationConstraint;
-    use crate::{AuthorizationDecision, EvidenceRepository, InMemoryEvidenceVault};
+    use crate::authorization::{AuthorizationConstraint, AuthorizationDecision};
+    use crate::{
+        EvidencePersistenceError, EvidenceRepository, EvidenceTrustMetadata,
+        EvidenceTrustRepository, InMemoryEvidenceTrustRepository, InMemoryEvidenceVault,
+        PersistedEvidence,
+    };
 
-    fn authorization_context(
-        evidence_ref: &ResourceRef,
-    ) -> (AuthorizationRequest, AuthorizationResult) {
-        let request = AuthorizationRequest {
+    #[derive(Clone)]
+    struct TestEvaluator {
+        decision: AuthorizationDecision,
+        constraints: Vec<AuthorizationConstraint>,
+        expires_in_seconds: Option<u64>,
+        expired: bool,
+        mismatched_purpose: bool,
+    }
+
+    impl Default for TestEvaluator {
+        fn default() -> Self {
+            Self {
+                decision: AuthorizationDecision::Allow,
+                constraints: vec![AuthorizationConstraint {
+                    key: "scope".into(),
+                    value: "exact_evidence".into(),
+                }],
+                expires_in_seconds: Some(3_600),
+                expired: false,
+                mismatched_purpose: false,
+            }
+        }
+    }
+
+    impl AuthorizationEvaluator for TestEvaluator {
+        fn evaluate(&self, request: &AuthorizationRequest) -> AuthorizationResult {
+            let now = crate::authorization_enforcement::current_epoch_seconds()
+                .expect("system clock must be available");
+            let mut result = AuthorizationResult {
+                request_id: request.request_id.clone(),
+                authorization_ref: request.authorization_ref.clone(),
+                subject_ref: request.subject_ref.clone(),
+                action: request.action.clone(),
+                resource_ref: request.resource_ref.clone(),
+                purpose: request.purpose.clone(),
+                jurisdiction_ref: request.jurisdiction_ref.clone(),
+                data_class: request.data_class.clone(),
+                decision: self.decision,
+                constraints: self.constraints.clone(),
+                policy_refs: request.policy_refs.clone(),
+                evaluated_at_epoch_seconds: now,
+                expires_at_epoch_seconds: self.expires_in_seconds.map(|seconds| {
+                    if self.expired {
+                        now.saturating_sub(seconds.max(1))
+                    } else {
+                        now.saturating_add(seconds)
+                    }
+                }),
+            };
+            if self.mismatched_purpose {
+                result.purpose = "different purpose".into();
+            }
+            result
+        }
+    }
+
+    fn authorization_request(evidence_ref: &ResourceRef) -> AuthorizationRequest {
+        let now = crate::authorization_enforcement::current_epoch_seconds().unwrap();
+        AuthorizationRequest {
             request_id: "request-1".into(),
             authorization_ref: ResourceRef::new(ResourceType::Other, "auth-1").unwrap(),
             subject_ref: ResourceRef::new(ResourceType::Party, "party-1").unwrap(),
@@ -147,28 +255,9 @@ mod tests {
             policy_refs: vec![ResourceRef::new(ResourceType::Other, "policy-1").unwrap()],
             jurisdiction_ref: None,
             data_class: Some("restricted".into()),
-            requested_at_epoch_seconds: 1_000,
+            requested_at_epoch_seconds: now,
             freshness_seconds: Some(1_000),
-        };
-        let result = AuthorizationResult {
-            request_id: request.request_id.clone(),
-            authorization_ref: request.authorization_ref.clone(),
-            subject_ref: request.subject_ref.clone(),
-            action: request.action.clone(),
-            resource_ref: request.resource_ref.clone(),
-            purpose: request.purpose.clone(),
-            jurisdiction_ref: request.jurisdiction_ref.clone(),
-            data_class: request.data_class.clone(),
-            decision: AuthorizationDecision::Allow,
-            constraints: vec![AuthorizationConstraint {
-                key: "scope".into(),
-                value: "exact_evidence".into(),
-            }],
-            policy_refs: request.policy_refs.clone(),
-            evaluated_at_epoch_seconds: 1_000,
-            expires_at_epoch_seconds: Some(2_000),
-        };
-        (request, result)
+        }
     }
 
     fn evidence() -> EvidenceOriginal {
@@ -186,7 +275,7 @@ mod tests {
         .unwrap()
     }
 
-    fn vault() -> InMemoryEvidenceVault {
+    fn vault() -> (InMemoryEvidenceVault, InMemoryEvidenceTrustRepository) {
         let mut vault = InMemoryEvidenceVault::default();
         let original = evidence();
         crate::EvidenceObjectStore::put(
@@ -195,20 +284,78 @@ mod tests {
             b"original evidence".to_vec(),
         )
         .unwrap();
-        EvidenceRepository::save_original(&mut vault, original).unwrap();
-        vault
+        EvidenceRepository::save_original(&mut vault, original.clone()).unwrap();
+
+        let mut trust_repository = InMemoryEvidenceTrustRepository::default();
+        trust_repository
+            .create(PersistedEvidence::new(1, original, EvidenceTrustMetadata::default()).unwrap())
+            .unwrap();
+        (vault, trust_repository)
     }
 
     fn request() -> EvidenceQueryRequest {
         let evidence_ref = ResourceRef::new(ResourceType::Evidence, "evidence-1").unwrap();
-        let (authorization_request, authorization) = authorization_context(&evidence_ref);
-        EvidenceQueryRequest::new(evidence_ref, authorization_request, authorization, 1_500)
+        EvidenceQueryRequest::new(evidence_ref.clone(), authorization_request(&evidence_ref))
+    }
+
+    /// Test-only backing store that simulates a legacy provider decoding a
+    /// record without validating it. The protected query must not trust the
+    /// provider to enforce the aggregate invariant by itself.
+    #[derive(Default)]
+    struct UnvalidatedTrustRepository {
+        record: Option<PersistedEvidence>,
+    }
+
+    impl EvidenceTrustRepository for UnvalidatedTrustRepository {
+        fn create(&mut self, evidence: PersistedEvidence) -> Result<(), EvidencePersistenceError> {
+            self.record = Some(evidence);
+            Ok(())
+        }
+
+        fn get(
+            &mut self,
+            evidence_id: &Id,
+        ) -> Result<Option<PersistedEvidence>, EvidencePersistenceError> {
+            Ok(self
+                .record
+                .as_ref()
+                .filter(|record| &record.original.evidence_id == evidence_id)
+                .cloned())
+        }
+
+        fn list_transformations(
+            &mut self,
+            evidence_id: &Id,
+        ) -> Result<Vec<crate::EvidenceTransformation>, EvidencePersistenceError> {
+            self.get(evidence_id)?
+                .map(|record| record.transformations)
+                .ok_or(EvidencePersistenceError::NotFound)
+        }
+    }
+
+    fn legacy_record_without_provenance() -> PersistedEvidence {
+        let mut record =
+            PersistedEvidence::new(1, evidence(), EvidenceTrustMetadata::default()).unwrap();
+        record.transformations.push(crate::EvidenceTransformation {
+            transformation_id: "legacy-transform-1".into(),
+            source_evidence_id: "evidence-1".into(),
+            transformation_type: "ocr".into(),
+            created_at: "2026-09-07T10:01:00Z".into(),
+            created_by: "legacy-ocr-service".into(),
+            tool_id: Some("legacy-ocr-service".into()),
+            tool_version: Some("1.0".into()),
+            input_hash: None,
+            output_hash: None,
+        });
+        record
     }
 
     #[test]
     fn authorized_retrieval_returns_metadata_and_content() {
-        let vault = vault();
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        let (vault, mut trust_repository) = vault();
+        let evaluator = TestEvaluator::default();
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         let result = query.get(request()).unwrap();
         assert_eq!(result.original.evidence_id, "evidence-1");
         assert_eq!(result.content, b"original evidence");
@@ -216,23 +363,28 @@ mod tests {
 
     #[test]
     fn denied_authorization_is_rejected_before_storage_read() {
-        let vault = vault();
-        let mut request = request();
-        request.authorization.decision = AuthorizationDecision::Deny;
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        let (vault, mut trust_repository) = vault();
+        let evaluator = TestEvaluator {
+            decision: AuthorizationDecision::Deny,
+            ..TestEvaluator::default()
+        };
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
-            query.get(request),
+            query.get(request()),
             Err(EvidenceQueryError::AuthorizationDenied)
         );
     }
 
     #[test]
     fn authorization_must_bind_to_exact_evidence() {
-        let vault = vault();
+        let (vault, mut trust_repository) = vault();
         let mut request = request();
         request.authorization_request.resource_ref =
             ResourceRef::new(ResourceType::Evidence, "evidence-2").unwrap();
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        let evaluator = TestEvaluator::default();
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request),
             Err(EvidenceQueryError::AuthorizationMismatch)
@@ -240,11 +392,29 @@ mod tests {
     }
 
     #[test]
-    fn authorization_result_must_match_request_context() {
-        let vault = vault();
+    fn evaluator_result_must_match_request_context() {
+        let (vault, mut trust_repository) = vault();
+        let evaluator = TestEvaluator {
+            mismatched_purpose: true,
+            ..TestEvaluator::default()
+        };
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::AuthorizationMismatch)
+        );
+    }
+
+    #[test]
+    fn authorization_for_a_different_action_cannot_read_evidence() {
+        let (vault, mut trust_repository) = vault();
         let mut request = request();
-        request.authorization.purpose = "different purpose".into();
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        request.authorization_request.action =
+            ResourceRef::new(ResourceType::Action, "evidence.delete").unwrap();
+        let evaluator = TestEvaluator::default();
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request),
             Err(EvidenceQueryError::AuthorizationMismatch)
@@ -253,22 +423,31 @@ mod tests {
 
     #[test]
     fn expired_authorization_is_rejected() {
-        let vault = vault();
-        let mut request = request();
-        request.authorization.expires_at_epoch_seconds = Some(1_500);
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        let (vault, mut trust_repository) = vault();
+        let evaluator = TestEvaluator {
+            expired: true,
+            ..TestEvaluator::default()
+        };
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
-            query.get(request),
+            query.get(request()),
             Err(EvidenceQueryError::AuthorizationExpired)
         );
     }
 
     #[test]
     fn stale_request_is_rejected() {
-        let vault = vault();
+        let (vault, mut trust_repository) = vault();
         let mut request = request();
+        request.authorization_request.requested_at_epoch_seconds =
+            crate::authorization_enforcement::current_epoch_seconds()
+                .unwrap()
+                .saturating_sub(1_000);
         request.authorization_request.freshness_seconds = Some(100);
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        let evaluator = TestEvaluator::default();
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request),
             Err(EvidenceQueryError::AuthorizationExpired)
@@ -277,27 +456,94 @@ mod tests {
 
     #[test]
     fn unknown_authorization_constraint_fails_closed() {
-        let vault = vault();
-        let mut request = request();
-        request
-            .authorization
-            .constraints
-            .push(AuthorizationConstraint {
-                key: "future_constraint".into(),
-                value: "allow_all".into(),
-            });
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        let (vault, mut trust_repository) = vault();
+        let evaluator = TestEvaluator {
+            constraints: vec![
+                AuthorizationConstraint {
+                    key: "scope".into(),
+                    value: "exact_evidence".into(),
+                },
+                AuthorizationConstraint {
+                    key: "future_constraint".into(),
+                    value: "allow_all".into(),
+                },
+            ],
+            ..TestEvaluator::default()
+        };
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
-            query.get(request),
+            query.get(request()),
             Err(EvidenceQueryError::AuthorizationInvalid)
         );
     }
 
     #[test]
+    fn ordinary_retrieval_fails_closed_when_trust_record_is_missing() {
+        let (vault, _valid_trust_repository) = vault();
+        let mut empty_trust_repository = InMemoryEvidenceTrustRepository::default();
+        let evaluator = TestEvaluator::default();
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut empty_trust_repository, &evaluator);
+
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::EvidenceNotFound)
+        );
+    }
+
+    #[test]
+    fn ordinary_retrieval_rejects_legacy_transformation_without_provenance() {
+        let (vault, _valid_trust_repository) = vault();
+        let mut unvalidated_trust_repository = UnvalidatedTrustRepository {
+            record: Some(legacy_record_without_provenance()),
+        };
+        let evaluator = TestEvaluator::default();
+        let mut query = AuthorizedEvidenceQuery::new(
+            &vault,
+            &vault,
+            &mut unvalidated_trust_repository,
+            &evaluator,
+        );
+
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::StorageFailure)
+        );
+    }
+
+    #[test]
+    fn trust_state_must_match_stored_original_metadata() {
+        let (vault, _valid_trust_repository) = vault();
+        let mut mismatched_original = evidence();
+        mismatched_original.captured_by = "different-capture-actor".into();
+        let trust_record =
+            PersistedEvidence::new(1, mismatched_original, EvidenceTrustMetadata::default())
+                .unwrap();
+        let mut unvalidated_trust_repository = UnvalidatedTrustRepository {
+            record: Some(trust_record),
+        };
+        let evaluator = TestEvaluator::default();
+        let mut query = AuthorizedEvidenceQuery::new(
+            &vault,
+            &vault,
+            &mut unvalidated_trust_repository,
+            &evaluator,
+        );
+
+        assert_eq!(
+            query.get(request()),
+            Err(EvidenceQueryError::StorageFailure)
+        );
+    }
+
+    #[test]
     fn tampered_content_is_rejected() {
-        let mut vault = vault();
+        let (mut vault, mut trust_repository) = vault();
         vault.tamper_object("object-1", b"tampered evidence");
-        let query = AuthorizedEvidenceQuery::new(&vault, &vault);
+        let evaluator = TestEvaluator::default();
+        let mut query =
+            AuthorizedEvidenceQuery::new(&vault, &vault, &mut trust_repository, &evaluator);
         assert_eq!(
             query.get(request()),
             Err(EvidenceQueryError::StorageFailure)

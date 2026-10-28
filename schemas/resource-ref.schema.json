@@ -8,7 +8,34 @@
   "properties": {
     "resource_type": {
       "type": "string",
-      "enum": ["case", "incident", "event", "evidence", "authority", "jurisdiction", "party", "document", "action", "deadline", "response", "escalation", "remedy", "resolution", "procedure", "compliance_requirement", "legal_source", "timeline", "other"]
+      "enum": [
+        "case",
+        "incident",
+        "event",
+        "observation",
+        "evidence",
+        "authority",
+        "jurisdiction",
+        "party",
+        "tool",
+        "service",
+        "party_relationship",
+        "document",
+        "action",
+        "deadline",
+        "response",
+        "escalation",
+        "remedy",
+        "resolution",
+        "procedure",
+        "compliance_requirement",
+        "legal_source",
+        "timeline",
+        "audit",
+        "provenance",
+        "idempotency",
+        "other"
+      ]
     },
     "id": { "type": "string", "minLength": 1 }
   }

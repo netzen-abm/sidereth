@@ -19,6 +19,7 @@ This matrix defines the evidence required to establish Observation conformance. 
 8. Contradiction remains explicit until an authorized process resolves it.
 9. Privacy and authorization are enforced outside presentation convenience.
 10. Provider-neutral behavior is tested independently of implementation technology.
+11. Lifecycle authorization for correction, supersession, and contradiction is bound to both the new and prior Observation.
 
 ## 2. Status vocabulary
 
@@ -93,6 +94,7 @@ A requirement is not treated as fully conforming merely because a related field 
 | OBS-055 | Security | Injection cannot alter semantics | Malicious content requests status upgrade | Content treated as untrusted | TESTED at epistemic boundary |
 | OBS-056 | Security | Source conflict is not silently resolved | Conflicting source inputs | Conflict remains represented | TESTED for explicit contradiction lifecycle |
 | OBS-057 | Persistence | Repository not assumed | Evaluate implementation need | No repository created without explicit ownership decision | TESTED / ARCHITECTURE LOCKED |
+| OBS-058 | Lifecycle authorization | Both new and prior Observation resources are authorized | Allow new resource but deny prior resource | Lifecycle fails before writes/links | PENDING final-head CI |
 
 ## 4. Current implementation evidence
 

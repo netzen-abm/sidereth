@@ -528,6 +528,80 @@ fn live_postgres_case_and_evidence_trust_commit_atomically() {
 
 #[test]
 #[ignore = "requires live PostgreSQL"]
+fn live_postgres_rejects_mutated_evidence_provenance_before_insert() {
+    let url = database_url();
+    let mut setup = PostgresUnitOfWorkFactory::new(url.clone());
+    prepare(&mut setup);
+
+    let case_id = unique_id("evidence-provenance-guard-case");
+    let evidence_id = unique_id("evidence-provenance-guard");
+    let evidence_ref = ResourceRef::new(ResourceType::Evidence, evidence_id.clone()).unwrap();
+    let transformation = EvidenceTransformation {
+        transformation_id: unique_id("evidence-provenance-guard-transform"),
+        source_evidence_id: evidence_id.clone(),
+        transformation_type: "ocr".into(),
+        created_at: "2026-10-21T10:00:00Z".into(),
+        created_by: "ocr-service".into(),
+        tool_id: Some("ocr-engine".into()),
+        tool_version: Some("1.0".into()),
+        input_hash: None,
+        output_hash: None,
+    };
+    let provenance = Provenance {
+        provenance_id: unique_id("evidence-provenance-guard-record"),
+        actor_ref: Some(ResourceRef::new(ResourceType::Service, "ocr-service").unwrap()),
+        source_refs: Vec::new(),
+        input_refs: vec![evidence_ref.clone()],
+        operation: "ocr".into(),
+        occurred_at: "2026-10-21T10:00:00Z".into(),
+    };
+    let evidence = sidereth_core::PersistedEvidence::new(
+        1,
+        evidence_for(&case_id, &evidence_id),
+        trust_metadata(),
+    )
+    .unwrap()
+    .with_transformation(transformation, provenance)
+    .unwrap();
+
+    // Construct a valid write first, then mutate its public/serde payload to
+    // simulate a caller bypassing constructor-time validation. The storage
+    // adapter must revalidate immediately before issuing SQL.
+    let mut write = ResourceWrite::new(
+        evidence_ref.clone(),
+        evidence.schema_version,
+        serde_json::to_value(&evidence).unwrap(),
+        ResourceWriteMode::Insert,
+    )
+    .unwrap();
+    write.payload["transformation_provenance"][0]["provenance"]["actor_ref"]["id"] =
+        json!("forged-actor");
+
+    let mut factory = PostgresUnitOfWorkFactory::new(url.clone());
+    let mut uow = factory.begin().unwrap();
+    let result = uow.execute(|ctx| ctx.write_resource(write));
+    assert_eq!(
+        result,
+        Err(sidereth_core::persistence::UnitOfWorkError::Persistence(
+            PersistenceError::IntegrityFailure
+        ))
+    );
+    uow.rollback().unwrap();
+
+    let mut verify = PostgresUnitOfWorkFactory::new(url);
+    let mut read_uow = verify.begin().unwrap();
+    let record = read_uow
+        .execute(|ctx| ctx.read_resource(&evidence_ref))
+        .unwrap();
+    read_uow.commit().unwrap();
+    assert!(
+        record.is_none(),
+        "mismatched provenance must not reach durable storage"
+    );
+}
+
+#[test]
+#[ignore = "requires live PostgreSQL"]
 fn live_postgres_case_and_evidence_trust_rollback_is_atomic() {
     let url = database_url();
     let mut setup = PostgresUnitOfWorkFactory::new(url.clone());
