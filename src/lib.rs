@@ -9,6 +9,7 @@ pub mod incident;
 pub mod resource;
 
 pub mod action;
+pub mod administrative_correspondence;
 pub mod audit;
 pub mod authority;
 pub mod authorization;
