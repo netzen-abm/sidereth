@@ -614,7 +614,8 @@ impl CorrespondenceChecklistInput {
         if let Some(reference) = &self.procedure_ref {
             resolve_reference(reference, "procedure_ref", self, registries, &mut findings);
             if reference.resource_type == ResourceType::Procedure {
-                if let Some(procedure) = registries.procedures.get_procedure(&reference.id).cloned() {
+                if let Some(procedure) = registries.procedures.get_procedure(&reference.id).cloned()
+                {
                     if let Some(authority_reference) = &self.issuing_authority {
                         if authority_reference.resource_type == ResourceType::Authority
                             && procedure.authority_id != authority_reference.id
@@ -846,10 +847,7 @@ fn resolve_reference(
                 if registries.jurisdictions.get(&source.jurisdiction).is_none() {
                     push_finding(
                         findings,
-                        blocking(
-                            ChecklistFindingCode::LegalSourceJurisdictionNotFound,
-                            field,
-                        ),
+                        blocking(ChecklistFindingCode::LegalSourceJurisdictionNotFound, field),
                     );
                 } else if let Some(target_id) = target_jurisdiction {
                     if !jurisdiction_scope_covers(
@@ -859,10 +857,7 @@ fn resolve_reference(
                     ) {
                         push_finding(
                             findings,
-                            blocking(
-                                ChecklistFindingCode::LegalSourceJurisdictionMismatch,
-                                field,
-                            ),
+                            blocking(ChecklistFindingCode::LegalSourceJurisdictionMismatch, field),
                         );
                     }
                 }
@@ -904,10 +899,7 @@ fn resolve_reference(
                         {
                             push_finding(
                                 findings,
-                                blocking(
-                                    ChecklistFindingCode::LegalSourceNotEffective,
-                                    field,
-                                ),
+                                blocking(ChecklistFindingCode::LegalSourceNotEffective, field),
                             );
                         }
                     }
