@@ -295,11 +295,81 @@ impl CorrespondenceChecklistInput {
                 if self
                     .requested_records
                     .iter()
-                    .any(|record| record.trim().is_empty())
+                    .any(|record| record.description.trim().is_empty())
                 {
                     findings.push(blocking(
                         ChecklistFindingCode::EmptyRequestedRecord,
                         "requested_records",
+                    ));
+                }
+                if self.requested_records.iter().any(|record| {
+                    matches!(record.kind, RtiRequestKind::ExplanationOrNewAnalysis)
+                }) {
+                    findings.push(review(
+                        ChecklistFindingCode::RequestSeeksNewAnalysisOrOpinion,
+                        "requested_records",
+                    ));
+                }
+                if self.requested_records.iter().any(|record| {
+                    record.includes_personal_or_sensitive_data
+                }) {
+                    findings.push(review(
+                        ChecklistFindingCode::PersonalInformationDisclosureReviewRequired,
+                        "requested_records",
+                    ));
+                }
+                if self.requested_records.iter().any(|record| {
+                    matches!(
+                        (record.period_start, record.period_end),
+                        (Some(start), Some(end)) if start > end
+                    )
+                }) {
+                    findings.push(blocking(
+                        ChecklistFindingCode::InvalidReportingPeriod,
+                        "requested_records",
+                    ));
+                }
+                if let Some(details) = &self.rti_details {
+                    if !has_text(details.scheme_name.as_deref()) {
+                        findings.push(review(
+                            ChecklistFindingCode::MissingSchemeName,
+                            "rti_details.scheme_name",
+                        ));
+                    }
+                    if matches!(
+                        (details.reporting_period_start, details.reporting_period_end),
+                        (Some(start), Some(end)) if start > end
+                    ) {
+                        findings.push(blocking(
+                            ChecklistFindingCode::InvalidReportingPeriod,
+                            "rti_details.reporting_period",
+                        ));
+                    }
+                    if let Some(reference) = &details.official_reference {
+                        if !valid_reference(reference)
+                            || (!reference_has_type(reference, ResourceType::Document)
+                                && !reference_has_type(reference, ResourceType::LegalSource))
+                        {
+                            findings.push(blocking(
+                                ChecklistFindingCode::InvalidOfficialReferenceType,
+                                "rti_details.official_reference",
+                            ));
+                        }
+                    }
+                    if let Some(reference) = &details.fee_payment_proof {
+                        if !valid_reference(reference)
+                            || !reference_has_type(reference, ResourceType::Evidence)
+                        {
+                            findings.push(blocking(
+                                ChecklistFindingCode::InvalidFeePaymentProofType,
+                                "rti_details.fee_payment_proof",
+                            ));
+                        }
+                    }
+                } else {
+                    findings.push(review(
+                        ChecklistFindingCode::MissingSchemeName,
+                        "rti_details",
                     ));
                 }
                 validate_procedure_reference(&self.procedure_ref, &mut findings);
@@ -488,6 +558,16 @@ mod tests {
         }
     }
 
+    fn record_request(description: &str, kind: RtiRequestKind) -> RtiRequestItem {
+        RtiRequestItem {
+            description: description.into(),
+            kind,
+            period_start: None,
+            period_end: None,
+            includes_personal_or_sensitive_data: false,
+        }
+    }
+
     fn base(track: CorrespondenceTrack) -> CorrespondenceChecklistInput {
         CorrespondenceChecklistInput {
             track,
@@ -496,8 +576,10 @@ mod tests {
             subject: Some("Administrative notice".into()),
             source_document: None,
             trigger_date: None,
+            legal_as_of: None,
             recipient_designation: None,
             requested_records: Vec::new(),
+            rti_details: None,
             procedure_ref: None,
             claims: Vec::new(),
         }
@@ -532,7 +614,17 @@ mod tests {
     #[test]
     fn rti_application_requires_recipient_and_identifiable_records() {
         let mut input = base(CorrespondenceTrack::RtiApplication);
-        input.requested_records = vec!["Copy of the applicable order".into()];
+        input.requested_records = vec![record_request(
+            "Copy of the applicable order",
+            RtiRequestKind::CertifiedCopy,
+        )];
+        input.rti_details = Some(RtiApplicationDetails {
+            scheme_name: Some("Example scheme".into()),
+            official_reference: None,
+            reporting_period_start: None,
+            reporting_period_end: None,
+            fee_payment_proof: None,
+        });
         input.procedure_ref = Some(reference(ResourceType::Procedure, "rti-procedure-1"));
 
         let result = input.evaluate();
@@ -553,7 +645,17 @@ mod tests {
     fn missing_procedure_for_rti_requires_review_not_automatic_deadline_claims() {
         let mut input = base(CorrespondenceTrack::RtiApplication);
         input.recipient_designation = Some("SPIO".into());
-        input.requested_records = vec!["Inspection of the existing file".into()];
+        input.requested_records = vec![record_request(
+            "Inspection of the existing file",
+            RtiRequestKind::Inspection,
+        )];
+        input.rti_details = Some(RtiApplicationDetails {
+            scheme_name: Some("Example scheme".into()),
+            official_reference: None,
+            reporting_period_start: None,
+            reporting_period_end: None,
+            fee_payment_proof: None,
+        });
 
         let result = input.evaluate();
 
