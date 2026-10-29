@@ -626,7 +626,11 @@ impl CorrespondenceChecklistInput {
                 &mut findings,
             );
             if reference.resource_type == ResourceType::Procedure {
-                if let Some(procedure) = registries.procedures.get_procedure(&reference.id) {
+                if let Some(procedure) = registries
+                    .procedures
+                    .get_procedure(&reference.id)
+                    .cloned()
+                {
                     if let Some(authority_reference) = &self.issuing_authority {
                         if authority_reference.resource_type == ResourceType::Authority
                             && procedure.authority_id != authority_reference.id
