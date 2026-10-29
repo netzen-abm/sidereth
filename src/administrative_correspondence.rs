@@ -11,6 +11,13 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
+use crate::authority::{AuthorityRegistry, AuthorityStatus};
+use crate::deadline::CivilDate;
+use crate::document::{DocumentRegistry, DocumentStatus};
+use crate::evidence_repository::EvidenceTrustRepository;
+use crate::jurisdiction::{JurisdictionRegistry, JurisdictionStatus};
+use crate::legal_source_registry::LegalSourceRegistry;
+use crate::procedure::{ProcedureRegistry, ProcedureStatus};
 use crate::{PropositionType, ResourceRef, ResourceType, VerificationStatus};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -19,6 +26,51 @@ pub enum CorrespondenceTrack {
     NoticeReply,
     RtiApplication,
     FollowUpOrAppeal,
+}
+
+/// The requested material must already exist or be held by the public authority.
+/// A request for new analysis is retained as an explicit review item, not silently
+/// rewritten into a demand that the authority create new information.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RtiRequestKind {
+    ExistingRecord,
+    ExistingStatisticsOrDataset,
+    Inspection,
+    CertifiedCopy,
+    ExistingElectronicRecord,
+    ExplanationOrNewAnalysis,
+}
+
+/// One item in the RTI request list. Reporting periods are optional and
+/// inclusive. Personal/sensitive data is flagged for disclosure review rather
+/// than automatically included or automatically refused.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RtiRequestItem {
+    pub description: String,
+    pub kind: RtiRequestKind,
+    pub period_start: Option<CivilDate>,
+    pub period_end: Option<CivilDate>,
+    pub includes_personal_or_sensitive_data: bool,
+}
+
+/// Optional scheme-specific context for the universal RTI form. Fee and filing
+/// rules come from the selected verified procedure; no fee amount or identity
+/// document is assumed by this type.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RtiApplicationDetails {
+    pub scheme_name: Option<String>,
+    pub official_reference: Option<ResourceRef>,
+    pub reporting_period_start: Option<CivilDate>,
+    pub reporting_period_end: Option<CivilDate>,
+    pub fee_payment_proof: Option<ResourceRef>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FindingSeverity {
+    Blocking,
+    Review,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -44,6 +96,35 @@ pub enum ChecklistFindingCode {
     MissingProcedureReference,
     InvalidProcedureReferenceType,
     MissingTriggerDate,
+    InvalidReportingPeriod,
+    RequestSeeksNewAnalysisOrOpinion,
+    PersonalInformationDisclosureReviewRequired,
+    AuthorityNotFound,
+    AuthorityInactive,
+    AuthorityJurisdictionMismatch,
+    JurisdictionNotFound,
+    JurisdictionInactive,
+    SourceDocumentNotFound,
+    SourceDocumentUnavailable,
+    SourceDocumentNeedsReview,
+    EvidenceNotFound,
+    EvidenceVerificationFailed,
+    EvidenceResolutionUnavailable,
+    LegalSourceNotFound,
+    LegalSourceUnverified,
+    LegalSourceJurisdictionNotFound,
+    LegalSourceJurisdictionMismatch,
+    LegalSourceNotEffective,
+    LegalSourceEffectiveDateUnparseable,
+    MissingLegalApplicabilityDate,
+    ProcedureNotFound,
+    ProcedureInactive,
+    ProcedureAuthorityMismatch,
+    ProcedureJurisdictionMismatch,
+    ProcedureSourceNotFound,
+    InvalidOfficialReferenceType,
+    MissingSchemeName,
+    InvalidFeePaymentProofType,
     EmptyClaimId,
     DuplicateClaimId,
     EmptyClaimStatement,
@@ -94,10 +175,14 @@ pub struct CorrespondenceChecklistInput {
     /// User-provided date associated with the route (e.g. recorded delivery or decision date).
     /// This module checks presence only; it does not parse dates or calculate deadlines.
     pub trigger_date: Option<String>,
+    /// Canonical UTC instant (YYYY-MM-DDTHH:MM:SSZ) for resolving legal-source
+    /// applicability. It is deliberately separate from a notice/decision trigger date.
+    pub legal_as_of: Option<String>,
     /// For an RTI application, normally the CPIO/SPIO or other designated recipient role.
     pub recipient_designation: Option<String>,
-    /// Identifiable existing records sought; required for the RTI track.
-    pub requested_records: Vec<String>,
+    /// Identifiable, typed requests for existing information; required for RTI.
+    pub requested_records: Vec<RtiRequestItem>,
+    pub rti_details: Option<RtiApplicationDetails>,
     /// Versioned SIDERETH procedure selected for the route, when known.
     pub procedure_ref: Option<ResourceRef>,
     /// Claims which the draft intends to state as facts, rules, procedures or interpretations.
