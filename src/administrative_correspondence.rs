@@ -75,13 +75,6 @@ pub enum FindingSeverity {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum FindingSeverity {
-    Blocking,
-    Review,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
 pub enum ChecklistFindingCode {
     MissingIssuingAuthority,
     InvalidIssuingAuthorityType,
@@ -759,7 +752,7 @@ fn resolve_reference(
                 findings,
                 blocking(ChecklistFindingCode::DocumentReferenceNotFound, field),
             ),
-            Some(document) => match document.status {
+            Some(document) => match &document.status {
                 DocumentStatus::Deleted => push_finding(
                     findings,
                     blocking(ChecklistFindingCode::DocumentReferenceUnavailable, field),
