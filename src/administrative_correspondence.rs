@@ -932,7 +932,7 @@ fn resolve_reference(
                     }
                 }
             }
-        }
+        },
         ResourceType::Procedure => match registries.procedures.get_procedure(&reference.id) {
             None => push_finding(
                 findings,
@@ -1016,10 +1016,7 @@ fn is_canonical_utc_instant(value: &str) -> bool {
         return false;
     };
 
-    CivilDate::new(year, month, day).is_ok()
-        && hour < 24
-        && minute < 60
-        && second < 60
+    CivilDate::new(year, month, day).is_ok() && hour < 24 && minute < 60 && second < 60
 }
 
 fn push_finding(findings: &mut Vec<ChecklistFinding>, finding: ChecklistFinding) {
@@ -1547,9 +1544,10 @@ mod tests {
         let result = input.evaluate();
 
         assert_eq!(result.readiness, ChecklistReadiness::Blocked);
-        assert!(result.findings.iter().any(|finding| {
-            finding.code == ChecklistFindingCode::InvalidReportingPeriod
-        }));
+        assert!(result
+            .findings
+            .iter()
+            .any(|finding| { finding.code == ChecklistFindingCode::InvalidReportingPeriod }));
         assert!(result.findings.iter().any(|finding| {
             finding.code == ChecklistFindingCode::PersonalInformationDisclosureReviewRequired
                 && finding.severity == FindingSeverity::Review
