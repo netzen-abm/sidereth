@@ -13,7 +13,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::authority::{AuthorityRegistry, AuthorityStatus};
 use crate::deadline::CivilDate;
-use crate::document::{DocumentRegistry, DocumentStatus};
+use crate::document::{
+    DocumentRegistry, DocumentStatus, IntegrityStatus as DocumentIntegrityStatus,
+};
 use crate::evidence_repository::EvidenceTrustRepository;
 use crate::jurisdiction::{JurisdictionRegistry, JurisdictionStatus};
 use crate::legal_source_registry::LegalSourceRegistry;
@@ -95,6 +97,7 @@ pub enum ChecklistFindingCode {
     AuthorityNotFound,
     AuthorityInactive,
     AuthorityJurisdictionMismatch,
+    DocumentJurisdictionMismatch,
     JurisdictionNotFound,
     JurisdictionInactive,
     SourceDocumentNotFound,
@@ -580,7 +583,7 @@ impl CorrespondenceChecklistInput {
                             push_finding(
                                 &mut findings,
                                 review(
-                                    ChecklistFindingCode::AuthorityJurisdictionMismatch,
+                                    ChecklistFindingCode::DocumentJurisdictionMismatch,
                                     "source_document",
                                 ),
                             );
@@ -752,19 +755,46 @@ fn resolve_reference(
                 findings,
                 blocking(ChecklistFindingCode::DocumentReferenceNotFound, field),
             ),
-            Some(document) => match &document.status {
-                DocumentStatus::Deleted => push_finding(
-                    findings,
-                    blocking(ChecklistFindingCode::DocumentReferenceUnavailable, field),
-                ),
-                DocumentStatus::Draft | DocumentStatus::Unknown => push_finding(
-                    findings,
-                    review(ChecklistFindingCode::DocumentReferenceNeedsReview, field),
-                ),
-                DocumentStatus::Active
-                | DocumentStatus::Superseded
-                | DocumentStatus::Revoked
-                | DocumentStatus::Archived => {}
+            Some(document) => {
+                match &document.status {
+                    DocumentStatus::Deleted => push_finding(
+                        findings,
+                        blocking(ChecklistFindingCode::DocumentReferenceUnavailable, field),
+                    ),
+                    DocumentStatus::Draft | DocumentStatus::Unknown => push_finding(
+                        findings,
+                        review(ChecklistFindingCode::DocumentReferenceNeedsReview, field),
+                    ),
+                    DocumentStatus::Active
+                    | DocumentStatus::Superseded
+                    | DocumentStatus::Revoked
+                    | DocumentStatus::Archived => {}
+                }
+
+                match registries.documents.get_version(&document.current_version_id) {
+                    None => push_finding(
+                        findings,
+                        blocking(ChecklistFindingCode::DocumentReferenceUnavailable, field),
+                    ),
+                    Some(version) if version.document_id != document.document_id => {
+                        push_finding(
+                            findings,
+                            blocking(ChecklistFindingCode::DocumentReferenceUnavailable, field),
+                        );
+                    }
+                    Some(version) => match &version.integrity_status {
+                        DocumentIntegrityStatus::Modified
+                        | DocumentIntegrityStatus::Unavailable => push_finding(
+                            findings,
+                            blocking(ChecklistFindingCode::DocumentReferenceUnavailable, field),
+                        ),
+                        DocumentIntegrityStatus::Unverified => push_finding(
+                            findings,
+                            review(ChecklistFindingCode::DocumentReferenceNeedsReview, field),
+                        ),
+                        DocumentIntegrityStatus::Verified => {}
+                    },
+                }
             },
         },
         ResourceType::Evidence => match registries.evidence.get(&reference.id) {
@@ -1160,25 +1190,45 @@ mod tests {
 
         let mut documents = DocumentRegistry::default();
         documents
-            .insert_document(Document {
-                document_id: "notice-1".into(),
-                schema_version: 1,
-                document_type: "notice".into(),
-                status: DocumentStatus::Active,
-                title: "Example notice".into(),
-                issuer_party_id: None,
-                recipient_party_refs: Vec::new(),
-                case_refs: Vec::new(),
-                incident_refs: Vec::new(),
-                jurisdiction_refs: vec!["jurisdiction-1".into()],
-                authority_ref: Some("authority-1".into()),
-                current_version_id: "notice-version-1".into(),
-                provenance_ref: None,
-                privacy_classification: "sensitive".into(),
-                retention_policy_ref: None,
-                created_at: "2026-01-01T00:00:00Z".into(),
-                updated_at: "2026-01-01T00:00:00Z".into(),
-            })
+            .insert_document_with_initial_version(
+                Document {
+                    document_id: "notice-1".into(),
+                    schema_version: 1,
+                    document_type: "notice".into(),
+                    status: DocumentStatus::Active,
+                    title: "Example notice".into(),
+                    issuer_party_id: None,
+                    recipient_party_refs: Vec::new(),
+                    case_refs: Vec::new(),
+                    incident_refs: Vec::new(),
+                    jurisdiction_refs: vec!["jurisdiction-1".into()],
+                    authority_ref: Some("authority-1".into()),
+                    current_version_id: "notice-version-1".into(),
+                    provenance_ref: None,
+                    privacy_classification: "sensitive".into(),
+                    retention_policy_ref: None,
+                    created_at: "2026-01-01T00:00:00Z".into(),
+                    updated_at: "2026-01-01T00:00:00Z".into(),
+                },
+                crate::document::DocumentVersion {
+                    document_version_id: "notice-version-1".into(),
+                    document_id: "notice-1".into(),
+                    schema_version: 1,
+                    version_number: 1,
+                    media_type: "application/pdf".into(),
+                    content_ref: "notice-blob-1".into(),
+                    content_hash: "sha256:example".into(),
+                    byte_length: Some(100),
+                    captured_at: Some("2026-01-01T00:00:00Z".into()),
+                    created_by: "party-1".into(),
+                    source_ref: None,
+                    provenance_ref: None,
+                    integrity_status: DocumentIntegrityStatus::Verified,
+                    supersedes_version_id: None,
+                    language: Some("en".into()),
+                    created_at: "2026-01-01T00:00:00Z".into(),
+                },
+            )
             .unwrap();
 
         let mut legal_sources = LegalSourceRegistry::default();
