@@ -1123,6 +1123,108 @@ mod tests {
         }
     }
 
+    fn fixture_registries() -> (
+        AuthorityRegistry,
+        JurisdictionRegistry,
+        DocumentRegistry,
+        LegalSourceRegistry,
+        ProcedureRegistry,
+    ) {
+        use crate::authority::{Authority, AuthorityType};
+        use crate::document::{Document, DocumentStatus};
+        use crate::jurisdiction::{Jurisdiction, JurisdictionType};
+        use crate::legal_source::{LegalSource, SourceType};
+        use crate::procedure::{Procedure, ProcedureStatus};
+
+        let mut jurisdictions = JurisdictionRegistry::default();
+        jurisdictions
+            .insert(Jurisdiction {
+                jurisdiction_id: "jurisdiction-1".into(),
+                jurisdiction_type: JurisdictionType::Territorial,
+                name: "Example jurisdiction".into(),
+                parent_id: None,
+                status: JurisdictionStatus::Active,
+            })
+            .unwrap();
+
+        let mut authorities = AuthorityRegistry::default();
+        authorities
+            .insert_authority(Authority {
+                authority_id: "authority-1".into(),
+                name: "Example public authority".into(),
+                authority_type: AuthorityType::GovernmentBody,
+                jurisdiction_id: "jurisdiction-1".into(),
+                status: AuthorityStatus::Active,
+            })
+            .unwrap();
+
+        let mut documents = DocumentRegistry::default();
+        documents
+            .insert_document(Document {
+                document_id: "notice-1".into(),
+                schema_version: 1,
+                document_type: "notice".into(),
+                status: DocumentStatus::Active,
+                title: "Example notice".into(),
+                issuer_party_id: None,
+                recipient_party_refs: Vec::new(),
+                case_refs: Vec::new(),
+                incident_refs: Vec::new(),
+                jurisdiction_refs: vec!["jurisdiction-1".into()],
+                authority_ref: Some("authority-1".into()),
+                current_version_id: "notice-version-1".into(),
+                provenance_ref: None,
+                privacy_classification: "sensitive".into(),
+                retention_policy_ref: None,
+                created_at: "2026-01-01T00:00:00Z".into(),
+                updated_at: "2026-01-01T00:00:00Z".into(),
+            })
+            .unwrap();
+
+        let mut legal_sources = LegalSourceRegistry::default();
+        legal_sources
+            .insert(LegalSource {
+                source_id: "law-1".into(),
+                source_type: SourceType::ConstitutionOrLegislation,
+                title: "Example law".into(),
+                issuing_authority: "authority-1".into(),
+                jurisdiction: "jurisdiction-1".into(),
+                citation: "Section 1".into(),
+                published_at: "2025-12-01T00:00:00Z".into(),
+                effective_from: "2026-01-01T00:00:00Z".into(),
+                effective_to: None,
+                version: "1".into(),
+                retrieved_at: "2026-01-02T00:00:00Z".into(),
+                verification_status: VerificationStatus::Verified,
+                supersedes: None,
+            })
+            .unwrap();
+
+        let mut procedures = ProcedureRegistry::default();
+        procedures
+            .insert(
+                Procedure {
+                    procedure_id: "procedure-1".into(),
+                    name: "Example RTI procedure".into(),
+                    jurisdiction_id: "jurisdiction-1".into(),
+                    authority_id: "authority-1".into(),
+                    status: ProcedureStatus::Active,
+                    step_ids: Vec::new(),
+                    source_refs: vec!["law-1".into()],
+                },
+                Vec::new(),
+            )
+            .unwrap();
+
+        (
+            authorities,
+            jurisdictions,
+            documents,
+            legal_sources,
+            procedures,
+        )
+    }
+
     #[test]
     fn notice_reply_requires_a_source_document() {
         let mut input = base(CorrespondenceTrack::NoticeReply);
@@ -1271,6 +1373,155 @@ mod tests {
         assert!(result.findings.iter().any(|finding| {
             finding.code == ChecklistFindingCode::ClaimRequiresReview
                 && finding.field == "claims.proposition_type"
+        }));
+    }
+
+    #[test]
+    fn registry_preflight_blocks_when_source_document_is_not_registered() {
+        let (authorities, jurisdictions, documents, legal_sources, procedures) =
+            fixture_registries();
+        let mut evidence = crate::evidence_repository::InMemoryEvidenceTrustRepository::default();
+        let mut registries = CorrespondenceRegistries {
+            authorities: &authorities,
+            jurisdictions: &jurisdictions,
+            documents: &documents,
+            legal_sources: &legal_sources,
+            procedures: &procedures,
+            evidence: &mut evidence,
+        };
+        let mut input = base(CorrespondenceTrack::NoticeReply);
+        input.source_document = Some(reference(ResourceType::Document, "missing-notice"));
+        input.trigger_date = Some("2026-01-02".into());
+
+        let result = input.evaluate_with_registries(&mut registries);
+
+        assert_eq!(result.readiness, ChecklistReadiness::Blocked);
+        assert!(result.findings.iter().any(|finding| {
+            finding.code == ChecklistFindingCode::DocumentReferenceNotFound
+                && finding.field == "source_document"
+        }));
+    }
+
+    #[test]
+    fn registry_preflight_blocks_legal_claim_outside_effective_interval() {
+        let (authorities, jurisdictions, documents, legal_sources, procedures) =
+            fixture_registries();
+        let mut evidence = crate::evidence_repository::InMemoryEvidenceTrustRepository::default();
+        let mut registries = CorrespondenceRegistries {
+            authorities: &authorities,
+            jurisdictions: &jurisdictions,
+            documents: &documents,
+            legal_sources: &legal_sources,
+            procedures: &procedures,
+            evidence: &mut evidence,
+        };
+        let mut input = base(CorrespondenceTrack::NoticeReply);
+        input.source_document = Some(reference(ResourceType::Document, "notice-1"));
+        input.trigger_date = Some("2025-12-31".into());
+        input.legal_as_of = Some("2025-12-31T00:00:00Z".into());
+        input.claims.push(CorrespondenceClaim {
+            claim_id: "legal-claim-1".into(),
+            statement: "The example law applied on the relevant date.".into(),
+            proposition_type: PropositionType::VerifiedRule,
+            verification_status: VerificationStatus::Verified,
+            source_refs: vec![reference(ResourceType::LegalSource, "law-1")],
+        });
+
+        let result = input.evaluate_with_registries(&mut registries);
+
+        assert_eq!(result.readiness, ChecklistReadiness::Blocked);
+        assert!(result.findings.iter().any(|finding| {
+            finding.code == ChecklistFindingCode::LegalSourceNotEffective
+                && finding.field == "claims.source_refs"
+        }));
+    }
+
+    #[test]
+    fn registry_preflight_accepts_a_registered_in_scope_effective_legal_source() {
+        let (authorities, jurisdictions, documents, legal_sources, procedures) =
+            fixture_registries();
+        let mut evidence = crate::evidence_repository::InMemoryEvidenceTrustRepository::default();
+        let mut registries = CorrespondenceRegistries {
+            authorities: &authorities,
+            jurisdictions: &jurisdictions,
+            documents: &documents,
+            legal_sources: &legal_sources,
+            procedures: &procedures,
+            evidence: &mut evidence,
+        };
+        let mut input = base(CorrespondenceTrack::NoticeReply);
+        input.source_document = Some(reference(ResourceType::Document, "notice-1"));
+        input.trigger_date = Some("2026-01-02".into());
+        input.legal_as_of = Some("2026-01-02T00:00:00Z".into());
+        input.claims.push(CorrespondenceClaim {
+            claim_id: "legal-claim-1".into(),
+            statement: "The example law applied on the relevant date.".into(),
+            proposition_type: PropositionType::VerifiedRule,
+            verification_status: VerificationStatus::Verified,
+            source_refs: vec![reference(ResourceType::LegalSource, "law-1")],
+        });
+
+        let result = input.evaluate_with_registries(&mut registries);
+
+        assert_eq!(result.readiness, ChecklistReadiness::StructurallyComplete);
+        assert!(result.findings.is_empty());
+    }
+
+    #[test]
+    fn rti_request_flags_sensitive_data_and_blocks_reversed_reporting_period() {
+        let mut input = base(CorrespondenceTrack::RtiApplication);
+        input.recipient_designation = Some("SPIO".into());
+        input.requested_records = vec![RtiRequestItem {
+            description: "Beneficiary list including contact details".into(),
+            kind: RtiRequestKind::ExistingRecord,
+            period_start: Some(CivilDate::new(2026, 2, 1).unwrap()),
+            period_end: Some(CivilDate::new(2026, 1, 1).unwrap()),
+            includes_personal_or_sensitive_data: true,
+        }];
+        input.rti_details = Some(RtiApplicationDetails {
+            scheme_name: Some("Example scheme".into()),
+            official_reference: None,
+            reporting_period_start: None,
+            reporting_period_end: None,
+            fee_payment_proof: None,
+        });
+        input.procedure_ref = Some(reference(ResourceType::Procedure, "procedure-1"));
+
+        let result = input.evaluate();
+
+        assert_eq!(result.readiness, ChecklistReadiness::Blocked);
+        assert!(result.findings.iter().any(|finding| {
+            finding.code == ChecklistFindingCode::InvalidReportingPeriod
+        }));
+        assert!(result.findings.iter().any(|finding| {
+            finding.code == ChecklistFindingCode::PersonalInformationDisclosureReviewRequired
+                && finding.severity == FindingSeverity::Review
+        }));
+    }
+
+    #[test]
+    fn new_analysis_request_is_reviewed_instead_of_silently_treated_as_existing_record() {
+        let mut input = base(CorrespondenceTrack::RtiApplication);
+        input.recipient_designation = Some("CPIO".into());
+        input.requested_records = vec![record_request(
+            "Prepare a fresh cost-benefit analysis for the scheme",
+            RtiRequestKind::ExplanationOrNewAnalysis,
+        )];
+        input.rti_details = Some(RtiApplicationDetails {
+            scheme_name: Some("Example scheme".into()),
+            official_reference: None,
+            reporting_period_start: None,
+            reporting_period_end: None,
+            fee_payment_proof: None,
+        });
+        input.procedure_ref = Some(reference(ResourceType::Procedure, "procedure-1"));
+
+        let result = input.evaluate();
+
+        assert_eq!(result.readiness, ChecklistReadiness::ReviewRequired);
+        assert!(result.findings.iter().any(|finding| {
+            finding.code == ChecklistFindingCode::RequestSeeksNewAnalysisOrOpinion
+                && finding.severity == FindingSeverity::Review
         }));
     }
 
