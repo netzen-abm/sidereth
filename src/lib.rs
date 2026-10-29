@@ -66,7 +66,7 @@ pub use action::{
 };
 pub use administrative_correspondence::{
     ChecklistFinding, ChecklistFindingCode, ChecklistReadiness, ChecklistResult,
-    CorrespondenceClaim, CorrespondenceChecklistInput, CorrespondenceRegistries,
+    CorrespondenceChecklistInput, CorrespondenceClaim, CorrespondenceRegistries,
     CorrespondenceTrack, FindingSeverity, RtiApplicationDetails, RtiRequestItem, RtiRequestKind,
 };
 pub use audit::{AuditProvenanceSink, AuditRecord, AuditSink, InMemoryAudit};
