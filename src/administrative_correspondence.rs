@@ -125,6 +125,10 @@ pub enum ChecklistFindingCode {
     InvalidOfficialReferenceType,
     MissingSchemeName,
     InvalidFeePaymentProofType,
+    DocumentReferenceNotFound,
+    DocumentReferenceUnavailable,
+    DocumentReferenceNeedsReview,
+    UnsupportedSourceReferenceType,
     EmptyClaimId,
     DuplicateClaimId,
     EmptyClaimStatement,
@@ -471,6 +475,547 @@ impl CorrespondenceChecklistInput {
         }
 
         ChecklistResult::from_findings(findings)
+    }
+
+    /// Run the structural checklist and then resolve references against the
+    /// existing domain registries. This is still not authorization to send.
+    pub fn evaluate_with_registries(
+        &self,
+        registries: &mut CorrespondenceRegistries<'_>,
+    ) -> ChecklistResult {
+        let mut result = self.evaluate();
+        let mut findings = std::mem::take(&mut result.findings);
+
+        let selected_jurisdiction = self
+            .jurisdiction
+            .as_ref()
+            .filter(|reference| {
+                reference.resource_type == ResourceType::Jurisdiction
+                    && valid_reference(reference)
+            })
+            .map(|reference| reference.id.clone());
+
+        if let Some(reference) = &self.issuing_authority {
+            if reference.resource_type == ResourceType::Authority && valid_reference(reference) {
+                match registries.authorities.get_authority(&reference.id) {
+                    None => push_finding(
+                        &mut findings,
+                        blocking(
+                            ChecklistFindingCode::AuthorityNotFound,
+                            "issuing_authority",
+                        ),
+                    ),
+                    Some(authority) => {
+                        if authority.status != AuthorityStatus::Active {
+                            push_finding(
+                                &mut findings,
+                                blocking(
+                                    ChecklistFindingCode::AuthorityInactive,
+                                    "issuing_authority",
+                                ),
+                            );
+                        }
+                        if let Some(target_id) = &selected_jurisdiction {
+                            if !jurisdiction_scope_covers(
+                                registries.jurisdictions,
+                                &authority.jurisdiction_id,
+                                target_id,
+                            ) {
+                                push_finding(
+                                    &mut findings,
+                                    blocking(
+                                        ChecklistFindingCode::AuthorityJurisdictionMismatch,
+                                        "issuing_authority",
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(reference) = &self.jurisdiction {
+            if reference.resource_type == ResourceType::Jurisdiction && valid_reference(reference) {
+                match registries.jurisdictions.get(&reference.id) {
+                    None => push_finding(
+                        &mut findings,
+                        blocking(
+                            ChecklistFindingCode::JurisdictionNotFound,
+                            "jurisdiction",
+                        ),
+                    ),
+                    Some(jurisdiction) if jurisdiction.status != JurisdictionStatus::Active => {
+                        push_finding(
+                            &mut findings,
+                            blocking(
+                                ChecklistFindingCode::JurisdictionInactive,
+                                "jurisdiction",
+                            ),
+                        );
+                    }
+                    Some(_) => {}
+                }
+            }
+        }
+
+        if let Some(reference) = &self.source_document {
+            resolve_reference(
+                reference,
+                "source_document",
+                self,
+                registries,
+                &mut findings,
+            );
+            if reference.resource_type == ResourceType::Document {
+                if let Some(document) = registries.documents.get_document(&reference.id) {
+                    if !document.jurisdiction_refs.is_empty() {
+                        let same_scope = selected_jurisdiction.as_ref().is_some_and(|target_id| {
+                            document.jurisdiction_refs.iter().any(|document_scope| {
+                                jurisdiction_scope_covers(
+                                    registries.jurisdictions,
+                                    document_scope,
+                                    target_id,
+                                ) || jurisdiction_scope_covers(
+                                    registries.jurisdictions,
+                                    target_id,
+                                    document_scope,
+                                )
+                            })
+                        });
+                        if !same_scope {
+                            push_finding(
+                                &mut findings,
+                                review(
+                                    ChecklistFindingCode::AuthorityJurisdictionMismatch,
+                                    "source_document",
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(details) = &self.rti_details {
+            if let Some(reference) = &details.official_reference {
+                resolve_reference(
+                    reference,
+                    "rti_details.official_reference",
+                    self,
+                    registries,
+                    &mut findings,
+                );
+            }
+            if let Some(reference) = &details.fee_payment_proof {
+                resolve_reference(
+                    reference,
+                    "rti_details.fee_payment_proof",
+                    self,
+                    registries,
+                    &mut findings,
+                );
+            }
+        }
+
+        if let Some(reference) = &self.procedure_ref {
+            resolve_reference(
+                reference,
+                "procedure_ref",
+                self,
+                registries,
+                &mut findings,
+            );
+            if reference.resource_type == ResourceType::Procedure {
+                if let Some(procedure) = registries.procedures.get_procedure(&reference.id) {
+                    if let Some(authority_reference) = &self.issuing_authority {
+                        if authority_reference.resource_type == ResourceType::Authority
+                            && procedure.authority_id != authority_reference.id
+                        {
+                            push_finding(
+                                &mut findings,
+                                blocking(
+                                    ChecklistFindingCode::ProcedureAuthorityMismatch,
+                                    "procedure_ref",
+                                ),
+                            );
+                        }
+                    }
+                    if let Some(target_id) = &selected_jurisdiction {
+                        if !jurisdiction_scope_covers(
+                            registries.jurisdictions,
+                            &procedure.jurisdiction_id,
+                            target_id,
+                        ) {
+                            push_finding(
+                                &mut findings,
+                                blocking(
+                                    ChecklistFindingCode::ProcedureJurisdictionMismatch,
+                                    "procedure_ref",
+                                ),
+                            );
+                        }
+                    }
+                    for source_id in &procedure.source_refs {
+                        let reference =
+                            ResourceRef::new(ResourceType::LegalSource, source_id.clone());
+                        if let Ok(reference) = reference {
+                            resolve_reference(
+                                &reference,
+                                "procedure_ref.source_refs",
+                                self,
+                                registries,
+                                &mut findings,
+                            );
+                        } else {
+                            push_finding(
+                                &mut findings,
+                                blocking(
+                                    ChecklistFindingCode::ProcedureSourceNotFound,
+                                    "procedure_ref.source_refs",
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        for claim in &self.claims {
+            for reference in &claim.source_refs {
+                resolve_reference(
+                    reference,
+                    "claims.source_refs",
+                    self,
+                    registries,
+                    &mut findings,
+                );
+            }
+        }
+
+        result.findings = deduplicate_findings(findings);
+        result.readiness = readiness_from_findings(&result.findings);
+        result
+    }
+}
+
+
+/// Registry references are resolved through their existing domain owner.
+/// This context deliberately owns no copied registry or alternate persistence.
+pub struct CorrespondenceRegistries<'a> {
+    pub authorities: &'a AuthorityRegistry,
+    pub jurisdictions: &'a JurisdictionRegistry,
+    pub documents: &'a DocumentRegistry,
+    pub legal_sources: &'a LegalSourceRegistry,
+    pub procedures: &'a ProcedureRegistry,
+    pub evidence: &'a mut dyn EvidenceTrustRepository,
+}
+
+fn resolve_reference(
+    reference: &ResourceRef,
+    field: &'static str,
+    input: &CorrespondenceChecklistInput,
+    registries: &mut CorrespondenceRegistries<'_>,
+    findings: &mut Vec<ChecklistFinding>,
+) {
+    if !valid_reference(reference) {
+        push_finding(
+            findings,
+            blocking(
+                ChecklistFindingCode::InvalidClaimSourceReference,
+                field,
+            ),
+        );
+        return;
+    }
+
+    match reference.resource_type {
+        ResourceType::Authority => match registries.authorities.get_authority(&reference.id) {
+            None => push_finding(
+                findings,
+                blocking(ChecklistFindingCode::AuthorityNotFound, field),
+            ),
+            Some(authority) if authority.status != AuthorityStatus::Active => push_finding(
+                findings,
+                review(ChecklistFindingCode::AuthorityInactive, field),
+            ),
+            Some(_) => {}
+        },
+        ResourceType::Jurisdiction => match registries.jurisdictions.get(&reference.id) {
+            None => push_finding(
+                findings,
+                blocking(ChecklistFindingCode::JurisdictionNotFound, field),
+            ),
+            Some(jurisdiction) if jurisdiction.status != JurisdictionStatus::Active => {
+                push_finding(
+                    findings,
+                    blocking(ChecklistFindingCode::JurisdictionInactive, field),
+                )
+            }
+            Some(_) => {}
+        },
+        ResourceType::Document => match registries.documents.get_document(&reference.id) {
+            None => push_finding(
+                findings,
+                blocking(ChecklistFindingCode::DocumentReferenceNotFound, field),
+            ),
+            Some(document) => match document.status {
+                DocumentStatus::Deleted => push_finding(
+                    findings,
+                    blocking(ChecklistFindingCode::DocumentReferenceUnavailable, field),
+                ),
+                DocumentStatus::Draft | DocumentStatus::Unknown => push_finding(
+                    findings,
+                    review(ChecklistFindingCode::DocumentReferenceNeedsReview, field),
+                ),
+                DocumentStatus::Active
+                | DocumentStatus::Superseded
+                | DocumentStatus::Revoked
+                | DocumentStatus::Archived => {}
+            },
+        },
+        ResourceType::Evidence => match registries.evidence.get(&reference.id) {
+            Ok(None) => push_finding(
+                findings,
+                blocking(ChecklistFindingCode::EvidenceNotFound, field),
+            ),
+            Err(_) => push_finding(
+                findings,
+                blocking(ChecklistFindingCode::EvidenceResolutionUnavailable, field),
+            ),
+            Ok(Some(evidence)) => {
+                if evidence.validate().is_err() {
+                    push_finding(
+                        findings,
+                        blocking(ChecklistFindingCode::EvidenceVerificationFailed, field),
+                    );
+                }
+                if evidence.trust.integrity_status
+                    == crate::evidence_trust::IntegrityStatus::IntegrityFailed
+                {
+                    push_finding(
+                        findings,
+                        blocking(ChecklistFindingCode::EvidenceVerificationFailed, field),
+                    );
+                } else if matches!(
+                    evidence.trust.integrity_status,
+                    crate::evidence_trust::IntegrityStatus::Unverified
+                ) {
+                    push_finding(
+                        findings,
+                        review(ChecklistFindingCode::EvidenceVerificationFailed, field),
+                    );
+                }
+            }
+        },
+        ResourceType::LegalSource => {
+            match registries.legal_sources.get(&reference.id) {
+                None => push_finding(
+                    findings,
+                    blocking(ChecklistFindingCode::LegalSourceNotFound, field),
+                ),
+                Some(source) => {
+                    if source.verification_status != VerificationStatus::Verified {
+                        push_finding(
+                            findings,
+                            review(ChecklistFindingCode::LegalSourceUnverified, field),
+                        );
+                    }
+
+                    let target_jurisdiction = input
+                        .jurisdiction
+                        .as_ref()
+                        .filter(|jurisdiction| {
+                            jurisdiction.resource_type == ResourceType::Jurisdiction
+                                && valid_reference(jurisdiction)
+                        })
+                        .map(|jurisdiction| jurisdiction.id.clone());
+
+                    if registries.jurisdictions.get(&source.jurisdiction).is_none() {
+                        push_finding(
+                            findings,
+                            blocking(
+                                ChecklistFindingCode::LegalSourceJurisdictionNotFound,
+                                field,
+                            ),
+                        );
+                    } else if let Some(target_id) = target_jurisdiction {
+                        if !jurisdiction_scope_covers(
+                            registries.jurisdictions,
+                            &source.jurisdiction,
+                            &target_id,
+                        ) {
+                            push_finding(
+                                findings,
+                                blocking(
+                                    ChecklistFindingCode::LegalSourceJurisdictionMismatch,
+                                    field,
+                                ),
+                            );
+                        }
+                    }
+
+                    match input.legal_as_of.as_deref() {
+                        None => push_finding(
+                            findings,
+                            review(
+                                ChecklistFindingCode::MissingLegalApplicabilityDate,
+                                "legal_as_of",
+                            ),
+                        ),
+                        Some(as_of) if !is_canonical_utc_instant(as_of) => push_finding(
+                            findings,
+                            review(
+                                ChecklistFindingCode::LegalSourceEffectiveDateUnparseable,
+                                "legal_as_of",
+                            ),
+                        ),
+                        Some(as_of) => {
+                            if !is_canonical_utc_instant(&source.effective_from)
+                                || source
+                                    .effective_to
+                                    .as_deref()
+                                    .is_some_and(|end| !is_canonical_utc_instant(end))
+                            {
+                                push_finding(
+                                    findings,
+                                    review(
+                                        ChecklistFindingCode::LegalSourceEffectiveDateUnparseable,
+                                        field,
+                                    ),
+                                );
+                            } else if as_of < source.effective_from.as_str()
+                                || source
+                                    .effective_to
+                                    .as_deref()
+                                    .is_some_and(|end| as_of > end)
+                            {
+                                push_finding(
+                                    findings,
+                                    blocking(
+                                        ChecklistFindingCode::LegalSourceNotEffective,
+                                        field,
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ResourceType::Procedure => match registries.procedures.get_procedure(&reference.id) {
+            None => push_finding(
+                findings,
+                blocking(ChecklistFindingCode::ProcedureNotFound, field),
+            ),
+            Some(procedure) if procedure.status != ProcedureStatus::Active => push_finding(
+                findings,
+                blocking(ChecklistFindingCode::ProcedureInactive, field),
+            ),
+            Some(_) => {}
+        },
+        _ => push_finding(
+            findings,
+            review(ChecklistFindingCode::UnsupportedSourceReferenceType, field),
+        ),
+    }
+}
+
+fn jurisdiction_scope_covers(
+    registry: &JurisdictionRegistry,
+    scope_id: &str,
+    target_id: &str,
+) -> bool {
+    let mut current = target_id.to_owned();
+    let mut visited = HashSet::new();
+
+    loop {
+        if current == scope_id {
+            return true;
+        }
+        if !visited.insert(current.clone()) {
+            return false;
+        }
+        let Some(jurisdiction) = registry.get(&current) else {
+            return false;
+        };
+        let Some(parent_id) = &jurisdiction.parent_id else {
+            return false;
+        };
+        current = parent_id.clone();
+    }
+}
+
+fn is_canonical_utc_instant(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 20
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'Z'
+    {
+        return false;
+    }
+
+    let digit_ranges = [(0, 4), (5, 7), (8, 10), (11, 13), (14, 16), (17, 19)];
+    if digit_ranges
+        .iter()
+        .any(|(start, end)| !bytes[*start..*end].iter().all(u8::is_ascii_digit))
+    {
+        return false;
+    }
+
+    let Ok(year) = value[0..4].parse::<i32>() else {
+        return false;
+    };
+    let Ok(month) = value[5..7].parse::<u8>() else {
+        return false;
+    };
+    let Ok(day) = value[8..10].parse::<u8>() else {
+        return false;
+    };
+    let Ok(hour) = value[11..13].parse::<u8>() else {
+        return false;
+    };
+    let Ok(minute) = value[14..16].parse::<u8>() else {
+        return false;
+    };
+    let Ok(second) = value[17..19].parse::<u8>() else {
+        return false;
+    };
+
+    CivilDate::new(year, month, day).is_ok()
+        && hour < 24
+        && minute < 60
+        && second < 60
+}
+
+fn push_finding(findings: &mut Vec<ChecklistFinding>, finding: ChecklistFinding) {
+    if !findings.contains(&finding) {
+        findings.push(finding);
+    }
+}
+
+fn deduplicate_findings(findings: Vec<ChecklistFinding>) -> Vec<ChecklistFinding> {
+    let mut unique = Vec::new();
+    for finding in findings {
+        push_finding(&mut unique, finding);
+    }
+    unique
+}
+
+fn readiness_from_findings(findings: &[ChecklistFinding]) -> ChecklistReadiness {
+    if findings
+        .iter()
+        .any(|finding| finding.severity == FindingSeverity::Blocking)
+    {
+        ChecklistReadiness::Blocked
+    } else if !findings.is_empty() {
+        ChecklistReadiness::ReviewRequired
+    } else {
+        ChecklistReadiness::StructurallyComplete
     }
 }
 
