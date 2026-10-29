@@ -1,10 +1,13 @@
-//! Deterministic preflight checklist for administrative correspondence drafts.
+//! Deterministic preflight checks for administrative correspondence drafts.
 //!
-//! This module validates route-specific input shape and claim-source references.
-//! It does not verify that a referenced record exists, that a legal source is
-//! current or operative, that a deadline is correctly calculated, or that a
-//! legal proposition is correct. A structurally complete result is never
-//! authorization to send a document; source resolution and human review remain
+//! `evaluate` validates the request shape and typed references;
+//! `evaluate_with_registries` additionally resolves supported references and
+//! checks registry status, jurisdiction scope, and a canonical legal-applicability
+//! instant. Neither method decides whether a legal proposition is correct,
+//! authenticates source law beyond recorded metadata, calculates RTI/appeal
+//! deadlines, reads document bytes, or authorizes dispatch. A structurally
+//! complete result is never authorization to send a document; source content
+//! verification, applicable-procedure review, user approval, and dispatch remain
 //! separate gates.
 
 use std::collections::HashSet;
