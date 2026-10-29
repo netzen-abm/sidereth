@@ -64,6 +64,11 @@ pub use action::{
     Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
     ExecutionGate, ExecutionGateError, ExecutionGateInput,
 };
+pub use administrative_correspondence::{
+    ChecklistFinding, ChecklistFindingCode, ChecklistReadiness, ChecklistResult,
+    CorrespondenceChecklistInput, CorrespondenceClaim, CorrespondenceRegistries,
+    CorrespondenceTrack, FindingSeverity, RtiApplicationDetails, RtiRequestItem, RtiRequestKind,
+};
 pub use audit::{AuditProvenanceSink, AuditRecord, AuditSink, InMemoryAudit};
 pub use authority::{Authority, AuthorityPower, AuthorityRegistry, AuthorityStatus, AuthorityType};
 pub use authorization::{
