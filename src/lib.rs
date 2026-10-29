@@ -60,6 +60,11 @@ pub mod tool_gateway;
 #[allow(clippy::manual_flatten)]
 pub mod tool_registry;
 
+pub use administrative_correspondence::{
+    ChecklistFinding, ChecklistFindingCode, ChecklistReadiness, ChecklistResult,
+    CorrespondenceClaim, CorrespondenceChecklistInput, CorrespondenceRegistries,
+    CorrespondenceTrack, FindingSeverity, RtiApplicationDetails, RtiRequestItem, RtiRequestKind,
+};
 pub use action::{
     Action, ActionKind, ActionStatus, ApprovalDecision, ApprovalOrigin, ApprovalRecord,
     ExecutionGate, ExecutionGateError, ExecutionGateInput,
